@@ -3,7 +3,11 @@
     "allow": [
       "Bash(find:*)",
       "Bash(git init:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nInitial commit: Corosuke Robot project\n\nFeatures:\n- ESP32 firmware for 3-board system (main, upper, lower body)\n- OpenSCAD 3D models for all parts (head, body, arms, legs, sword)\n- Python home server with LLM + VOICEVOX integration\n- 24-axis servo control with expression and walking support\n\n「ワガハイはコロ助ナリ！」\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git remote add:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)"
     ]
   }
 }
