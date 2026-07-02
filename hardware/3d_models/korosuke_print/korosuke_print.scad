@@ -156,8 +156,17 @@ module nose(){
 }
 // マゲ: 黒扇(5枚刃, 一体) + 赤軸
 module topknot_fan(){
-  for(i=[0:4]) rotate([0, -36+18*i, 0]) translate([0,0,12])
-    hull(){ cylinder(d=4,h=1); translate([0,0,24]) scale([1,0.35,1]) cylinder(d=13,h=2); }
+  difference(){
+    union(){
+      // ハブ(刃の付け根を一体化)
+      translate([0,0,5]) cylinder(d=18, h=8);
+      for(i=[0:4]) rotate([0, -36+18*i, 0]) translate([0,0,10])
+        hull(){ cylinder(d=5,h=2); translate([0,0,26]) scale([1,0.35,1]) cylinder(d=13,h=2); }
+    }
+    // マゲ軸のボール(φ10)を受けるソケット → パチッと嵌合
+    translate([0,0,3.6]) sphere(d=10.4);
+    translate([0,0,-1]) cylinder(d=8.6, h=5);
+  }
 }
 module topknot_stalk(){ cylinder(d=8, h=26); translate([0,0,26]) sphere(d=10); }
 // 頬の赤丸(球面キャップ, 貼り付け) — アニメ版の必須ディテール
@@ -289,18 +298,18 @@ else if(SHOW==14) collar();
 else if(SHOW==15) jacket_shell();
 else if(SHOW==16) rotate([90,0,0]) back_panel();
 // --- 白 ---
-else if(SHOW==21) translate([0,0,2.5]) eye_bezel();
+else if(SHOW==21) rotate([180,0,0]) translate([0,0,-3]) eye_bezel();   // 化粧面を下に平置き
 // --- 赤 ---
-else if(SHOW==31) nose();
-else if(SHOW==32) button();
+else if(SHOW==31) translate([0,0,17]) nose();                          // 球接地(サポート要)
+else if(SHOW==32) rotate([180,0,0]) translate([0,0,-5.5]) button();    // 球頂を下,軸が上
 else if(SHOW==33) topknot_stalk();
 else if(SHOW==35) cheek();
-else if(SHOW==34) sheath();
+else if(SHOW==34) rotate([0,-90,0]) sheath();                          // 鞘=縦置き
 else if(SHOW==54) arm_ring(false);
 // --- 黒 ---
 else if(SHOW==41) topknot_fan();
-else if(SHOW==42) wheel();
-else if(SHOW==43) hilt();
+else if(SHOW==42) translate([0,0,3]) wheel();                          // 平置き
+else if(SHOW==43) rotate([0,-90,0]) hilt();                            // 柄=縦置き(鍔が上)
 // --- 紺/青 ---
 else if(SHOW==51) arm_ring(true);
 else if(SHOW==52) leg();
