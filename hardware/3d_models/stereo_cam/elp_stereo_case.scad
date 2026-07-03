@@ -15,7 +15,8 @@ module body(){
     cube([W,D,H]);
     translate([WALL,WALL,WALL]) cube([BOARD_W+1,D,BOARD_H+1]);          // 基板室(背面開放=蓋)
     for(s=[-1,1]) translate([W/2+s*LENS_PITCH/2,-1,H/2]) rotate([-90,0,0]) cylinder(d=LENS_D,h=WALL+2); // レンズ穴
-    translate([-1,WALL+1,H/2-USB_W/2]) cube([WALL+2,D,USB_W]);          // USB横出し
+    // USB-C出口: 右短辺を背面まで開放(ケーブルを落とし込み)。左なら translate の W-2.5 を -2 に
+    translate([W-2.6,WALL,WALL+2]) cube([8,D,13]);
     for(s=[-1,1]) translate([W/2+s*(W/2+5),0,0]) ;                       // (ears below)
   }
   for(s=[0,1]) translate([s==0 ? -4 : W-0.1, 0, 0]) difference(){        // M3耳x2(本体に0.1食い込み=融着保証)
