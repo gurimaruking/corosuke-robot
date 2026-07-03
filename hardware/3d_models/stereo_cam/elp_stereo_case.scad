@@ -18,8 +18,8 @@ module body(){
     translate([-1,WALL+1,H/2-USB_W/2]) cube([WALL+2,D,USB_W]);          // USB横出し
     for(s=[-1,1]) translate([W/2+s*(W/2+5),0,0]) ;                       // (ears below)
   }
-  for(s=[0,1]) translate([s*(W+8)-4,0,0]) difference(){                  // M3耳x2
-    cube([4,D,10]); translate([-1,D/2,5]) rotate([0,90,0]) cylinder(d=3.4,h=6);
+  for(s=[0,1]) translate([s==0 ? -4 : W-0.1, 0, 0]) difference(){        // M3耳x2(本体に0.1食い込み=融着保証)
+    cube([4.1,D,10]); translate([-1,D/2,5]) rotate([0,90,0]) cylinder(d=3.4,h=7);
   }
 }
 module lid(){ cube([BOARD_W+0.6,1.8,BOARD_H+0.6]); }                    // 背面スライド蓋(簡易)
