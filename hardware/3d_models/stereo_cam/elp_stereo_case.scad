@@ -15,13 +15,17 @@ module body(){
     cube([W,D,H]);
     translate([WALL,WALL,WALL]) cube([BOARD_W+1,D,BOARD_H+1]);          // 基板室(背面開放=蓋)
     for(s=[-1,1]) translate([W/2+s*LENS_PITCH/2,-1,H/2]) rotate([-90,0,0]) cylinder(d=LENS_D,h=WALL+2); // レンズ穴
-    // USB-C出口: 右短辺を背面まで開放(ケーブルを落とし込み)。左なら translate の W-2.5 を -2 に
-    translate([W-2.6,WALL,WALL+2]) cube([8,D,13]);
+    // USB-C出口(実機確認2026-07-03): 基板中央・下向き。底壁を背面まで開放
+    translate([W/2-7,WALL,-1]) cube([14,D,WALL+2]);
     for(s=[-1,1]) translate([W/2+s*(W/2+5),0,0]) ;                       // (ears below)
   }
-  for(s=[0,1]) translate([s==0 ? -4 : W-0.1, 0, 0]) difference(){        // M3耳x2(本体に0.1食い込み=融着保証)
+  for(s=[0,1]) translate([s==0 ? -4 : W-0.1, 0, 0]) difference(){        // M3耳x2
     cube([4.1,D,10]); translate([-1,D/2,5]) rotate([0,90,0]) cylinder(d=3.4,h=7);
   }
+  // 基板四隅M2固定ポスト(★M2X/M2Zは穴中心間の実測で要確認)
+  M2X=75; M2Z=11.5;
+  for(ix=[-1,1],iz=[-1,1]) translate([W/2+ix*M2X/2, WALL-0.1, WALL+(BOARD_H+1)/2+iz*M2Z/2])
+    rotate([-90,0,0]) difference(){ cylinder(d=5,h=2.1); cylinder(d=1.8,h=8,center=true); }
 }
 module lid(){ cube([BOARD_W+0.6,1.8,BOARD_H+0.6]); }                    // 背面スライド蓋(簡易)
 module chest_mount(){                                                    // 胸マウント: 胴の円錐面(R~80)に沿う受け
