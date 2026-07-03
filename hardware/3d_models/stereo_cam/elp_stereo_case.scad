@@ -17,8 +17,8 @@ module body(){
     translate([WALL,WALL,CAVZ]) cube([BOARD_W+1,D,BOARD_H+1]);              // 基板室(中央高さ)
     for(s=[-1,1]) translate([W/2+s*LENS_PITCH/2,-1,H/2]) rotate([-90,0,0]) cylinder(d=HOOD_D+1,h=WALL+2); // フードごと通す大窓
     translate([W/2-7,WALL,-1]) cube([14,D,CAVZ+2]);                          // USB-C下出し(底〜基板室)
-    for(sx=[-1,1],ix=[-1,1],iz=[-1,1]) translate([W/2+sx*LENS_PITCH/2+0, 0, 0])
-      translate([ix*7.5, WALL-2.2, H/2+iz*5.5]) rotate([-90,0,0]) cylinder(d=5,h=2.3); // M2頭の逃げ
+    for(sx=[-1,1],iz=[-1,1]) translate([W/2+sx*(LENS_PITCH/2+7.5), -1, H/2+iz*5.5])
+      rotate([-90,0,0]) cylinder(d=5,h=WALL+3);   // ボルト頭用の貫通穴x4(基板四隅=外側のみ)
   }
   for(s=[0,1]) translate([s==0 ? -4 : W-0.1, 0, 0]) difference(){            // M3耳x2
     cube([4.1,D,10]); translate([-1,D/2,5]) rotate([0,90,0]) cylinder(d=3.4,h=7);
