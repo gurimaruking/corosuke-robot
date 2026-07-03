@@ -95,17 +95,19 @@ EYE_Y  = -sqrt(max(0, HEAD_R*HEAD_R - (EYE_SPACING/2)*(EYE_SPACING/2) - EYE_UP*E
 
 module eye_socket_cut(){
   // 顔面に開ける: 表示窓(貫通) + モジュールポケット(内側から挿入)
+  // v1.1: 球面サジッタ考慮。ポケット縁(r=18.8)で外面は中心より2.0mm奥に湾曲する
+  // ので、ポケット底=中心面-3.4mmで縁厚1.4mm以上を確保(旧版は突き破って涙型に)。
+  // ピンヘッダ逃げは不要 — タブ位置(r≈20-27)では球が奥へ逃げ、自然にクリアする。
   rotate([90,0,0]){
-    cylinder(d=LCD_VIEW_D, h=HEAD_R+10);                 // 窓(外へ貫通)
-    translate([0,0,-40]) cylinder(d=LCD_MOD_D, h=40+ WALL+2 - 1.2); // ポケット(外皮1.2mm残し→窓段差でモジュール受け)
-    translate([-LCD_TAB_W/2, -LCD_MOD_D/2-LCD_TAB_L+6, -40]) cube([LCD_TAB_W, LCD_TAB_L, 40]); // ピンヘッダ逃げ
+    translate([0,0,-6]) cylinder(d=LCD_VIEW_D, h=HEAD_R+10);      // 窓(外へ貫通)
+    translate([0,0,-40]) cylinder(d=LCD_MOD_D, h=40-3.4);          // ポケット底=-3.4
   }
 }
 module head_front(){
   difference(){
     intersection(){ shell_sphere(HEAD_D, HEAD_SQ); translate([-200,-200,-200]) cube([400,200,400]); }
     // 目 x2
-    for(s=[-1,1]) translate([s*EYE_SPACING/2, EYE_Y+2, EYE_UP]) eye_socket_cut();
+    for(s=[-1,1]) translate([s*EYE_SPACING/2, EYE_Y, EYE_UP]) eye_socket_cut();
     // 鼻: φ12取付穴(鼻パーツの首を差す)+カメラ用に貫通
     translate([0,-HEAD_R+WALL+2, -6]) rotate([90,0,0]) cylinder(d=12.5, h=WALL+8);
     // 口スリット(への字, アニメ感。不要なら埋める)
@@ -131,9 +133,15 @@ module head_back(){
     }
     // ピン(分割面から前へ)
     for(s=[-1,1], z=[-40,40]) translate([s*55, 0, z]) rotate([-90,0,0]) locpin();
-    // ESP32-S3トレイ(内壁に棚)
-    translate([-25, 30, -30]) cube([50, 3, 24]);
-    translate([-25, 62, -30]) cube([50, 3, 24]);
+    // ESP32-S3トレイ: 差し込みスロット。切断面(y=0)から立つ壁2枚
+    // = 印刷時(切断面が下)にベッドから垂直に立ち、サポート不要。球面にクリップ。
+    intersection(){
+      scale([1,1,HEAD_SQ]) sphere(d=HEAD_D-2);
+      union(){
+        translate([-78, 0, -36]) cube([156, 46, 3]);
+        translate([-78, 0, -2])  cube([156, 46, 3]);
+      }
+    }
   }
 }
 // 白ベゼル(外から嵌める化粧リング: 外φ50 → 窓φ33)
@@ -291,8 +299,8 @@ module assembly(){
 SHOW = 0;
 if(SHOW==0) assembly();
 // --- 橙 ---
-else if(SHOW==11) rotate([90,0,0]) head_front();        // 顔を上に平置き
-else if(SHOW==12) rotate([-90,0,0]) head_back();
+else if(SHOW==11) rotate([-90,0,0]) head_front();  // 切断面を下・顔ドーム上(サポートは内側)
+else if(SHOW==12) rotate([90,0,0])  head_back();   // 切断面を下・ピン/スロット壁が垂直に立つ
 else if(SHOW==13) hand();
 else if(SHOW==14) collar();
 else if(SHOW==15) jacket_shell();
