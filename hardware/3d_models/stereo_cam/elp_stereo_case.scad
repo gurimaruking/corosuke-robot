@@ -7,7 +7,7 @@ BOARD_W=80.5; BOARD_H=17.0;     // 基板ポケット(公称+遊び)
 BOARD_T=6.0;                    // ★実測: 基板1.6+裏面部品
 LENS_PITCH=60;                  // ★実測: レンズ中心間隔
 LENS_D=18.0;                    // 実測(2026-07-03)
-HOOD_D=31;  // ★フード外径実測で要確認
+HOOD_D=18;  // 実測確定(2026-07-03)
 WALL=2.4; USB_W=11;
 W=BOARD_W+2*WALL+1; H=HOOD_D+2*WALL+1; D=BOARD_T+WALL+2.2; CAVZ=H/2-(BOARD_H+1)/2;
 $fn=64;
