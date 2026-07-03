@@ -106,15 +106,14 @@ module eye_socket_cut(){
 module head_front(){
   difference(){
     intersection(){ shell_sphere(HEAD_D, HEAD_SQ); translate([-200,-200,-200]) cube([400,200,400]); }
-    // 目 x2
-    for(s=[-1,1]) translate([s*EYE_SPACING/2, EYE_Y, EYE_UP]) eye_socket_cut();
+    // 目 x2 — v1.2: 軸を球面の法線(±20°外向き)に。真っ直ぐ-yに掘ると
+    // 斜め入射でポケット外縁が外皮を突き破り、窓がKISSメイク型に欠けていた。
+    for(s=[-1,1]) translate([s*EYE_SPACING/2, EYE_Y, EYE_UP]) rotate([0,0,s*20]) eye_socket_cut();
     // 鼻: φ12取付穴(鼻パーツの首を差す)+カメラ用に貫通
     translate([0,-HEAD_R+WALL+2, -6]) rotate([90,0,0]) cylinder(d=12.5, h=WALL+8);
     // 口スリット(への字, アニメ感。不要なら埋める)
     translate([0,-HEAD_R+1.2, -34]) rotate([90,0,0])
       linear_extrude(WALL+4) offset(r=2) polygon([[-20,0],[0,-6],[20,0],[18,-3],[0,-9],[-18,-3]]);
-    // ピン穴(分割面)
-    for(s=[-1,1], z=[-40,40]) translate([s*55, -PIN_L+0.1, z]) rotate([-90,0,0]) locpin_hole();
   }
 }
 module head_back(){
@@ -131,8 +130,6 @@ module head_back(){
       intersection(){ scale([1,1,HEAD_SQ]) sphere(d=HEAD_D-2*WALL+0.4); translate([-200,0,-200]) cube([400,LIP_H,400]); }
       intersection(){ scale([1,1,HEAD_SQ]) sphere(d=HEAD_D-2*WALL-3);   translate([-200,-1,-200]) cube([400,LIP_H+2,400]); }
     }
-    // ピン(分割面から前へ)
-    for(s=[-1,1], z=[-40,40]) translate([s*55, 0, z]) rotate([-90,0,0]) locpin();
     // ESP32-S3トレイ: 差し込みスロット。切断面(y=0)から立つ壁2枚
     // = 印刷時(切断面が下)にベッドから垂直に立ち、サポート不要。球面にクリップ。
     intersection(){
@@ -168,8 +165,9 @@ module topknot_fan(){
     union(){
       // ハブ(刃の付け根を一体化)
       translate([0,0,5]) cylinder(d=18, h=8);
-      for(i=[0:4]) rotate([0, -36+18*i, 0]) translate([0,0,10])
-        hull(){ cylinder(d=5,h=2); translate([0,0,26]) scale([1,0.35,1]) cylinder(d=13,h=2); }
+      // 刃の回転中心をハブ中心(z=10)に: どの角度でも付け根がハブ内部に埋まる
+      for(i=[0:4]) translate([0,0,10]) rotate([0, -36+18*i, 0])
+        hull(){ translate([0,0,-2]) cylinder(d=6,h=4); translate([0,0,26]) scale([1,0.35,1]) cylinder(d=13,h=2); }
     }
     // マゲ軸のボール(φ10)を受けるソケット → パチッと嵌合
     translate([0,0,3.6]) sphere(d=10.4);
@@ -196,11 +194,16 @@ module jacket_shell(){
         cylinder(h=WALL, d=JACKET_TOP_D-1);
         translate([0,0,-1]) cylinder(h=WALL+2, d=46);   // 首穴
       }
-      // ケースベイ: 縦置きレール2本(ケース62.4x27.1断面を保持)
-      for(s=[-1,1]) translate([s*(CASE_D/2+CASE_CLR+WALL/2)-WALL/2, -CASE_H/2-CASE_CLR-WALL, WALL])
-        cube([WALL, CASE_H+2*CASE_CLR+2*WALL, 96]);
-      translate([-CASE_D/2-CASE_CLR-WALL, -CASE_H/2-CASE_CLR-WALL, WALL])
-        cube([CASE_D+2*CASE_CLR+2*WALL, WALL, 96]);      // 背側ストッパ
+      // ケースベイ: 縦置きレール(v1.1: z=0から立ち、後方へ延長してシェルに融着=浮き/分離解消)
+      intersection(){
+        cylinder(h=JACKET_H, d1=JACKET_BOT_D-1, d2=JACKET_TOP_D-1);
+        union(){
+          for(s=[-1,1]) translate([s*(CASE_D/2+CASE_CLR+WALL/2)-WALL/2, -72, 0])
+            cube([WALL, 72+CASE_H/2+CASE_CLR+WALL, 100]);
+          translate([-CASE_D/2-CASE_CLR-WALL, -CASE_H/2-CASE_CLR-WALL, 0])
+            cube([CASE_D+2*CASE_CLR+2*WALL, WALL, 100]);   // 前側ストッパ
+        }
+      }
     }
     // 背面ハッチ開口(70x100) — ケーブル/SD/ポートアクセス
     translate([-35, JACKET_BOT_D/2-14, 22]) cube([70, 20, 100]);
@@ -219,8 +222,19 @@ module back_panel(){  // ハッチ蓋(はめ込み)
     for(i=[0:5]) translate([8+i*10, -3, 8]) cube([4, 8, 82]);   // 通気スリット
   }
 }
+// 底板(骨盤): 胴の裾に圧入。脚ボスx2(脚の内筒φ30に差す)+配線/通気穴
+module bottom_plate(){
+  difference(){
+    union(){
+      cylinder(d=JACKET_BOT_D-2*WALL-0.6, h=WALL);
+      for(s=[-1,1]) translate([s*LEG_SPACING/2,0,WALL-0.1]) cylinder(d=LEG_D-2*WALL-1, h=6);
+    }
+    translate([0,30,-1]) cylinder(d=24, h=WALL+8);          // ケーブル穴
+    for(i=[0:5]) rotate([0,0,i*60]) translate([48,0,-1]) cylinder(d=8, h=WALL+2);  // 通気
+  }
+}
 module collar(){ difference(){ cylinder(d=88,h=10); translate([0,0,-1]) cylinder(d=70,h=12); } }
-module button(){ sphere(d=11); translate([0,0,-5]) cylinder(d=6, h=7); }
+module button(){ sphere(d=11); translate([0,0,-9]) cylinder(d=6, h=9); }  // 軸が3.5mm突出(胴のφ6.5穴へ)
 
 // =============================================================================
 // 腕: ジャバラ=A/B色リングの交互スタック(中心φ12通し穴: ロープ/配線)
@@ -253,7 +267,7 @@ module foot(){
   difference(){
     hull(){ translate([0,-FOOT_L*0.28,0]) scale([1,1.35,0.55]) sphere(d=FOOT_W); translate([0,FOOT_L*0.15,0]) scale([1,1,0.5]) sphere(d=FOOT_W*0.9); }
     translate([-100,-100,-100]) cube([200,200,100]);            // 底面カット
-    translate([0,6,FOOT_H-6]) cylinder(d=LEG_D-2*WALL-1, h=10); // 脚差し込み
+    translate([0,6,10]) cylinder(d=LEG_D+0.8, h=10); // 脚差し込み(φ36.8, 深さ~6mm)
   }
 }
 
@@ -301,21 +315,22 @@ if(SHOW==0) assembly();
 // --- 橙 ---
 else if(SHOW==11) rotate([-90,0,0]) head_front();  // 切断面を下・顔ドーム上(サポートは内側)
 else if(SHOW==12) rotate([90,0,0])  head_back();   // 切断面を下・ピン/スロット壁が垂直に立つ
-else if(SHOW==13) hand();
+else if(SHOW==13) translate([0,0,HAND_D/2]) hand();
 else if(SHOW==14) collar();
 else if(SHOW==15) jacket_shell();
-else if(SHOW==16) rotate([90,0,0]) back_panel();
+else if(SHOW==16) translate([0,0,2]) rotate([90,0,0]) back_panel();
+else if(SHOW==17) bottom_plate();
 // --- 白 ---
 else if(SHOW==21) rotate([180,0,0]) translate([0,0,-3]) eye_bezel();   // 化粧面を下に平置き
 // --- 赤 ---
-else if(SHOW==31) translate([0,0,17]) nose();                          // 球接地(サポート要)
+else if(SHOW==31) translate([0,0,16.58]) nose();                          // 球接地(サポート要)
 else if(SHOW==32) rotate([180,0,0]) translate([0,0,-5.5]) button();    // 球頂を下,軸が上
 else if(SHOW==33) topknot_stalk();
 else if(SHOW==35) cheek();
 else if(SHOW==34) rotate([0,-90,0]) sheath();                          // 鞘=縦置き
 else if(SHOW==54) arm_ring(false);
 // --- 黒 ---
-else if(SHOW==41) topknot_fan();
+else if(SHOW==41) translate([0,0,-5]) topknot_fan();
 else if(SHOW==42) translate([0,0,3]) wheel();                          // 平置き
 else if(SHOW==43) rotate([0,-90,0]) hilt();                            // 柄=縦置き(鍔が上)
 // --- 紺/青 ---
