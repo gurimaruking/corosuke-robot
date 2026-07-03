@@ -23,9 +23,9 @@ module body(){
     cube([4.1,D,10]); translate([-1,D/2,5]) rotate([0,90,0]) cylinder(d=3.4,h=7);
   }
   // 基板四隅M2固定ポスト(★M2X/M2Zは穴中心間の実測で要確認)
-  M2X=75; M2Z=11.5;
+  M2X=75; M2Z=11;   // 実測2026-07-03
   for(ix=[-1,1],iz=[-1,1]) translate([W/2+ix*M2X/2, WALL-0.1, WALL+(BOARD_H+1)/2+iz*M2Z/2])
-    rotate([-90,0,0]) difference(){ cylinder(d=5,h=2.1); cylinder(d=1.8,h=8,center=true); }
+    rotate([-90,0,0]) difference(){ cylinder(d=4,h=2.1); cylinder(d=1.8,h=8,center=true); }  // φ4=鏡筒(~φ14)と干渉しない
 }
 module lid(){ cube([BOARD_W+0.6,1.8,BOARD_H+0.6]); }                    // 背面スライド蓋(簡易)
 module chest_mount(){                                                    // 胸マウント: 胴の円錐面(R~80)に沿う受け
