@@ -17,12 +17,18 @@ module body(){
     translate([WALL,WALL,CAVZ]) cube([BOARD_W+1,D,BOARD_H+1]);              // 基板室(中央高さ)
     for(s=[-1,1]) translate([W/2+s*LENS_PITCH/2,-1,H/2]) rotate([-90,0,0]) cylinder(d=HOOD_D+1,h=WALL+2); // フードごと通す大窓
     translate([W/2-7,WALL,-1]) cube([14,D,CAVZ+2]);                          // USB-C下出し(底〜基板室)
+    for(sx=[-1,1],ix=[-1,1],iz=[-1,1]) translate([W/2+sx*LENS_PITCH/2+0, 0, 0])
+      translate([ix*7.5, WALL-2.2, H/2+iz*5.5]) rotate([-90,0,0]) cylinder(d=5,h=2.3); // M2頭の逃げ
   }
   for(s=[0,1]) translate([s==0 ? -4 : W-0.1, 0, 0]) difference(){            // M3耳x2
     cube([4.1,D,10]); translate([-1,D/2,5]) rotate([0,90,0]) cylinder(d=3.4,h=7);
   }
 }
-module lid(){ cube([BOARD_W+0.6,1.8,BOARD_H+0.6]); }                    // 背面スライド蓋(簡易)
+module lid(){ difference(){                                              // 挟み込み蓋: M2x4で基板と共締め
+  cube([BOARD_W+0.5,2.4,BOARD_H+0.5]);
+  for(ix=[-1,1],iz=[-1,1]) translate([(BOARD_W+0.5)/2+ix*75/2,-1,(BOARD_H+0.5)/2+iz*11/2])
+    rotate([-90,0,0]) cylinder(d=2.3,h=5);
+} }
 module chest_mount(){                                                    // 胸マウント: 胴の円錐面(R~80)に沿う受け
   difference(){
     cube([W+16,10,H+6]);
