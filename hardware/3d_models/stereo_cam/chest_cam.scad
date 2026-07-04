@@ -91,7 +91,7 @@ if(SHOW==0){
   color("#5a5a5a") translate([0,BOARD_T+WALL+1.4,0]) rotate([90,0,0]) chest_lid();
 }
 else if(SHOW==1) translate([0,0,11]) rotate([-90,0,0]) chest_plate(); // 面板下=ピン上
-else if(SHOW==2) chest_bezel();
-else if(SHOW==3) rotate([90,0,0]) chest_lid();
+else if(SHOW==2) translate([0,0,2.3]) chest_bezel();
+else if(SHOW==3) translate([0,0,1.2]) rotate([90,0,0]) chest_lid();
 else if(SHOW==4) pushnut();
 else if(SHOW==9) chest_window();
