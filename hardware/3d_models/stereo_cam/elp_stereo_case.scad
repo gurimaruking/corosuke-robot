@@ -39,6 +39,6 @@ module chest_mount(){                                                    // 胸�
     for(s=[0,1]) translate([s*(W+8)+4,-1,(H+6)/2]) rotate([-90,0,0]) cylinder(d=3.4,h=12); // ケース耳と共締め
   }
 }
-module pushnut(){ difference(){ cylinder(d=7,h=2.5,$fn=48); translate([0,0,-1]) cylinder(d=1.85,h=5); } }  // 圧入式
+module pushnut(){ difference(){ cylinder(d=8,h=3,$fn=6); translate([0,0,-1]) cylinder(d=1.4,h=6); } }  // 圧入式
 SHOW=1;
 if(SHOW==1) body(); else if(SHOW==2) lid(); else if(SHOW==3) chest_mount(); else if(SHOW==4) pushnut();

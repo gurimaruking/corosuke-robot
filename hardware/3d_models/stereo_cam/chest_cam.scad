@@ -74,7 +74,7 @@ module chest_lid(){
     translate([0,-2,-(BOARD_H)/2]) cube([14,6,3]);            // USB逃げ
   }
 }
-module pushnut(){ difference(){ cylinder(d=7,h=2.5,$fn=48); translate([0,0,-1]) cylinder(d=1.85,h=5); } }
+module pushnut(){ difference(){ cylinder(d=8,h=3,$fn=6); translate([0,0,-1]) cylinder(d=1.4,h=6); } }
 
 // 胴に開ける窓(jacket_shell統合用の差分。プレート面板+フランジ用)
 module chest_window(){
