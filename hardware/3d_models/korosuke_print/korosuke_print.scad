@@ -11,7 +11,7 @@
  *
  * 準拠: Medicom VCD Special No.19 観察 + deep-research検証済みプロファイル
  *   (身長500mm/幅300mm、頭=ゴムまり球、胴=風呂桶→VCDでは羽織、
- *    腕=ジャバラホース縞、腰に刀)
+ *    腕=ジャバラホース縞。剣は原作漫画版に無いためオミット)
  * 色はVCDパレット(橙頭/赤鼻/黒扇マゲ/紺赤縞腕/青脚)。PALETTE="anime"で黄系。
  *
  * Author: Kazuki Murata / Robostadion   License: CC BY 4.0 (design)
@@ -22,8 +22,8 @@
  *  【橙 ORANGE】 11 head_front  12 head_back  13 hand(x2印刷)  14 collar
  *  【橙 ORANGE】 15 jacket_shell  16 back_panel
  *  【白 WHITE】  21 eye_bezel(x2印刷)
- *  【赤 RED】    31 nose  32 button(x4)  33 topknot_stalk  34 sheath
- *  【黒 BLACK】  41 topknot_fan  42 wheel  43 hilt
+ *  【赤 RED】    31 nose  32 button(x2)  33 topknot_stalk  35 cheek(x2)
+ *  【黒 BLACK】  41 topknot_fan
  *  【紺 NAVY】   51 arm_ring_A(x8-10)  52 leg(x2)  53 foot(x2)
  *  【赤 RED】    54 arm_ring_B(x8-10)  ← 腕はA/Bリング交互スタック
  * ======================================================
@@ -161,17 +161,14 @@ module nose(){
 }
 // マゲ: 黒扇(5枚刃, 一体) + 赤軸
 module topknot_fan(){
-  difference(){
+  render(convexity=8) difference(){   // render()でCGAL多様体化
     union(){
-      // ハブ(刃の付け根を一体化)
-      translate([0,0,5]) cylinder(d=18, h=8);
-      // 刃の回転中心をハブ中心(z=10)に: どの角度でも付け根がハブ内部に埋まる
-      for(i=[0:4]) translate([0,0,10]) rotate([0, -36+18*i, 0])
-        hull(){ translate([0,0,-2]) cylinder(d=6,h=4); translate([0,0,26]) scale([1,0.35,1]) cylinder(d=13,h=2); }
+      cylinder(d=18, h=11);           // フラット底の円柱ハブ(z0接地)
+      for(i=[0:4]) translate([0,0,8]) rotate([0, -36+18*i, 0])
+        hull(){ translate([0,0,-5]) cylinder(d=7,h=7); translate([0,0,24]) scale([1,0.35,1]) cylinder(d=13,h=2); }
     }
-    // マゲ軸のボール(φ10)を受けるソケット → パチッと嵌合
-    translate([0,0,3.6]) sphere(d=10.4);
-    translate([0,0,-1]) cylinder(d=8.6, h=5);
+    translate([0,0,4.6]) sphere(d=10.4);       // マゲ軸ボール受けソケット(底から)
+    translate([0,0,-1]) cylinder(d=8.6, h=6);
   }
 }
 module topknot_stalk(){ cylinder(d=8, h=26); translate([0,0,26]) sphere(d=10); }
@@ -326,7 +323,7 @@ else if(SHOW==33) topknot_stalk();
 else if(SHOW==35) cheek();
 else if(SHOW==54) arm_ring(false);
 // --- 黒 ---
-else if(SHOW==41) translate([0,0,-5]) topknot_fan();
+else if(SHOW==41) topknot_fan();
 // --- 紺/青 ---
 else if(SHOW==51) arm_ring(true);
 else if(SHOW==52) leg();
