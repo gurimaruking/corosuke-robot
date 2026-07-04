@@ -51,7 +51,7 @@ module chest_plate(){
   }
   // 固定ピンφ1.5 x4(基板穴→クリップ蓋を貫通し2mm突出)
   for(sx=[-1,1],iz=[-1,1]) translate([sx*PIN_X/2, 0.1, iz*PIN_Z/2])
-    rotate([-90,0,0]) cylinder(d=2.0, h=BOARD_T+WALL+2.1);   // φ2(φ1.5は折れた)
+    rotate([-90,0,0]) cylinder(d=1.8, h=BOARD_T+WALL+2.1);   // φ2(φ1.5は折れた)
 }
 
 // 赤ベゼル: 前面に嵌める化粧リング(=胸の赤ボタン)。外φ26/窓φ19、球面キャップ風
@@ -70,7 +70,7 @@ module chest_bezel(){
 module chest_lid(){
   difference(){
     cube([BOARD_W+0.4, 2.4, BOARD_H+0.4], center=true);
-    for(sx=[-1,1],iz=[-1,1]) translate([sx*PIN_X/2, -2, iz*PIN_Z/2]) rotate([-90,0,0]) cylinder(d=2.3,h=6);
+    for(sx=[-1,1],iz=[-1,1]) translate([sx*PIN_X/2, -2, iz*PIN_Z/2]) rotate([-90,0,0]) cylinder(d=2.1,h=6);
     translate([0,-2,-(BOARD_H)/2]) cube([14,6,3]);            // USB逃げ
   }
 }
