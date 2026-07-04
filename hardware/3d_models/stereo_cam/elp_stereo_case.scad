@@ -22,7 +22,7 @@ module body(){
   }
   // 一体ピンφ1.5x4: 基板穴→蓋を貫通し2mm突出(プッシュナットで固定/先端を熱で潰しても可)
   for(sx=[-1,1],iz=[-1,1]) translate([W/2+sx*(LENS_PITCH/2+8.5), WALL-0.1, H/2+iz*6.5])
-    rotate([-90,0,0]) cylinder(d=1.5, h=D-WALL+2.1);
+    rotate([-90,0,0]) cylinder(d=2.0, h=D-WALL+2.1);
   for(s=[0,1]) translate([s==0 ? -4 : W-0.1, 0, 0]) difference(){            // M3耳x2
     cube([4.1,D,10]); translate([-1,D/2,5]) rotate([0,90,0]) cylinder(d=3.4,h=7);
   }
@@ -30,7 +30,7 @@ module body(){
 module lid(){ difference(){                                              // 挟み込み蓋: M2x4で基板と共締め
   cube([BOARD_W+0.5,2.4,BOARD_H+0.5]);
   for(ix=[-1,1],iz=[-1,1]) translate([(BOARD_W+0.5)/2+ix*77/2,-1,(BOARD_H+0.5)/2+iz*13/2])
-    rotate([-90,0,0]) cylinder(d=1.8,h=5);
+    rotate([-90,0,0]) cylinder(d=2.3,h=5);
 } }
 module chest_mount(){                                                    // 胸マウント: 胴の円錐面(R~80)に沿う受け
   difference(){
@@ -39,6 +39,6 @@ module chest_mount(){                                                    // 胸�
     for(s=[0,1]) translate([s*(W+8)+4,-1,(H+6)/2]) rotate([-90,0,0]) cylinder(d=3.4,h=12); // ケース耳と共締め
   }
 }
-module pushnut(){ difference(){ cylinder(d=7,h=2.5,$fn=48); translate([0,0,-1]) cylinder(d=1.35,h=5); } }  // 圧入式
+module pushnut(){ difference(){ cylinder(d=7,h=2.5,$fn=48); translate([0,0,-1]) cylinder(d=1.85,h=5); } }  // 圧入式
 SHOW=1;
 if(SHOW==1) body(); else if(SHOW==2) lid(); else if(SHOW==3) chest_mount(); else if(SHOW==4) pushnut();
