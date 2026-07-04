@@ -28,15 +28,12 @@ STLは `stl/<色>/` に配置。ファイル名の `_xN` = **スライサでN個
 |---|---|---|
 | nose.stl | 1 | **ツリー**(球) |
 | cheek_x2.stl | **2** | 不要(ドーム平置き) |
-| button_x4.stl | **4** | 不要 |
+| button_x2.stl | **4** | 不要 |
 | topknot_stalk.stl | 1 | 不要 |
-| sheath.stl | 1 | 不要(縦置き済) |
 | arm_ring_B_x8.stl | **8**(左右4+4) | 不要 |
 
 ## ⚫ black
 | topknot_fan.stl | 1 | **ツリー**(扇刃) |
-| wheel.stl | 1 | 不要 |
-| hilt.stl | 1 | 不要(縦置き済、鍔上) |
 
 ## 🔵 navy(アニメ版の脚は黄土/足は黒に読み替え可)
 | arm_ring_A_x10.stl | **10**(左右5+5) | 不要 |

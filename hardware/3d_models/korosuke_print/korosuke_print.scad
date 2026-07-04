@@ -211,7 +211,7 @@ module jacket_shell(){
     for(i=[-2:2], j=[0:2]) translate([i*9, -JACKET_BOT_D/2+((abs(i)+j)%9)-2, 26+j*9])
       rotate([90,0,0]) cylinder(d=4, h=16);
     // ボタン穴 x4(前面中央縦)
-    for(k=[0:3]) translate([0, -JACKET_BOT_D/2+2, JACKET_H-30-k*34]) rotate([90,0,0]) cylinder(d=6.5, h=WALL+6);
+    for(sx=[-1,1]) translate([sx*30, -JACKET_BOT_D/2+2, JACKET_H*0.46]) rotate([90,0,0]) cylinder(d=6.5, h=WALL+6);  // 横2個(=双眼カメラ位置)
     // 腕穴 x2(肩)
     for(s=[-1,1]) translate([s*(JACKET_TOP_D/2-2), 0, JACKET_H-38]) rotate([0,90,0]) cylinder(d=ARM_OUT_D+2, h=20, center=true);
   }
@@ -286,11 +286,8 @@ module assembly(){
   for(s=[-1,1]) translate([s*LEG_SPACING/2,0,FOOT_Z]) color(C_LEG) foot();
   for(s=[-1,1]) translate([s*LEG_SPACING/2,0,LEG_Z]) color(C_LEG) leg();
   translate([0,0,JACK_Z]){ color(C_BODY) jacket_shell(); color(C_BODY) translate([-34.5, JACKET_BOT_D/2-14, 22]) back_panel();
-    for(k=[0:3]) color(C_RED) translate([0,-JACKET_BOT_D/2+0.5, JACKET_H-30-k*34]) rotate([90,0,0]) button();
+    for(sx=[-1,1]) color(C_RED) translate([sx*30,-JACKET_BOT_D/2+0.5, JACKET_H*0.46]) rotate([90,0,0]) button();
     color(C_HEAD) translate([0,0,JACKET_H-2]) collar();
-    // 刀
-    // 腰差し(横差し): 鞘先端+車輪が前左に覗き、柄は胴の陰に隠れる
-    translate([-105, -70, 40]) rotate([0,0,20]){ color(C_RED) sheath(); color(C_BLACK) translate([148,0,0]) hilt(); color(C_BLACK) translate([-2,0,0]) rotate([0,90,0]) wheel(); }
     // 腕
     for(s=[-1,1]) translate([s*(JACKET_TOP_D/2+2),0,JACKET_H-38]) rotate([0,s*90,0]){
       for(i=[0:ARM_RINGS-1]) color(i%2==0?C_NAVY:C_RED) translate([0,0,i*ARM_LEN/ARM_RINGS]) arm_ring(i%2==0);
@@ -301,7 +298,7 @@ module assembly(){
     color(C_HEAD) head_front(); color(C_HEAD) head_back();
     for(s=[-1,1]) color(C_WHITE) translate([s*EYE_SPACING/2, EYE_Y-HEAD_R*0.02-3.4, EYE_UP]) rotate([90,0,0]) eye_bezel();
     color(C_RED) translate([0,-HEAD_R+6,-6]) rotate([-90,0,0]) nose();
-    for(s=[-1,1]) color(C_RED) translate([s*54, -60, -34]) rotate([90,0,0]) cheek();  // 頬の赤丸
+    for(s=[-1,1]) color(C_RED) translate([s*61, -57, -20]) rotate([90,0,0]) cheek();  // 頬の赤丸(目の脇)
     color(C_RED) translate([0,10,HEAD_R*HEAD_SQ-6]) topknot_stalk();
     color(C_BLACK) translate([0,10,HEAD_R*HEAD_SQ+16]) topknot_fan();
   }
@@ -327,12 +324,9 @@ else if(SHOW==31) translate([0,0,16.58]) nose();                          // 球
 else if(SHOW==32) rotate([180,0,0]) translate([0,0,-5.5]) button();    // 球頂を下,軸が上
 else if(SHOW==33) topknot_stalk();
 else if(SHOW==35) cheek();
-else if(SHOW==34) rotate([0,-90,0]) sheath();                          // 鞘=縦置き
 else if(SHOW==54) arm_ring(false);
 // --- 黒 ---
 else if(SHOW==41) translate([0,0,-5]) topknot_fan();
-else if(SHOW==42) translate([0,0,3]) wheel();                          // 平置き
-else if(SHOW==43) rotate([0,-90,0]) hilt();                            // 柄=縦置き(鍔が上)
 // --- 紺/青 ---
 else if(SHOW==51) arm_ring(true);
 else if(SHOW==52) leg();
