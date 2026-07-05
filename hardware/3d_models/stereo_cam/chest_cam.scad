@@ -52,7 +52,7 @@ module chest_bezel(){   // 赤ベゼル=胸ボタン。座ぐりφ26に嵌りぷ
       translate([0,0,1.4]) scale([1,1,0.4]) sphere(d=25.6);
       translate([0,0,-2.4]) cylinder(d=HOOD_D+0.6, h=2.6);
     }
-    translate([0,0,-3]) cylinder(d=HOOD_D-0.5, h=12);
+    translate([0,0,-6]) cylinder(d=HOOD_D-0.5, h=16);          // 深く貫通(ドーム底の浮遊片を除去)
   }
 }
 module chest_lid(){     // 背面蓋(胴内側): 基板を箱前壁へ押さえる

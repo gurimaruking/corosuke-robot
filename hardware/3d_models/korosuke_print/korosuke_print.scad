@@ -40,7 +40,10 @@ C_RED    = PALETTE=="vcd" ? "#c1121f" : "#c0392b";
 C_BLACK  = "#141414";
 C_NAVY   = PALETTE=="vcd" ? "#1c4ea0" : "#2a5fad";
 C_WHITE  = "#f5f5f0";
-C_LEG    = PALETTE=="vcd" ? "#1c4ea0" : "#d49b2c";
+// アニメ画像(2026-07-04確認): 腕ジャバラ・脚・足は全部「水色(明るい青)」の単色。
+// 縞ではなく蛇腹の陰影。→ 腕/脚/足を C_BLUE に統一。
+C_BLUE   = "#7ec8e3";   // 水色
+C_LEG    = C_BLUE;
 SWORD_ON_BACK = false;
 
 // ============================== 基本寸法 ==============================
@@ -287,7 +290,7 @@ module assembly(){
     color(C_HEAD) translate([0,0,JACKET_H-2]) collar();
     // 腕
     for(s=[-1,1]) translate([s*(JACKET_TOP_D/2+2),0,JACKET_H-38]) rotate([0,s*90,0]){
-      for(i=[0:ARM_RINGS-1]) color(i%2==0?C_NAVY:C_RED) translate([0,0,i*ARM_LEN/ARM_RINGS]) arm_ring(i%2==0);
+      for(i=[0:ARM_RINGS-1]) color(C_BLUE) translate([0,0,i*ARM_LEN/ARM_RINGS]) arm_ring(i%2==0);
       color(C_HEAD) translate([0,0,ARM_LEN+HAND_D/2-10]) hand();
     }
   }
