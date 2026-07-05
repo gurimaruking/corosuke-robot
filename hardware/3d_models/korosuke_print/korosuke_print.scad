@@ -251,6 +251,20 @@ module arm_ring(isA=true){
     translate([0,0,-0.1]) cylinder(d=16+PIN_CLR*2, h=3.2);           // メス継手
   }
 }
+// 付け根リング: 肩側がラッパ状に広がる(ARM_OUT_D→ARM_BASE_D)。左右に1個ずつ。
+ARM_BASE_D = 44;
+module arm_base(){
+  seg = ARM_LEN/ARM_RINGS;
+  difference(){
+    union(){
+      // 肩側フレア(下=広径44 → 上=通常の樽径34)
+      hull(){ cylinder(d=ARM_BASE_D, h=1); translate([0,0,seg-1]) cylinder(d=ARM_OUT_D-6, h=1); }
+      translate([0,0,seg-1]) cylinder(d=16, h=3);          // オス継手(次リングへ)
+    }
+    translate([0,0,-1]) cylinder(d=12, h=seg+6);            // 通し穴
+    translate([0,0,-0.1]) cylinder(d=16+PIN_CLR*2, h=3.2);  // メス継手(肩側からピン/配線)
+  }
+}
 module hand(){
   difference(){
     sphere(d=HAND_D);
@@ -290,7 +304,8 @@ module assembly(){
     color(C_HEAD) translate([0,0,JACKET_H-2]) collar();
     // 腕
     for(s=[-1,1]) translate([s*(JACKET_TOP_D/2+2),0,JACKET_H-38]) rotate([0,s*90,0]){
-      for(i=[0:ARM_RINGS-1]) color(C_BLUE) translate([0,0,i*ARM_LEN/ARM_RINGS]) arm_ring(i%2==0);
+      color(C_BLUE) arm_base();                                  // 付け根(フレア)
+      for(i=[1:ARM_RINGS-1]) color(C_BLUE) translate([0,0,i*ARM_LEN/ARM_RINGS]) arm_ring();
       color(C_HEAD) translate([0,0,ARM_LEN+HAND_D/2-10]) hand();
     }
   }
@@ -328,6 +343,7 @@ else if(SHOW==54) arm_ring(false);
 // --- 黒 ---
 else if(SHOW==41) topknot_fan();
 // --- 紺/青 ---
-else if(SHOW==51) arm_ring(true);
+else if(SHOW==51) arm_ring();
+else if(SHOW==55) arm_base();
 else if(SHOW==52) leg();
 else if(SHOW==53) foot();
