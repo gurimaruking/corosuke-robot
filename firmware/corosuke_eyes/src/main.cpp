@@ -168,7 +168,7 @@ void handleLine(String line, Stream& reply) {
   reply.println("? emo/gaze/blink/wink/idle/ping");
 }
 
-String bufUSB, bufU1;
+String bufUSB, bufU0, bufU1;
 void pollStream(Stream& s, String& buf) {
   while (s.available()) {
     char c = s.read();
@@ -180,21 +180,28 @@ void pollStream(Stream& s, String& buf) {
 // ---------- setup / loop ----------
 void setup() {
   Serial.begin(115200);                                   // USB CDC
+  Serial0.begin(115200);                                  // UART0=CH343側: 診断コンソール
+  Serial0.println("[boot] setup start");
   Serial1.begin(115200, SERIAL_8N1, PIN_U1RX, PIN_U1TX);  // RDK X5
 
   eyeL.init();
+  Serial0.println("[boot] eyeL.init done");
   eyeR.init();
+  Serial0.println("[boot] eyeR.init done");
   spr.setColorDepth(16);
   spr.setPsram(true);                 // N16R8のPSRAMにフレームバッファ
   spr.createSprite(240, 240);
+  Serial0.printf("[boot] sprite buf=%p psram=%u free\n", spr.getBuffer(), (unsigned)ESP.getFreePsram());
 
   st.nextBlink = millis() + 2500;
   Serial.println("Korosuke eyes ready nari!");
+  Serial0.println("[boot] ready nari!");
 }
 
 void loop() {
   uint32_t now = millis();
   pollStream(Serial, bufUSB);
+  pollStream(Serial0, bufU0);   // CH343側からもコマンド可(診断用)
   pollStream(Serial1, bufU1);
 
   // まばたきアニメ(閉じ120ms→開き120ms)
