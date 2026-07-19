@@ -5,6 +5,7 @@ vision が無くても「ROS 2 topic を出すと目が反応する」ことを�
   ros2 run korosuke_nodes eye_demo
 """
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from korosuke_msgs.msg import EyeCmd
 
@@ -41,11 +42,12 @@ def main(args=None):
     node = EyeDemo()
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
-        pass
+    except (KeyboardInterrupt, ExternalShutdownException):
+        pass   # SIGINT/SIGTERM(timeout等)はどちらも正常終了扱い
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == '__main__':
