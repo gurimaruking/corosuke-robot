@@ -51,6 +51,7 @@ settings = {
     "react_speech": True,  # 話しかけに反応する
     "use_llm": True,       # キーワードに無い発話をローカルLLMで返答
     "use_arm": True,       # 挨拶/ジェスチャで腕サーボを自動で動かす(調整中はOFF)
+    "event_llm": False,    # 入退室/ジェスチャの台詞: True=LLM生成(多彩,数秒遅延)/False=定型(即時)
     # --- 認識の閾値(Webで調整可) ---
     "pose_score": 0.40,    # 人物検出の信頼度しきい値
     "kpt_thres": 0.40,     # 骨格キーポイントの信頼度しきい値(ジェスチャ判定)
@@ -84,6 +85,12 @@ GREETINGS = [
     "やあ、ワガハイはコロ助ナリ！",
     "会えて嬉しいナリ〜！",
     "おっ、人が来たナリ！ようこそナリ！",
+    "いらっしゃいナリ！待ってたナリ！",
+    "こんにちはナリ！今日も元気ナリか？",
+    "わーい、お客さんナリ！うれしいナリ！",
+    "よく来てくれたナリ！歓迎するナリ！",
+    "やっほー！ワガハイに会いに来たナリか？",
+    "おはようナリ！いい一日にするナリ！",
 ]
 SPEECH_REACTIONS = [
     (["こんにち", "やあ", "おはよう", "こんばん", "はろー"], "happy", "こんにちはナリ！"),
@@ -97,11 +104,20 @@ SPEECH_REACTIONS = [
     (["元気", "げんき"], "happy", "ワガハイは元気ナリ！"),
 ]
 MOTION_LINES = ["おっ、動いたナリ！", "なんナリ？", "びっくりしたナリ！", "元気だナリ〜！"]
+GEST_BANZAI = ["バンザイ！うれしいナリ！", "わーい！一緒にバンザイナリ！", "やったーナリ！ばんざーいナリ！"]
+GEST_WAVE = ["手を振ってるナリ！こんにちはナリ！", "やっほーナリ！", "元気そうナリね！うれしいナリ！"]
+GEST_HAND = ["はーい、ナリ！", "なあにナリ？", "こっちだナリ！ワガハイもあげるナリ！"]
 FAREWELLS = [
     "いっちゃいやナリ〜！",
     "もう行っちゃうナリ？さみしいナリ…",
     "行かないでほしいナリ〜！",
     "またすぐ来てほしいナリ！",
+    "ばいばいナリ〜、またねナリ！",
+    "気をつけて行くナリ！",
+    "待ってるナリ、また会おうナリ！",
+    "しょんぼりナリ…早く戻ってきてほしいナリ！",
+    "いってらっしゃいナリ！",
+    "ワガハイ、待ってるナリよ〜！",
 ]
 
 state = {
@@ -296,6 +312,47 @@ def react(emotion, text, gaze=None, blink=True):
             state["speech_log"] = ([time.strftime("%H:%M:%S ") + text] + state["speech_log"])[:8]
 
 
+def _event_llm_speak(context):
+    """イベント文脈からLLMで台詞生成して発話(非同期)。目/腕は呼出側で即反応済み。"""
+    if not _llm["ready"] or _llm["busy"]:
+        return
+    _llm["busy"] = True
+    _speak_until[0] = time.time() + 30
+    try:
+        r = _llm["model"].create_chat_completion(
+            messages=[{"role": "system", "content": LLM_PERSONA}] + LLM_FEWSHOT
+                     + [{"role": "user", "content": context}],
+            max_tokens=48, temperature=0.85, top_p=0.9)
+        reply = r["choices"][0]["message"]["content"].strip()
+        if reply:
+            speak(reply)
+            with lock:
+                state["speech"] = reply
+                state["speech_log"] = ([time.strftime("%H:%M:%S ") + reply] + state["speech_log"])[:8]
+    except Exception as e:  # noqa
+        print("[llm-event]", e)
+    finally:
+        _llm["busy"] = False
+
+
+def event_speech(context, canned, emotion="happy", gaze=None, arm=None):
+    """入退室/ジェスチャの反応。目+腕は即時、台詞はrule(定型)かllm(生成)を設定で選択。"""
+    eyes.send(f"emo {emotion}")
+    if gaze is not None:
+        eyes.send(f"gaze {gaze:.2f} 0")
+    eyes.send("blink")
+    if arm:
+        arm_gesture(arm)
+    if settings["event_llm"] and _llm["ready"] and not _llm["busy"]:
+        threading.Thread(target=_event_llm_speak, args=(context,), daemon=True).start()
+    else:
+        msg = canned[int(time.time() * 7) % len(canned)]
+        speak(msg)
+        with lock:
+            state["speech"] = msg
+            state["speech_log"] = ([time.strftime("%H:%M:%S ") + msg] + state["speech_log"])[:8]
+
+
 def greet_update(person_box, frame_w):
     """人の出現/追従に応じ目を動かし、新規出現時に1回だけ挨拶。"""
     if person_box is not None:
@@ -307,10 +364,8 @@ def greet_update(person_box, frame_w):
             with lock:
                 state["present"] = True
             if settings["react_greet"]:
-                msg = GREETINGS[_greet["idx"] % len(GREETINGS)]
-                _greet["idx"] += 1
-                react("happy", msg, gaze=gaze_x, blink=True)
-                arm_gesture("wave")               # 入室=手を振って挨拶
+                event_speech("目の前に人が来た。元気よく短く挨拶して。",
+                             GREETINGS, "happy", gaze_x, "wave")
             else:
                 eyes.send("emo happy")
                 eyes.send(f"gaze {gaze_x:.2f} 0")
@@ -324,11 +379,8 @@ def greet_update(person_box, frame_w):
             with lock:
                 state["present"] = False
             if settings["react_greet"]:
-                # 退室時は寂しがる(いっちゃいやナリ)
-                msg = FAREWELLS[_greet["fidx"] % len(FAREWELLS)]
-                _greet["fidx"] += 1
-                react("sad", msg, gaze=0.0, blink=True)
-                arm_gesture("droop")              # 退室=腕を下げてしょんぼり
+                event_speech("目の前にいた人が去っていく。名残惜しそうに短く一言。",
+                             FAREWELLS, "sad", 0.0, "droop")
             else:
                 eyes.send("emo neutral")
                 eyes.send("gaze 0 0")
@@ -369,16 +421,16 @@ def detect_gesture(kxy, ksc, w):
     def gaze_of(side):
         return max(-1.0, min(1.0, kxy[9 if side == "l" else 10][0] / w * 2.0 - 1.0))
     if left_up and right_up:                                  # 両手あげ → バンザイ
-        react("happy", "バンザイ！うれしいナリ！", blink=True)
-        arm_gesture("raise")
+        event_speech("相手が両手を上げてバンザイした。一緒に喜んで短く。",
+                     GEST_BANZAI, "happy", None, "raise")
     elif waving("l") or waving("r"):                          # 片手振り → 同じ手で振り返す
         s = "l" if waving("l") else "r"
-        react("happy", "手を振ってるナリ！こんにちはナリ！", gaze=gaze_of(s), blink=True)
-        arm_gesture("wave_" + s)
+        event_speech("相手が片手で手を振っている。振り返して短く挨拶。",
+                     GEST_WAVE, "happy", gaze_of(s), "wave_" + s)
     else:                                                     # 片手あげ → 同じ手を上げる
         s = "l" if left_up else "r"
-        react("happy", "はーい、ナリ！", gaze=gaze_of(s), blink=True)
-        arm_gesture("up_" + s)
+        event_speech("相手が片手を上げた。元気よく短く応える。",
+                     GEST_HAND, "happy", gaze_of(s), "up_" + s)
 
 
 def yolo_loop():
@@ -642,7 +694,8 @@ img{width:100%;border-radius:6px;background:#000}
   <label><input type="checkbox" id="c_g" checked onchange="set('react_greet',this.checked?1:0)"> 入退室で挨拶</label>
   <label><input type="checkbox" id="c_s" checked onchange="set('react_speech',this.checked?1:0)"> 話しかけに反応</label>
   <label><input type="checkbox" id="c_llm" checked onchange="set('use_llm',this.checked?1:0)"> LLM会話 <span id="llmst"></span></label>
-  <label><input type="checkbox" id="c_arm" checked onchange="set('use_arm',this.checked?1:0)"> 腕を自動で動かす(調整中はOFF)</label></div>
+  <label><input type="checkbox" id="c_arm" checked onchange="set('use_arm',this.checked?1:0)"> 腕を自動で動かす(調整中はOFF)</label>
+  <label><input type="checkbox" id="c_ev" onchange="set('event_llm',this.checked?1:0)"> 入退室/ジェスチャの台詞をLLM生成(OFF=定型・即時)</label></div>
 <div class="ctl" style="border-top:1px solid #0f3460;padding-top:8px">🔍 認識状態:
   <b id="reco">—</b></div>
 <div class="ctl">👤 人物検出しきい値 <input type="range" min="0.1" max="0.9" step="0.05" value="0.40" id="c_ps"
@@ -750,7 +803,7 @@ class Handler(BaseHTTPRequestHandler):
                         settings[k] = float(val)
                     except ValueError:
                         pass
-                elif k in ("react_greet", "react_speech", "use_llm", "use_arm"):
+                elif k in ("react_greet", "react_speech", "use_llm", "use_arm", "event_llm"):
                     settings[k] = val in ("1", "true", "on")
             self._json_ok()
             return
