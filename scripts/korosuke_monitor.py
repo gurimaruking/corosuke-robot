@@ -4,6 +4,9 @@
 使い方: python3 korosuke_monitor.py  →  http://<RDKのIP>:8080
 依存: cv2, sherpa-onnx, open_jtalk, D-Robotics YOLO demo。各機能は失敗しても縮退。
 """
+import warnings
+warnings.filterwarnings("ignore")   # numpy等の非推奨警告でログが埋まるのを抑止
+
 import audioop
 import glob
 import json
@@ -565,6 +568,14 @@ img{width:100%;border-radius:6px;background:#000}
   oninput="lbl('l_kt',this.value);set('kpt_thres',this.value)"><span id="l_kt">0.40</span></div>
 <div class="ctl">⏱ ジェスチャ間隔 <input type="range" min="1" max="15" step="1" value="5" id="c_gcd"
   oninput="lbl('l_gcd',this.value);set('gesture_cd',this.value)"><span id="l_gcd">5</span>秒</div>
+<div class="ctl" style="border-top:1px solid #0f3460;padding-top:8px">💪 腕テスト(サーボ)
+  <button onclick="armdo('wave')">👋手を振る</button>
+  <button onclick="armdo('raise')">🙌バンザイ</button>
+  <button onclick="armdo('droop')">😔下げる</button></div>
+<div class="ctl">左腕 <input type="range" min="0" max="180" value="90" id="c_al"
+  oninput="lbl('l_al',this.value);fetch('/arm?l='+this.value)"><span id="l_al">90</span>°</div>
+<div class="ctl">右腕 <input type="range" min="0" max="180" value="90" id="c_ar"
+  oninput="lbl('l_ar',this.value);fetch('/arm?r='+this.value)"><span id="l_ar">90</span>°</div>
 <div class="ctl">👁 目テスト
   <button onclick="eye('emo','happy')">😊</button>
   <button onclick="eye('emo','sad')">😢</button>
@@ -580,6 +591,7 @@ function set(k,v){ fetch('/set?'+k+'='+encodeURIComponent(v)); }
 function lbl(id,v){ document.getElementById(id).textContent=v; }
 function say(){ fetch('/say?text='+encodeURIComponent(document.getElementById('c_say').value)); }
 function eye(k,v){ fetch('/eye?'+k+'='+encodeURIComponent(v)); }
+function armdo(v){ fetch('/arm?do='+v); }
 const es = new EventSource('/events');
 es.onmessage = e => {
   const d = JSON.parse(e.data);
@@ -662,6 +674,16 @@ class Handler(BaseHTTPRequestHandler):
                 eyes.send("emo " + q["emo"][0])
             if "blink" in q:
                 eyes.send("blink")
+            self._json_ok()
+            return
+        if self.path.startswith("/arm?"):
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            if "l" in q:
+                eyes.send("arm l " + q["l"][0])
+            if "r" in q:
+                eyes.send("arm r " + q["r"][0])
+            if "do" in q:
+                arm_gesture(q["do"][0])            # wave/raise/droop
             self._json_ok()
             return
         if self.path == "/":

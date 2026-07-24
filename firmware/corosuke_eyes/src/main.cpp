@@ -43,20 +43,24 @@ static constexpr int PIN_ARM_R = 5;   // 右腕サーボ信号
 static constexpr int LEDC_ARM_L = 4;  // LEDCチャンネル(表示はSPIなので空き)
 static constexpr int LEDC_ARM_R = 5;
 
-// 角度(0-180)→パルス0.5-2.5ms@50Hz(20ms)を16bit dutyで出力
+// ESP32-S3のLEDC最大分解能は14bit(16bit指定はledcSetupが失敗しPWMが出ない!)
+static constexpr int SERVO_RES = 14;             // 14bit -> 20ms周期=16384カウント
+// 角度(0-180)→パルス0.5-2.5ms@50Hz(20ms)をdutyで出力
 void servoWriteDeg(int ledc_ch, int deg) {
   deg = constrain(deg, 0, 180);
   int us = map(deg, 0, 180, 500, 2500);
-  uint32_t duty = (uint32_t)((uint64_t)us * 65535 / 20000);
+  uint32_t maxd = (1UL << SERVO_RES);            // 16384
+  uint32_t duty = (uint32_t)((uint64_t)us * maxd / 20000);
   ledcWrite(ledc_ch, duty);
 }
 void servoSetup() {
-  ledcSetup(LEDC_ARM_L, 50, 16);
-  ledcSetup(LEDC_ARM_R, 50, 16);
+  double fL = ledcSetup(LEDC_ARM_L, 50, SERVO_RES);
+  double fR = ledcSetup(LEDC_ARM_R, 50, SERVO_RES);
   ledcAttachPin(PIN_ARM_L, LEDC_ARM_L);
   ledcAttachPin(PIN_ARM_R, LEDC_ARM_R);
   servoWriteDeg(LEDC_ARM_L, 90);   // 初期=中立
   servoWriteDeg(LEDC_ARM_R, 90);
+  Serial0.printf("[boot] servo LEDC freq L=%.1f R=%.1f (0=失敗)\n", fL, fR);
 }
 
 // ---------- LovyanGFX: 共有SPIバス + パネル2枚 ----------
