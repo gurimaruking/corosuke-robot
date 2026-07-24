@@ -179,13 +179,14 @@ void renderEye(EyeDisplay& dev, bool isLeft) {
     if (isLeft) spr.fillTriangle(0,topY, 240,topY, 240,topY+60, C_BLACK);
     else        spr.fillTriangle(0,topY, 240,topY, 0,topY+60, C_BLACK);
   }
-  if (st.emo == HAPPY) { // にっこり: 白い満月を「ずらした黒円」で削り、滑らかな三日月スマイルに
+  if (st.emo == HAPPY) { // にっこり: 明るい白目のまま、細い黒の三日月(笑い弧)を描く。瞳は出さない
     spr.fillSprite(C_BLACK);
-    const int R = 118;                       // 目の半径
-    const int d = 84;                        // 黒円のずらし量(大=三日月が細い上向き曲線)
-    int sign = st.happyVar ? -1 : 1;         // 実機の向きに合わせ happy/happy2 で選択
-    spr.fillCircle(CX, CY, R, C_WHITE);      // 白い満月
-    spr.fillCircle(CX, CY + sign * d, R, C_BLACK);   // ずらした黒で削る→曲がった笑い目
+    spr.fillCircle(CX, CY, 118, C_WHITE);          // 白目(瞳なし)
+    int sign = st.happyVar ? -1 : 1;               // 実機の上下向きに合わせ happy/happy2 で選択
+    for (int x = -82; x <= 82; x++) {              // 放物線に沿って黒ブラシ→細い笑い弧
+      int y = CY + sign * (x * x / 150 - 30);
+      spr.fillCircle(CX + x, y, 10, C_BLACK);
+    }
   }
   if (st.emo == DEAD) {  // 終了合図: ✕✕(バツ目)。RDK停止後もESP32が保持=電源OFF可の合図
     spr.fillSprite(C_BLACK);
