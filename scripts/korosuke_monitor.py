@@ -47,8 +47,8 @@ settings = {
     "spk_dev": "max98357a",  # 出力先: max98357a(I2Sアンプ40pin,φ50) / duplexaudio(ES8326)
     "dsp": True,           # max98357a時の小型SP最適化(HPF+圧縮+リミッタ)
     "hpf": 250,            # ハイパス周波数Hz(小型SPが出せない低域を除去しコーン保護)
-    "peak_ceil_db": -9.0,  # クリーン天井dBFS。φ50=WYGD50D(0.2W/max0.4W)保護で-9(≈0.2W)。
-                           # 高耐入力SPに替えたら上げると大音量化(φ28時は-6が実測天井)
+    "peak_ceil_db": -6.0,  # クリーン天井dBFS。φ50=WYGD50D(0.2W)で-6採用(GAIN9dBのsine≈0.2W=定格,
+                           # 声はピークのみ瞬間で平均は数mW→安全)。高耐入力SPに替えたら更に上げ可
     "mic_gain": 3.0,       # マイク感度(ソフト増幅倍率)。ハードゲインは起動時に最大化
     "oj_fm": 9,            # 声の高さ(Open JTalk -fm)。voice B=9
     "oj_a": 0.40,         # 声道長(小=子供っぽい)
@@ -65,15 +65,49 @@ settings = {
 }
 
 
-def apply_mic_hw_gain():
-    """USBマイクのハードキャプチャゲインを最大化(起動時)。"""
+def find_mic_card():
+    """USBマイク(USB Audioキャプチャ)のカード名を返す。I2S(ES8326/max98357a)は除外。
+    カメラ交換でカード名が変わっても追従(例: Microphone→WEBCAM)。"""
     try:
-        subprocess.run(["amixer", "-c", "Microphone", "sset", "Mic Capture Volume", "100%"],
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
-        subprocess.run(["amixer", "-c", "Microphone", "sset", "Mic Capture Switch", "on"],
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+        out = subprocess.run(["arecord", "-l"], capture_output=True, text=True,
+                             timeout=5).stdout
     except Exception:  # noqa
-        pass
+        return "Microphone"
+    import re
+    for line in out.splitlines():          # USBオーディオ(カメラ内蔵マイク)を優先
+        if "USB Audio" in line:
+            m = re.search(r"card \d+: (\S+) \[", line)
+            if m:
+                return m.group(1)
+    for line in out.splitlines():          # フォールバック: I2S以外の最初のカード
+        m = re.search(r"card \d+: (\S+) \[", line)
+        if m and m.group(1) not in ("duplexaudio", "max98357a"):
+            return m.group(1)
+    return "Microphone"
+
+
+_mic_card = [None]
+def mic_card():
+    if _mic_card[0] is None:
+        _mic_card[0] = find_mic_card()
+    return _mic_card[0]
+
+
+def apply_mic_hw_gain():
+    """USBマイクのハードキャプチャゲインを最大化(起動時)。制御名は機種で異なるため総当り。"""
+    c = mic_card()
+    for ctl in ("Mic Capture Volume", "Capture", "Mic"):
+        try:
+            subprocess.run(["amixer", "-c", c, "sset", ctl, "100%"],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+        except Exception:  # noqa
+            pass
+    for sw in ("Mic Capture Switch", "Capture"):
+        try:
+            subprocess.run(["amixer", "-c", c, "sset", sw, "on"],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+        except Exception:  # noqa
+            pass
 
 
 def apply_volume(pct):
@@ -223,11 +257,36 @@ def speak(text):
     threading.Thread(target=_run, daemon=True).start()
 
 
+def open_camera():
+    """開けてフレームが読める最初の /dev/videoN を開いて返す。
+    カメラ交換で番号が変わっても(0→1等)追従。メタデータnodeはread失敗で自動スキップ。"""
+    import glob
+    cands = []
+    for p in sorted(glob.glob("/dev/video*")):
+        try:
+            cands.append(int(p[len("/dev/video"):]))
+        except ValueError:
+            pass
+    for i in (cands or [0, 1, 2, 3]):
+        cap = cv2.VideoCapture(i, cv2.CAP_V4L2)
+        if cap.isOpened():
+            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            ok, _ = cap.read()
+            if ok:
+                return cap
+        cap.release()
+    return None
+
+
 def camera_loop():
-    cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
-    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    cap = open_camera()
+    while cap is None:
+        with lock:
+            state["cam_ok"] = False
+        time.sleep(2)
+        cap = open_camera()
     for _ in range(5):
         cap.read()
     while True:
@@ -235,7 +294,17 @@ def camera_loop():
         if not ok:
             with lock:
                 state["cam_ok"] = False
+            try:
+                cap.release()
+            except Exception:  # noqa
+                pass
             time.sleep(1)
+            cap = open_camera()          # 抜き差し/番号変化に追従して再オープン
+            while cap is None:
+                time.sleep(2)
+                cap = open_camera()
+            for _ in range(5):
+                cap.read()
             continue
         # 粗いフレーム差分モーション反応は無効化(入退室反応を打ち消す/歩行と手振りを区別不可)。
         # 「しっかりしたジェスチャ」はYOLO11-poseの骨格ベースで別途判定する(gesture_loop)。
@@ -647,7 +716,7 @@ def audio_loop():
     ratecv_state = None
     while True:
         p = subprocess.Popen(
-            ["arecord", "-D", "plughw:Microphone,0", "-f", "S16_LE",
+            ["arecord", "-D", f"plughw:{mic_card()},0", "-f", "S16_LE",
              "-r", "48000", "-c", "2", "-t", "raw"],
             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         try:
@@ -745,9 +814,9 @@ img{width:100%;border-radius:6px;background:#000}
   oninput="lbl('l_vol',this.value);set('volume',this.value)"><span id="l_vol">75</span>%</div>
 <div class="ctl">🎛 小型SP最適化(MAX98357A時)
   <label><input type="checkbox" id="c_dsp" checked onchange="set('dsp',this.checked?1:0)"> HPF+圧縮+リミッタ</label>
-  クリーン上限<input type="range" min="-12" max="0" step="0.5" value="-9" id="c_ceil"
-   oninput="lbl('l_ceil',this.value);set('peak_ceil_db',this.value)"><span id="l_ceil">-9</span>dB
-  <small>(φ50=0.2Wは-9で保護。高耐入力SP/箱固定で上げると大音量)</small></div>
+  クリーン上限<input type="range" min="-12" max="0" step="0.5" value="-6" id="c_ceil"
+   oninput="lbl('l_ceil',this.value);set('peak_ceil_db',this.value)"><span id="l_ceil">-6</span>dB
+  <small>(φ50=0.2Wは-6運用。高耐入力SP/箱固定で上げると更に大音量)</small></div>
 <div class="ctl">🎙 マイク感度 <input type="range" min="1" max="8" step="0.5" value="3" id="c_mic"
   oninput="lbl('l_mic',this.value);set('mic_gain',this.value)"><span id="l_mic">3</span>x</div>
 <div class="ctl">🎵 声の高さ <input type="range" min="0" max="15" value="9" id="c_fm"
