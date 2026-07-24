@@ -26,6 +26,15 @@ def notify_shutdown():
         except Exception:  # noqa: モニタ停止中でも終了は続行
             pass
 
+
+def mark_off():
+    """終了直前に目を✕✕にする。RDK停止後もESP32が最後の表示を保持するので
+    『✕の目が出た=RDKは止まった=ポータブル電源を切ってOK』の視覚合図になる。"""
+    try:
+        urllib.request.urlopen(MON + "/eye?emo=x", timeout=3).read()
+    except Exception:  # noqa
+        pass
+
 GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BOARD)
 GPIO.setup(PIN, GPIO.IN)   # 既定HIGH。押下でGNDに落ちてLOW
@@ -38,8 +47,10 @@ try:
                 time.sleep(POLL)
                 held += POLL
             if held >= HOLD - 1e-6:         # 長押し確定 → 安全終了
-                notify_shutdown()           # 音声「おやすみナリ」+Web+眠い目
-                time.sleep(6)               # 発話再生を待ってから落とす
+                notify_shutdown()           # 眠い目+「おやすみナリ」音声+Web
+                time.sleep(6)               # 発話再生を待つ
+                mark_off()                  # ✕✕の目(電源OFF可の合図)
+                time.sleep(1)               # ✕コマンドが目に届くのを待つ
                 subprocess.run(["shutdown", "-h", "now"])
                 break
             # 短押しは無視(チャタリング/誤タッチ対策)

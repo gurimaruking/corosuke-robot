@@ -14,7 +14,7 @@
  *     必ず両方のCSをGPIOで駆動する(このファームがやる)
  *
  * コマンド (USBシリアル & UART1=RDK X5から / 115200bps, 1行1コマンド):
- *   emo <neutral|happy|sad|angry|surprised|sleepy>   感情切替
+ *   emo <neutral|happy|happy2|sad|angry|surprised|sleepy|x>   感情切替(x=終了合図の✕✕目)
  *   gaze <x> <y>      視線 (-1.0 .. 1.0)
  *   blink             両目まばたき
  *   wink <l|r>        片目ウインク
@@ -122,9 +122,10 @@ EyeDisplay eyeR(PIN_CS_R, false);   // 右目
 LGFX_Sprite spr(&eyeL);             // 1枚のスプライトを両目で使い回す
 
 // ---------- 目の状態 ----------
-enum Emotion { NEUTRAL, HAPPY, SAD, ANGRY, SURPRISED, SLEEPY };
+enum Emotion { NEUTRAL, HAPPY, SAD, ANGRY, SURPRISED, SLEEPY, DEAD };
 struct EyeState {
   Emotion emo = NEUTRAL;
+  bool happyVar = false;              // にっこりの向き(実機の上下反転に合わせ happy/happy2 で選択)
   float gazeX = 0, gazeY = 0;         // 目標視線 -1..1
   float curX = 0, curY = 0;           // 現在視線(補間)
   float blink = 0;                    // 0=開 1=閉
@@ -178,10 +179,21 @@ void renderEye(EyeDisplay& dev, bool isLeft) {
     if (isLeft) spr.fillTriangle(0,topY, 240,topY, 240,topY+60, C_BLACK);
     else        spr.fillTriangle(0,topY, 240,topY, 0,topY+60, C_BLACK);
   }
-  if (st.emo == HAPPY) { // ニッコリ(RoboEyes式squint): 白目を塗り、コード下側を丸角黒で覆う
-    spr.fillSprite(C_BLACK);                             // 一旦クリア
-    spr.fillCircle(CX, CY, 118, C_WHITE);               // 白目(塗りつぶし)
-    spr.fillRoundRect(-6, 132, 252, 160, 62, C_BLACK);  // 下側を丸角で覆う→実機(上下反転)で笑った半月
+  if (st.emo == HAPPY) { // にっこり: 白い満月を「ずらした黒円」で削り、滑らかな三日月スマイルに
+    spr.fillSprite(C_BLACK);
+    const int R = 118;                       // 目の半径
+    const int d = 84;                        // 黒円のずらし量(大=三日月が細い上向き曲線)
+    int sign = st.happyVar ? -1 : 1;         // 実機の向きに合わせ happy/happy2 で選択
+    spr.fillCircle(CX, CY, R, C_WHITE);      // 白い満月
+    spr.fillCircle(CX, CY + sign * d, R, C_BLACK);   // ずらした黒で削る→曲がった笑い目
+  }
+  if (st.emo == DEAD) {  // 終了合図: ✕✕(バツ目)。RDK停止後もESP32が保持=電源OFF可の合図
+    spr.fillSprite(C_BLACK);
+    spr.fillCircle(CX, CY, 118, C_WHITE);            // 白目
+    for (int i = -60; i <= 60; i += 2) {            // 太い黒の✕
+      spr.fillCircle(CX + i, CY + i, 14, C_BLACK);
+      spr.fillCircle(CX + i, CY - i, 14, C_BLACK);
+    }
   }
   spr.pushSprite(&dev, 0, 0);
 }
@@ -199,11 +211,13 @@ void handleLine(String line, Stream& reply) {
   if (line.startsWith("emo ")) {
     String e = line.substring(4);
     if      (e == "neutral")   st.emo = NEUTRAL;
-    else if (e == "happy")     st.emo = HAPPY;
+    else if (e == "happy")   { st.emo = HAPPY; st.happyVar = false; }
+    else if (e == "happy2")  { st.emo = HAPPY; st.happyVar = true;  }  // 笑顔の上下逆
     else if (e == "sad")       st.emo = SAD;
     else if (e == "angry")     st.emo = ANGRY;
     else if (e == "surprised") st.emo = SURPRISED;
     else if (e == "sleepy")    st.emo = SLEEPY;
+    else if (e == "x" || e == "dead") st.emo = DEAD;                  // 終了合図の✕✕目
     reply.printf("emo=%s\n", e.c_str()); return;
   }
   if (line.startsWith("gaze ")) {
