@@ -56,6 +56,12 @@ SPEECH_REACTIONS = [
     (["元気", "げんき"], "happy", "ワガハイは元気ナリ！"),
 ]
 MOTION_LINES = ["おっ、動いたナリ！", "なんナリ？", "びっくりしたナリ！", "元気だナリ〜！"]
+FAREWELLS = [
+    "いっちゃいやナリ〜！",
+    "もう行っちゃうナリ？さみしいナリ…",
+    "行かないでほしいナリ〜！",
+    "またすぐ来てほしいナリ！",
+]
 
 state = {
     "jpeg": None, "cam_ok": False,
@@ -111,7 +117,6 @@ def camera_loop():
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
     for _ in range(5):
         cap.read()
-    prev_small = None
     while True:
         ok, frame = cap.read()
         if not ok:
@@ -119,12 +124,8 @@ def camera_loop():
                 state["cam_ok"] = False
             time.sleep(1)
             continue
-        # --- モーション検知(フレーム差分) ---
-        small = cv2.cvtColor(cv2.resize(frame, (80, 60)), cv2.COLOR_BGR2GRAY)
-        if prev_small is not None:
-            motion = float(cv2.absdiff(small, prev_small).mean())
-            react_to_motion(motion)
-        prev_small = small
+        # 粗いフレーム差分モーション反応は無効化(入退室反応を打ち消す/歩行と手振りを区別不可)。
+        # 「しっかりしたジェスチャ」はYOLO11-poseの骨格ベースで別途判定する(gesture_loop)。
         with lock:
             state["raw"] = frame.copy()
             dets = list(state["dets"])
@@ -189,7 +190,7 @@ class Eyes:
 
 
 eyes = Eyes()
-_greet = {"present": False, "absent": 0, "idx": 0, "last_gaze": 0.0}
+_greet = {"present": False, "absent": 0, "idx": 0, "fidx": 0, "last_gaze": 0.0}
 
 
 def react(emotion, text, gaze=None, blink=True):
@@ -226,10 +227,12 @@ def greet_update(person_box, frame_w):
         _greet["absent"] += 1
         if _greet["present"] and _greet["absent"] >= 15:
             _greet["present"] = False
-            eyes.send("emo neutral")
-            eyes.send("gaze 0 0")
             with lock:
                 state["present"] = False
+            # 退室時は寂しがる(いっちゃいやナリ)
+            msg = FAREWELLS[_greet["fidx"] % len(FAREWELLS)]
+            _greet["fidx"] += 1
+            react("sad", msg, gaze=0.0, blink=True)
 
 
 def yolo_loop():
@@ -298,11 +301,12 @@ def audio_loop():
             encoder=sorted(glob.glob(d + "/encoder*int8.onnx"))[0],
             decoder=sorted(glob.glob(d + "/decoder*[!8].onnx"))[0],
             joiner=sorted(glob.glob(d + "/joiner*int8.onnx"))[0],
-            tokens=d + "/tokens.txt", num_threads=4)
+            tokens=d + "/tokens.txt", num_threads=6)   # YOLOはBPU中心なのでCPUを多めに
         vcfg = sherpa_onnx.VadModelConfig()
         vcfg.silero_vad.model = "/home/sunrise/models/silero_vad.onnx"
-        vcfg.silero_vad.threshold = 0.5
-        vcfg.silero_vad.min_silence_duration = 0.5
+        vcfg.silero_vad.threshold = 0.6            # 高め=雑音/弱い音を無視
+        vcfg.silero_vad.min_silence_duration = 0.7  # 細切れ抑制
+        vcfg.silero_vad.min_speech_duration = 0.3   # 短い誤検出を除外
         vcfg.sample_rate = 16000
         vad = sherpa_onnx.VoiceActivityDetector(vcfg, buffer_size_in_seconds=30)
         win = vcfg.silero_vad.window_size
@@ -329,6 +333,14 @@ def audio_loop():
                 data = p.stdout.read(CHUNK)
                 if not data:
                     raise IOError("stream ended")
+                # 自分の発話中は認識しない(スピーカー→マイクの自己エコーを排除)
+                if time.time() < _speak_until[0]:
+                    pending.clear()
+                    while not vad.empty():
+                        vad.pop()
+                    with lock:
+                        state["partial"] = ""
+                    continue
                 mono = audioop.tomono(data, 2, 0.5, 0.5)
                 s = struct.unpack("<%dh" % (len(mono) // 2), mono)
                 rms = math.sqrt(sum(x * x for x in s) / len(s))
