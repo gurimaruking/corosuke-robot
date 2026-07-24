@@ -1,0 +1,13 @@
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    eth0:
+      dhcp4: true
+    usb0:
+      dhcp4: no
+      addresses: [192.168.128.10/24]
+      gateway4: 192.168.128.1
+    usb1:
+      dhcp4: no
+      addresses: [192.168.128.10/24]

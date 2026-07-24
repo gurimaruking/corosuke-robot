@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""コロ助 Web監視モニタ v2 — カメラ+YOLO検知 / マイクレベル / sherpa音声認識
+"""コロ助 Web監視モニタ v4 — 見て/聞いて/動きに反応して/喋る
+  カメラ+YOLO人物検知+モーション検知 / sherpa音声認識+キーワード反応 / 目+OpenJTalk発声
 使い方: python3 korosuke_monitor.py  →  http://<RDKのIP>:8080
-依存: cv2, sherpa-onnx, D-Robotics YOLO demo(/app/pydev_demo)。全て導入済み前提。
-各機能は失敗しても他を巻き込まず縮退(YOLO落ちても素の映像は出る等)。
+依存: cv2, sherpa-onnx, open_jtalk, D-Robotics YOLO demo。各機能は失敗しても縮退。
 """
 import audioop
 import glob
@@ -10,6 +10,7 @@ import json
 import math
 import os
 import struct
+import subprocess
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -21,47 +22,86 @@ try:
 except ImportError:
     serial = None
 
-import subprocess
-
 PORT = 8080
 YOLO_DIR = "/app/pydev_demo/02_detection_sample/02_ultralytics_yolo11"
-EYE_DEV = "/dev/ttyACM0"          # 目コプロセッサ(ESP32-S3)
-SPK_DEV = "plughw:duplexaudio,0"  # スピーカー(ES8326、名前指定=再起動耐性)
-VOICE_DIR = "/home/sunrise/corosuke/scripts/voices"   # 事前生成した挨拶WAV g0..g3
+EYE_DEV = "/dev/ttyACM0"           # 目コプロセッサ(ESP32-S3)
+SPK_DEV = "plughw:duplexaudio,0"   # スピーカー(ES8326、名前指定=再起動耐性)
+
+# ---- Open JTalk(動的日本語TTS) ----
+OJ_BIN = "open_jtalk"
+OJ_DIC = "/var/lib/mecab/dic/open-jtalk/naist-jdic"
+OJ_VOICE = "/usr/share/hts-voice/nitech-jp-atr503-m001/nitech_jp_atr503_m001.htsvoice"
+OJ_FM = "9"      # 追加ピッチ(高さ)。ユーザー選択=voice B(甲高い子供声)
+OJ_A = "0.40"    # 声道長(小=子供っぽい)
+OJ_R = "1.12"    # 話速
+
 os.chdir(YOLO_DIR)   # デモの相対import解決のため(以降は全て絶対パス使用)
 
-
-def speak_wav(idx):
-    """挨拶WAVをスピーカーで再生(非ブロッキング)。TTS未導入なので当面は事前生成音声。"""
-    path = os.path.join(VOICE_DIR, f"g{idx}.wav")
-    if not os.path.exists(path):
-        return
-
-    def _play():
-        try:
-            subprocess.run(["aplay", "-D", SPK_DEV, path],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
-        except Exception:  # noqa
-            pass
-    threading.Thread(target=_play, daemon=True).start()
-
-# 「〜ナリ」定型挨拶(M-C=ローカルLLM導入時に置換予定)。出現ごとに巡回。
+# ==== 反応辞書(キーワード→表情+セリフ)。誤認識パターンも含める。M-C=LLM導入で置換予定 ====
 GREETINGS = [
     "だれか来たナリ！こんにちはナリ！",
     "やあ、ワガハイはコロ助ナリ！",
     "会えて嬉しいナリ〜！",
     "おっ、人が来たナリ！ようこそナリ！",
 ]
+SPEECH_REACTIONS = [
+    (["こんにち", "やあ", "おはよう", "こんばん", "はろー"], "happy", "こんにちはナリ！"),
+    (["ころすけ", "殺す", "コロスケ", "ころ助"], "happy", "ワガハイを呼んだナリ？"),
+    (["コロッケ", "ころっけ"], "happy", "コロッケ！？大好物ナリ！"),
+    (["かわい", "かっこ", "すご", "えらい"], "happy", "えへへ、照れるナリ〜"),
+    (["ありがと", "さんきゅ"], "happy", "どういたしましてナリ！"),
+    (["ばいばい", "さようなら", "またね", "バイバイ"], "sad", "またね、ナリ〜"),
+    (["名前", "だれ", "誰", "なまえ"], "happy", "ワガハイはコロ助ナリ！"),
+    (["好き", "だいすき"], "happy", "ワガハイも好きナリ！"),
+    (["元気", "げんき"], "happy", "ワガハイは元気ナリ！"),
+]
+MOTION_LINES = ["おっ、動いたナリ！", "なんナリ？", "びっくりしたナリ！", "元気だナリ〜！"]
 
 state = {
     "jpeg": None, "cam_ok": False,
-    "dets": [], "yolo_ok": False,
-    "raw": None,
+    "dets": [], "yolo_ok": False, "raw": None,
     "level": 0.0, "peak_hold": 0.0, "audio_ok": False,
     "partial": "", "finals": [],
-    "speech": "", "speech_log": [], "eye_ok": False, "present": False,
+    "speech": "", "speech_log": [], "eye_ok": False, "present": False, "speaking": False,
 }
 lock = threading.Lock()
+
+# 自分の声をマイクが拾って自己反応するのを防ぐガード
+_speak_until = [0.0]
+_last_speech_react = [0.0]
+_last_motion_react = [0.0]
+
+
+def speak(text):
+    """Open JTalkで動的合成→スピーカー再生(非ブロッキング)。発話中フラグで自己反応を抑止。"""
+    def _run():
+        try:
+            wav = "/tmp/koro_say.wav"
+            p = subprocess.run([OJ_BIN, "-x", OJ_DIC, "-m", OJ_VOICE,
+                                "-fm", OJ_FM, "-a", OJ_A, "-r", OJ_R, "-ow", wav],
+                               input=(text + "\n").encode("utf-8"),
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+            if p.returncode != 0 or not os.path.exists(wav):
+                return
+            dur = 3.0
+            try:
+                import wave
+                w = wave.open(wav)
+                dur = w.getnframes() / float(w.getframerate())
+                w.close()
+            except Exception:  # noqa
+                pass
+            _speak_until[0] = time.time() + dur + 0.8   # 発話中+余韻はSTT反応を無視
+            with lock:
+                state["speaking"] = True
+            subprocess.run(["aplay", "-D", SPK_DEV, wav],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
+        except Exception:  # noqa
+            pass
+        finally:
+            with lock:
+                state["speaking"] = False
+    threading.Thread(target=_run, daemon=True).start()
 
 
 def camera_loop():
@@ -71,6 +111,7 @@ def camera_loop():
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
     for _ in range(5):
         cap.read()
+    prev_small = None
     while True:
         ok, frame = cap.read()
         if not ok:
@@ -78,6 +119,12 @@ def camera_loop():
                 state["cam_ok"] = False
             time.sleep(1)
             continue
+        # --- モーション検知(フレーム差分) ---
+        small = cv2.cvtColor(cv2.resize(frame, (80, 60)), cv2.COLOR_BGR2GRAY)
+        if prev_small is not None:
+            motion = float(cv2.absdiff(small, prev_small).mean())
+            react_to_motion(motion)
+        prev_small = small
         with lock:
             state["raw"] = frame.copy()
             dets = list(state["dets"])
@@ -94,7 +141,23 @@ def camera_loop():
         time.sleep(0.03)
 
 
-# ============ 目(ESP32-S3)制御 + 気づいて挨拶 ============
+def react_to_motion(motion):
+    """人が居る状態で大きな動き(手振り等)を検知したら反応。過剰反応を強く抑制。"""
+    now = time.time()
+    if motion < 12.0:                         # 閾値: 小さな揺れは無視(要調整)
+        return
+    if not _greet["present"]:                 # 人が居るときだけ(新規出現は挨拶側が担当)
+        return
+    if now - _last_motion_react[0] < 6.0:     # 6秒に1回まで
+        return
+    if now < _speak_until[0]:                  # 発話中は無視
+        return
+    _last_motion_react[0] = now
+    line = MOTION_LINES[int(now) % len(MOTION_LINES)]
+    react("surprised", line, blink=True)
+
+
+# ============ 目(ESP32-S3)制御 ============
 class Eyes:
     def __init__(self):
         self._ser = None
@@ -129,33 +192,39 @@ eyes = Eyes()
 _greet = {"present": False, "absent": 0, "idx": 0, "last_gaze": 0.0}
 
 
+def react(emotion, text, gaze=None, blink=True):
+    """反応の共通処理: 目(表情+視線+まばたき)+ セリフ発声 + Web表示。"""
+    eyes.send(f"emo {emotion}")
+    if gaze is not None:
+        eyes.send(f"gaze {gaze:.2f} 0")
+    if blink:
+        eyes.send("blink")
+    if text:
+        speak(text)
+        with lock:
+            state["speech"] = text
+            state["speech_log"] = ([time.strftime("%H:%M:%S ") + text] + state["speech_log"])[:8]
+
+
 def greet_update(person_box, frame_w):
-    """人の出現/追従に応じて目を動かし、新規出現時に1回だけ挨拶する(brain_node相当)。"""
+    """人の出現/追従に応じ目を動かし、新規出現時に1回だけ挨拶。"""
     if person_box is not None:
         x1, _, x2, _ = person_box
-        cx = (x1 + x2) / 2.0
-        gaze_x = max(-1.0, min(1.0, cx / frame_w * 2.0 - 1.0))
+        gaze_x = max(-1.0, min(1.0, (x1 + x2) / 2.0 / frame_w * 2.0 - 1.0))
         _greet["absent"] = 0
         if not _greet["present"]:
             _greet["present"] = True
-            gi = _greet["idx"] % len(GREETINGS)
-            msg = GREETINGS[gi]
+            msg = GREETINGS[_greet["idx"] % len(GREETINGS)]
             _greet["idx"] += 1
-            eyes.send("emo happy")
-            eyes.send(f"gaze {gaze_x:.2f} 0")
-            eyes.send("blink")
-            speak_wav(gi)                       # スピーカーで挨拶を発声
             with lock:
                 state["present"] = True
-                state["speech"] = msg
-                state["speech_log"] = ([time.strftime("%H:%M:%S ") + msg]
-                                       + state["speech_log"])[:8]
-        elif abs(gaze_x - _greet["last_gaze"]) > 0.15:   # 追従(過剰送信を抑制)
+            react("happy", msg, gaze=gaze_x, blink=True)
+        elif abs(gaze_x - _greet["last_gaze"]) > 0.15:
             eyes.send(f"gaze {gaze_x:.2f} 0")
             _greet["last_gaze"] = gaze_x
     else:
         _greet["absent"] += 1
-        if _greet["present"] and _greet["absent"] >= 15:   # ~3秒不在で解除
+        if _greet["present"] and _greet["absent"] >= 15:
             _greet["present"] = False
             eyes.send("emo neutral")
             eyes.send("gaze 0 0")
@@ -180,7 +249,7 @@ def yolo_loop():
         y = uy.YoloV11(opt)
         names = common.load_class_names(os.path.join(YOLO_DIR, "coco_classes.names"))
     except Exception as e:  # noqa
-        print("[yolo] 無効化(初期化失敗):", e)
+        print("[yolo] 無効化:", e)
         return
     with lock:
         state["yolo_ok"] = True
@@ -198,18 +267,30 @@ def yolo_loop():
                     for b, c, s in zip(boxes, cls, sc)]
             with lock:
                 state["dets"] = dets
-            # 最大の人物boxを選び、気づいて挨拶+目で追従
             persons = [(b, (b[2] - b[0]) * (b[3] - b[1]))
                        for b, c in zip(boxes, cls) if int(c) == 0]
             best = max(persons, key=lambda p: p[1])[0] if persons else None
             greet_update(best, w)
         except Exception as e:  # noqa
-            print("[yolo] 推論エラー:", e)
-        time.sleep(0.2)   # ~4-5fps(BPUは余裕、CPU描画とのバランス)
+            print("[yolo]", e)
+        time.sleep(0.2)
+
+
+def react_to_speech(text):
+    """認識テキストにキーワードが含まれたら反応。自己発話・連発を抑止。"""
+    now = time.time()
+    if now < _speak_until[0]:                  # 自分の声を拾った分は無視
+        return
+    if now - _last_speech_react[0] < 2.0:
+        return
+    for keys, emo, reply in SPEECH_REACTIONS:
+        if any(k in text for k in keys):
+            _last_speech_react[0] = now
+            react(emo, reply, blink=True)
+            return
 
 
 def audio_loop():
-    import subprocess
     try:
         import sherpa_onnx
         d = sorted(glob.glob("/home/sunrise/models/sherpa-onnx-zipformer-ja-reazonspeech*"))[0]
@@ -217,12 +298,11 @@ def audio_loop():
             encoder=sorted(glob.glob(d + "/encoder*int8.onnx"))[0],
             decoder=sorted(glob.glob(d + "/decoder*[!8].onnx"))[0],
             joiner=sorted(glob.glob(d + "/joiner*int8.onnx"))[0],
-            tokens=d + "/tokens.txt", num_threads=6)
+            tokens=d + "/tokens.txt", num_threads=4)
         vcfg = sherpa_onnx.VadModelConfig()
         vcfg.silero_vad.model = "/home/sunrise/models/silero_vad.onnx"
         vcfg.silero_vad.threshold = 0.5
         vcfg.silero_vad.min_silence_duration = 0.5
-        vcfg.silero_vad.min_speech_duration = 0.2
         vcfg.sample_rate = 16000
         vad = sherpa_onnx.VoiceActivityDetector(vcfg, buffer_size_in_seconds=30)
         win = vcfg.silero_vad.window_size
@@ -236,8 +316,8 @@ def audio_loop():
         rec.decode_stream(st)
         return st.result.text.strip()
 
-    CHUNK = 4800 * 2 * 2   # 0.1s @48k/16bit/2ch
-    pending = []           # 16k float32 の蓄積
+    CHUNK = 4800 * 2 * 2
+    pending = []
     ratecv_state = None
     while True:
         p = subprocess.Popen(
@@ -266,6 +346,7 @@ def audio_loop():
                         with lock:
                             state["finals"] = ([time.strftime("%H:%M:%S ") + t]
                                                + state["finals"])[:10]
+                        react_to_speech(t)         # ← キーワード反応
                     vad.pop()
                 with lock:
                     state["audio_ok"] = True
@@ -296,7 +377,8 @@ img{width:100%;border-radius:6px;background:#000}
 #dets{color:#8fd;font-size:.85rem;min-height:1.2em}
 #finals div{border-bottom:1px solid #0f3460;padding:3px 0}
 .ok{color:#4ecca3}.ng{color:#ff2e63}
-#speech{background:#0f3460;border-radius:8px;padding:14px;font-size:1.4rem;color:#ffe08a;min-height:1.6em}
+#speech{background:#0f3460;border-radius:8px;padding:14px;font-size:1.4rem;color:#ffe08a;min-height:1.6em;transition:background .2s}
+#speech.talk{background:#3a5a1c}
 #speechlog{margin-top:8px;font-size:.85rem;color:#9bb}
 #speechlog div{padding:2px 0}
 .full{flex-basis:100%}
@@ -324,10 +406,12 @@ es.onmessage = e => {
   document.getElementById('dets').textContent = d.dets.length
       ? '検知: ' + d.dets.map(x => x[0]+'('+x[1].toFixed(2)+')').join(', ') : '';
   document.getElementById('finals').innerHTML = d.finals.map(t => '<div>' + t + '</div>').join('');
-  document.getElementById('speech').textContent = d.speech || '(まだ何も話してないナリ)';
+  const sp = document.getElementById('speech');
+  sp.textContent = d.speech || '(まだ何も話してないナリ)';
+  sp.className = d.speaking ? 'talk' : '';
   document.getElementById('speechlog').innerHTML = d.speech_log.map(t => '<div>' + t + '</div>').join('');
   document.getElementById('eyest').innerHTML = d.eye_ok
-      ? (d.present ? '<span class=ok>人を発見！</span>' : '<span class=ok>目：待機</span>')
+      ? (d.speaking ? '<span class=ok>喋ってるナリ</span>' : (d.present ? '<span class=ok>人を発見！</span>' : '<span class=ok>待機</span>'))
       : '<span class=ng>目未接続</span>';
   document.getElementById('camst').innerHTML = d.cam_ok
       ? '<span class=ok>稼働' + (d.yolo_ok ? '+YOLO' : '') + '</span>' : '<span class=ng>停止</span>';
@@ -335,15 +419,12 @@ es.onmessage = e => {
 };
 es.onerror = () => { document.getElementById('st').textContent = '(切断 — 再接続中…)'; };
 es.onopen = () => { document.getElementById('st').textContent = ''; };
-// MJPEGストリームが切れたら自動再接続(imgはEventSourceと違い自動復帰しないため)
 const cam = document.getElementById('cam');
 cam.onerror = () => { setTimeout(() => { cam.src = '/stream?' + Date.now(); }, 1000); };
 </script></body></html>"""
 
 
 class Handler(BaseHTTPRequestHandler):
-    # HTTP/1.0(既定): 各レスポンスで接続を閉じる。MJPEGストリームが最も安定
-    # (v3で1.1にしたらブラウザ側で映像が固まる回帰。1.0に戻す)
     def log_message(self, *a):
         pass
 
@@ -355,11 +436,9 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
-        elif self.path == "/stream":
+        elif self.path.startswith("/stream"):
             self.send_response(200)
-            self.send_header("Age", "0")
             self.send_header("Cache-Control", "no-cache, private")
-            self.send_header("Pragma", "no-cache")
             self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=FRAME")
             self.end_headers()
             try:
@@ -367,8 +446,7 @@ class Handler(BaseHTTPRequestHandler):
                     with lock:
                         jpg = state["jpeg"]
                     if jpg:
-                        self.wfile.write(b"--FRAME\r\n")
-                        self.wfile.write(b"Content-Type: image/jpeg\r\n")
+                        self.wfile.write(b"--FRAME\r\nContent-Type: image/jpeg\r\n")
                         self.wfile.write(("Content-Length: %d\r\n\r\n" % len(jpg)).encode())
                         self.wfile.write(jpg)
                         self.wfile.write(b"\r\n")
@@ -379,15 +457,14 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
             self.send_header("Cache-Control", "no-cache")
-            self.send_header("Connection", "keep-alive")
             self.end_headers()
             try:
                 while True:
                     with lock:
                         snap = {k: state[k] for k in
-                                ("level", "peak_hold", "partial", "finals",
-                                 "cam_ok", "audio_ok", "yolo_ok", "dets",
-                                 "speech", "speech_log", "eye_ok", "present")}
+                                ("level", "peak_hold", "partial", "finals", "cam_ok",
+                                 "audio_ok", "yolo_ok", "dets", "speech", "speech_log",
+                                 "eye_ok", "present", "speaking")}
                     self.wfile.write(("data: " + json.dumps(snap, ensure_ascii=False) + "\n\n").encode("utf-8"))
                     self.wfile.flush()
                     time.sleep(0.1)
@@ -395,7 +472,6 @@ class Handler(BaseHTTPRequestHandler):
                 pass
         else:
             self.send_response(404)
-            self.send_header("Content-Length", "0")
             self.end_headers()
 
 
@@ -403,5 +479,5 @@ if __name__ == "__main__":
     threading.Thread(target=camera_loop, daemon=True).start()
     threading.Thread(target=yolo_loop, daemon=True).start()
     threading.Thread(target=audio_loop, daemon=True).start()
-    print("コロ助モニタv2起動: http://0.0.0.0:%d/" % PORT)
+    print("コロ助モニタv4起動: http://0.0.0.0:%d/" % PORT)
     ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
