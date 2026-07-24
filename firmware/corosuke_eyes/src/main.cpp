@@ -37,6 +37,28 @@ static constexpr int PIN_CS_R = 14;
 static constexpr int PIN_U1RX = 18;   // RDK X5 TX ->
 static constexpr int PIN_U1TX = 17;   // RDK X5 RX <-
 
+// ---------- サーボ(腕ロープ引き, SG90) ----------
+static constexpr int PIN_ARM_L = 4;   // 左腕サーボ信号(USB非干渉GPIO)
+static constexpr int PIN_ARM_R = 5;   // 右腕サーボ信号
+static constexpr int LEDC_ARM_L = 4;  // LEDCチャンネル(表示はSPIなので空き)
+static constexpr int LEDC_ARM_R = 5;
+
+// 角度(0-180)→パルス0.5-2.5ms@50Hz(20ms)を16bit dutyで出力
+void servoWriteDeg(int ledc_ch, int deg) {
+  deg = constrain(deg, 0, 180);
+  int us = map(deg, 0, 180, 500, 2500);
+  uint32_t duty = (uint32_t)((uint64_t)us * 65535 / 20000);
+  ledcWrite(ledc_ch, duty);
+}
+void servoSetup() {
+  ledcSetup(LEDC_ARM_L, 50, 16);
+  ledcSetup(LEDC_ARM_R, 50, 16);
+  ledcAttachPin(PIN_ARM_L, LEDC_ARM_L);
+  ledcAttachPin(PIN_ARM_R, LEDC_ARM_R);
+  servoWriteDeg(LEDC_ARM_L, 90);   // 初期=中立
+  servoWriteDeg(LEDC_ARM_R, 90);
+}
+
 // ---------- LovyanGFX: 共有SPIバス + パネル2枚 ----------
 class EyeDisplay : public lgfx::LGFX_Device {
   lgfx::Bus_SPI _bus;
@@ -165,7 +187,16 @@ void handleLine(String line, Stream& reply) {
     return;
   }
   if (line.startsWith("idle")) { st.idle = line.endsWith("on"); return; }
-  reply.println("? emo/gaze/blink/wink/idle/ping");
+  if (line.startsWith("arm")) {           // "arm l 90" / "arm r 30" (角度0-180)
+    char side = 0; int deg = 90;
+    if (sscanf(line.c_str(), "arm %c %d", &side, &deg) == 2) {
+      if (side == 'l') servoWriteDeg(LEDC_ARM_L, deg);
+      else if (side == 'r') servoWriteDeg(LEDC_ARM_R, deg);
+      reply.printf("arm %c=%d\n", side, deg);
+    }
+    return;
+  }
+  reply.println("? emo/gaze/blink/wink/idle/arm/ping");
 }
 
 String bufUSB, bufU0, bufU1;
@@ -192,6 +223,9 @@ void setup() {
   spr.setPsram(true);                 // N16R8のPSRAMにフレームバッファ
   spr.createSprite(240, 240);
   Serial0.printf("[boot] sprite buf=%p psram=%u free\n", spr.getBuffer(), (unsigned)ESP.getFreePsram());
+
+  servoSetup();
+  Serial0.println("[boot] servo ready (arm L=GPIO4 R=GPIO5)");
 
   st.nextBlink = millis() + 2500;
   Serial.println("Korosuke eyes ready nari!");
