@@ -255,15 +255,26 @@ def arm_gesture(kind):
         return
 
     def _run():
-        if kind == "wave":                       # 手を振る(挨拶/振り返し)=両腕を振る
+        if kind == "wave":                       # 手を振る(挨拶)=両腕を振る
             for _ in range(3):
                 eyes.send(f"arm l {ARM_UP}"); eyes.send(f"arm r {ARM_UP}"); time.sleep(0.30)
                 eyes.send(f"arm l {ARM_UP - 45}"); eyes.send(f"arm r {ARM_UP - 45}"); time.sleep(0.30)
             eyes.send(f"arm l {ARM_REST}"); eyes.send(f"arm r {ARM_REST}")
+        elif kind in ("wave_l", "wave_r"):       # 片手で振り返す
+            s = kind[-1]
+            for _ in range(3):
+                eyes.send(f"arm {s} {ARM_UP}"); time.sleep(0.30)
+                eyes.send(f"arm {s} {ARM_UP - 45}"); time.sleep(0.30)
+            eyes.send(f"arm {s} {ARM_REST}")
         elif kind == "raise":                    # 両手バンザイ→戻す
             eyes.send(f"arm l {ARM_UP}"); eyes.send(f"arm r {ARM_UP}")
             time.sleep(1.6)
             eyes.send(f"arm l {ARM_REST}"); eyes.send(f"arm r {ARM_REST}")
+        elif kind in ("up_l", "up_r"):           # 片手だけ上げる→戻す
+            s = kind[-1]
+            eyes.send(f"arm {s} {ARM_UP}")
+            time.sleep(1.6)
+            eyes.send(f"arm {s} {ARM_REST}")
         elif kind == "droop":                    # 退室でしょんぼり下げ
             eyes.send(f"arm l {ARM_DROOP}"); eyes.send(f"arm r {ARM_DROOP}")
             time.sleep(2.0)
@@ -323,44 +334,51 @@ def greet_update(person_box, frame_w):
                 eyes.send("gaze 0 0")
 
 
-_gesture = {"last": 0.0, "hist": []}
+_gesture = {"last": 0.0, "hist": {"l": [], "r": []}}
 
 
 def detect_gesture(kxy, ksc, w):
-    """COCO17骨格から「手を上げた/振った」を判定して反応。手首を目で追う。"""
+    """COCO17骨格から「両手/片手あげ・片手振り」を判定して反応。手を目で追う。
+    人の左手首=kpt9→コロ助の左腕(l)、右手首=kpt10→右腕(r)に対応。"""
     now = time.time()
-
     kt = float(settings["kpt_thres"])
 
     def ok(i):
         return ksc[i] > kt
-    raised = None
-    for wrist, shoulder in ((9, 5), (10, 6)):     # 手首が肩より上(=y小)なら挙手
-        if ok(wrist) and ok(shoulder) and kxy[wrist][1] < kxy[shoulder][1]:
-            raised = kxy[wrist]
-            break
-    if raised is None:
-        _gesture["hist"].clear()
-        with lock:
-            state["gesture"] = ""
-        return
-    _gesture["hist"].append((now, float(raised[0])))
-    _gesture["hist"] = [(t, x) for (t, x) in _gesture["hist"] if now - t < 1.2]
-    xs = [x for (_, x) in _gesture["hist"]]
-    waving = len(xs) >= 4 and (max(xs) - min(xs)) > w * 0.06
+    left_up = ok(9) and ok(5) and kxy[9][1] < kxy[5][1]      # 左手首が左肩より上
+    right_up = ok(10) and ok(6) and kxy[10][1] < kxy[6][1]   # 右手首が右肩より上
+    for side, wrist, up in (("l", 9, left_up), ("r", 10, right_up)):
+        h = _gesture["hist"][side]
+        h.append((now, float(kxy[wrist][0]))) if up else h.clear()
+        _gesture["hist"][side] = [(t, x) for (t, x) in h if now - t < 1.2]
+
+    def waving(side):
+        xs = [x for (_, x) in _gesture["hist"][side]]
+        return len(xs) >= 4 and (max(xs) - min(xs)) > w * 0.06
+
     with lock:
-        state["gesture"] = "手を振ってる" if waving else "手を上げてる"
+        state["gesture"] = ("両手あげ" if left_up and right_up
+                            else "片手あげ" if left_up or right_up else "")
+    if not (left_up or right_up):
+        return
     if now - _gesture["last"] < float(settings["gesture_cd"]) or now < _speak_until[0] \
             or not _greet["present"]:
         return
     _gesture["last"] = now
-    gaze_x = max(-1.0, min(1.0, float(raised[0]) / w * 2.0 - 1.0))
-    if waving:
-        react("happy", "手を振ってるナリ！こんにちはナリ！", gaze=gaze_x, blink=True)
-        arm_gesture("wave")                       # 振り返す
-    else:
-        react("surprised", "お手々あげたナリ！どうしたナリ？", gaze=gaze_x, blink=True)
-        arm_gesture("raise")                      # つられてバンザイ
+
+    def gaze_of(side):
+        return max(-1.0, min(1.0, kxy[9 if side == "l" else 10][0] / w * 2.0 - 1.0))
+    if left_up and right_up:                                  # 両手あげ → バンザイ
+        react("happy", "バンザイ！うれしいナリ！", blink=True)
+        arm_gesture("raise")
+    elif waving("l") or waving("r"):                          # 片手振り → 同じ手で振り返す
+        s = "l" if waving("l") else "r"
+        react("happy", "手を振ってるナリ！こんにちはナリ！", gaze=gaze_of(s), blink=True)
+        arm_gesture("wave_" + s)
+    else:                                                     # 片手あげ → 同じ手を上げる
+        s = "l" if left_up else "r"
+        react("happy", "はーい、ナリ！", gaze=gaze_of(s), blink=True)
+        arm_gesture("up_" + s)
 
 
 def yolo_loop():
