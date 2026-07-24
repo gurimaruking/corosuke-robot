@@ -44,10 +44,11 @@ os.chdir(YOLO_DIR)   # デモの相対import解決のため(以降は全て絶�
 # ==== Webから変更できる実行時設定 ====
 settings = {
     "volume": 75,          # 音量 %(ES8326=amixer DAC / max98357a=ソフト音量)
-    "spk_dev": "duplexaudio",  # 出力先: duplexaudio(ES8326) / max98357a(I2Sアンプ40pin)
+    "spk_dev": "max98357a",  # 出力先: max98357a(I2Sアンプ40pin,φ50) / duplexaudio(ES8326)
     "dsp": True,           # max98357a時の小型SP最適化(HPF+圧縮+リミッタ)
     "hpf": 250,            # ハイパス周波数Hz(小型SPが出せない低域を除去しコーン保護)
-    "peak_ceil_db": -6.0,  # クリーン天井dBFS(実測。SP固定/交換で上げると大音量化)
+    "peak_ceil_db": -9.0,  # クリーン天井dBFS。φ50=WYGD50D(0.2W/max0.4W)保護で-9(≈0.2W)。
+                           # 高耐入力SPに替えたら上げると大音量化(φ28時は-6が実測天井)
     "mic_gain": 3.0,       # マイク感度(ソフト増幅倍率)。ハードゲインは起動時に最大化
     "oj_fm": 9,            # 声の高さ(Open JTalk -fm)。voice B=9
     "oj_a": 0.40,         # 声道長(小=子供っぽい)
@@ -738,15 +739,15 @@ img{width:100%;border-radius:6px;background:#000}
 <p id="partial"></p><div id="finals"></div></div>
 <div class="card full"><h2>⚙ 設定</h2>
 <div class="ctl">🔈 出力先 <select id="c_spk" onchange="set('spk_dev',this.value)">
-  <option value="duplexaudio">ES8326(既定/現行スピーカー)</option>
-  <option value="max98357a">MAX98357A(I2Sアンプ・40pin)</option></select></div>
+  <option value="max98357a" selected>MAX98357A(I2Sアンプ40pin・φ50)</option>
+  <option value="duplexaudio">ES8326(旧・大型SP)</option></select></div>
 <div class="ctl">🔊 音量 <input type="range" min="0" max="100" value="75" id="c_vol"
   oninput="lbl('l_vol',this.value);set('volume',this.value)"><span id="l_vol">75</span>%</div>
 <div class="ctl">🎛 小型SP最適化(MAX98357A時)
   <label><input type="checkbox" id="c_dsp" checked onchange="set('dsp',this.checked?1:0)"> HPF+圧縮+リミッタ</label>
-  クリーン上限<input type="range" min="-12" max="0" step="0.5" value="-6" id="c_ceil"
-   oninput="lbl('l_ceil',this.value);set('peak_ceil_db',this.value)"><span id="l_ceil">-6</span>dB
-  <small>(SPを箱/バッフルに固定したら上げると更に大音量)</small></div>
+  クリーン上限<input type="range" min="-12" max="0" step="0.5" value="-9" id="c_ceil"
+   oninput="lbl('l_ceil',this.value);set('peak_ceil_db',this.value)"><span id="l_ceil">-9</span>dB
+  <small>(φ50=0.2Wは-9で保護。高耐入力SP/箱固定で上げると大音量)</small></div>
 <div class="ctl">🎙 マイク感度 <input type="range" min="1" max="8" step="0.5" value="3" id="c_mic"
   oninput="lbl('l_mic',this.value);set('mic_gain',this.value)"><span id="l_mic">3</span>x</div>
 <div class="ctl">🎵 声の高さ <input type="range" min="0" max="15" value="9" id="c_fm"
