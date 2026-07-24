@@ -237,6 +237,28 @@ class Eyes:
 eyes = Eyes()
 _greet = {"present": False, "absent": 0, "idx": 0, "fidx": 0, "last_gaze": 0.0}
 
+# 腕サーボ(ESP32 GPIO4=左/5=右, "arm l/r <角度>")。ロープ引き=角度大で腕が上がる想定。
+ARM_REST, ARM_UP, ARM_DROOP = 90, 160, 60
+
+
+def arm_gesture(kind):
+    """腕をロープ引きで動かす(非ブロッキング)。ESP32未接続時はsendがno-op。"""
+    def _run():
+        if kind == "wave":                       # 手を振る(挨拶/振り返し)
+            for _ in range(3):
+                eyes.send(f"arm r {ARM_UP}"); time.sleep(0.28)
+                eyes.send(f"arm r {ARM_UP - 45}"); time.sleep(0.28)
+            eyes.send(f"arm r {ARM_REST}")
+        elif kind == "raise":                    # 両手バンザイ→戻す
+            eyes.send(f"arm l {ARM_UP}"); eyes.send(f"arm r {ARM_UP}")
+            time.sleep(1.6)
+            eyes.send(f"arm l {ARM_REST}"); eyes.send(f"arm r {ARM_REST}")
+        elif kind == "droop":                    # 退室でしょんぼり下げ
+            eyes.send(f"arm l {ARM_DROOP}"); eyes.send(f"arm r {ARM_DROOP}")
+            time.sleep(2.0)
+            eyes.send(f"arm l {ARM_REST}"); eyes.send(f"arm r {ARM_REST}")
+    threading.Thread(target=_run, daemon=True).start()
+
 
 def react(emotion, text, gaze=None, blink=True):
     """反応の共通処理: 目(表情+視線+まばたき)+ セリフ発声 + Web表示。"""
@@ -266,6 +288,7 @@ def greet_update(person_box, frame_w):
                 msg = GREETINGS[_greet["idx"] % len(GREETINGS)]
                 _greet["idx"] += 1
                 react("happy", msg, gaze=gaze_x, blink=True)
+                arm_gesture("wave")               # 入室=手を振って挨拶
             else:
                 eyes.send("emo happy")
                 eyes.send(f"gaze {gaze_x:.2f} 0")
@@ -283,6 +306,7 @@ def greet_update(person_box, frame_w):
                 msg = FAREWELLS[_greet["fidx"] % len(FAREWELLS)]
                 _greet["fidx"] += 1
                 react("sad", msg, gaze=0.0, blink=True)
+                arm_gesture("droop")              # 退室=腕を下げてしょんぼり
             else:
                 eyes.send("emo neutral")
                 eyes.send("gaze 0 0")
@@ -322,8 +346,10 @@ def detect_gesture(kxy, ksc, w):
     gaze_x = max(-1.0, min(1.0, float(raised[0]) / w * 2.0 - 1.0))
     if waving:
         react("happy", "手を振ってるナリ！こんにちはナリ！", gaze=gaze_x, blink=True)
+        arm_gesture("wave")                       # 振り返す
     else:
         react("surprised", "お手々あげたナリ！どうしたナリ？", gaze=gaze_x, blink=True)
+        arm_gesture("raise")                      # つられてバンザイ
 
 
 def yolo_loop():
