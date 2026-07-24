@@ -214,10 +214,13 @@ class Eyes:
         self._ser = None
 
     def _ensure(self):
-        if self._ser or serial is None or not os.path.exists(EYE_DEV):
+        if self._ser or serial is None:
+            return
+        ports = sorted(glob.glob("/dev/ttyACM*") + glob.glob("/dev/ttyUSB*"))  # 番号自動検出
+        if not ports:
             return
         try:
-            self._ser = serial.Serial(EYE_DEV, 115200, timeout=0.3)
+            self._ser = serial.Serial(ports[0], 115200, timeout=0.3)
             time.sleep(0.3)
             with lock:
                 state["eye_ok"] = True
