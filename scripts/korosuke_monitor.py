@@ -50,6 +50,7 @@ settings = {
     "react_greet": True,   # 入退室で挨拶する
     "react_speech": True,  # 話しかけに反応する
     "use_llm": True,       # キーワードに無い発話をローカルLLMで返答
+    "use_arm": True,       # 挨拶/ジェスチャで腕サーボを自動で動かす(調整中はOFF)
     # --- 認識の閾値(Webで調整可) ---
     "pose_score": 0.40,    # 人物検出の信頼度しきい値
     "kpt_thres": 0.40,     # 骨格キーポイントの信頼度しきい値(ジェスチャ判定)
@@ -246,7 +247,10 @@ ARM_REST, ARM_UP, ARM_DROOP = 90, 160, 60
 
 
 def arm_gesture(kind):
-    """腕をロープ引きで動かす(非ブロッキング)。ESP32未接続時はsendがno-op。"""
+    """腕をロープ引きで動かす(非ブロッキング)。use_arm=Offなら動かさない(調整中用)。"""
+    if not settings["use_arm"]:
+        return
+
     def _run():
         if kind == "wave":                       # 手を振る(挨拶/振り返し)
             for _ in range(3):
@@ -616,7 +620,8 @@ img{width:100%;border-radius:6px;background:#000}
 <div class="ctl">🔁 反応
   <label><input type="checkbox" id="c_g" checked onchange="set('react_greet',this.checked?1:0)"> 入退室で挨拶</label>
   <label><input type="checkbox" id="c_s" checked onchange="set('react_speech',this.checked?1:0)"> 話しかけに反応</label>
-  <label><input type="checkbox" id="c_llm" checked onchange="set('use_llm',this.checked?1:0)"> LLM会話 <span id="llmst"></span></label></div>
+  <label><input type="checkbox" id="c_llm" checked onchange="set('use_llm',this.checked?1:0)"> LLM会話 <span id="llmst"></span></label>
+  <label><input type="checkbox" id="c_arm" checked onchange="set('use_arm',this.checked?1:0)"> 腕を自動で動かす(調整中はOFF)</label></div>
 <div class="ctl" style="border-top:1px solid #0f3460;padding-top:8px">🔍 認識状態:
   <b id="reco">—</b></div>
 <div class="ctl">👤 人物検出しきい値 <input type="range" min="0.1" max="0.9" step="0.05" value="0.40" id="c_ps"
@@ -724,7 +729,7 @@ class Handler(BaseHTTPRequestHandler):
                         settings[k] = float(val)
                     except ValueError:
                         pass
-                elif k in ("react_greet", "react_speech", "use_llm"):
+                elif k in ("react_greet", "react_speech", "use_llm", "use_arm"):
                     settings[k] = val in ("1", "true", "on")
             self._json_ok()
             return
