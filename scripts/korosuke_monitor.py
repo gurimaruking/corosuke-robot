@@ -465,16 +465,19 @@ def yolo_loop():
             h, w = frame.shape[:2]
             out = y.forward(y.pre_process(frame))
             ids, scores, boxes, kpts_xy, kpts_score = y.post_process(out, h, w)
-            dets = [("person", float(s), [int(v) for v in b]) for s, b in zip(scores, boxes)]
-            # 最大の人物を選ぶ
+            # 一番大きい人物「一人だけ」を対象にする(複数人は無視)
             best_i, best_area = -1, 0
             for i, b in enumerate(boxes):
                 a = (b[2] - b[0]) * (b[3] - b[1])
                 if a > best_area:
                     best_area, best_i = a, i
-            best_box = [int(v) for v in boxes[best_i]] if best_i >= 0 else None
-            kpts_draw = [(int(x), int(yv), float(sc))
-                         for (x, yv), sc in zip(kpts_xy[best_i], kpts_score[best_i])] if best_i >= 0 else []
+            if best_i >= 0:
+                best_box = [int(v) for v in boxes[best_i]]
+                dets = [("person", float(scores[best_i]), best_box)]
+                kpts_draw = [(int(x), int(yv), float(sc))
+                             for (x, yv), sc in zip(kpts_xy[best_i], kpts_score[best_i])]
+            else:
+                best_box, dets, kpts_draw = None, [], []
             with lock:
                 state["dets"] = dets
                 state["kpts"] = kpts_draw
