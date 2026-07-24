@@ -252,11 +252,11 @@ def arm_gesture(kind):
         return
 
     def _run():
-        if kind == "wave":                       # 手を振る(挨拶/振り返し)
+        if kind == "wave":                       # 手を振る(挨拶/振り返し)=両腕を振る
             for _ in range(3):
-                eyes.send(f"arm r {ARM_UP}"); time.sleep(0.28)
-                eyes.send(f"arm r {ARM_UP - 45}"); time.sleep(0.28)
-            eyes.send(f"arm r {ARM_REST}")
+                eyes.send(f"arm l {ARM_UP}"); eyes.send(f"arm r {ARM_UP}"); time.sleep(0.30)
+                eyes.send(f"arm l {ARM_UP - 45}"); eyes.send(f"arm r {ARM_UP - 45}"); time.sleep(0.30)
+            eyes.send(f"arm l {ARM_REST}"); eyes.send(f"arm r {ARM_REST}")
         elif kind == "raise":                    # 両手バンザイ→戻す
             eyes.send(f"arm l {ARM_UP}"); eyes.send(f"arm r {ARM_UP}")
             time.sleep(1.6)
