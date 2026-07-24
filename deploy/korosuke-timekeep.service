@@ -1,0 +1,13 @@
+[Unit]
+Description=Korosuke RTC-less timekeeping (restore saved time on boot, save on stop)
+After=local-fs.target
+Before=korosuke-monitor.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/korosuke-timekeep.sh restore
+ExecStop=/usr/local/bin/korosuke-timekeep.sh save
+
+[Install]
+WantedBy=multi-user.target

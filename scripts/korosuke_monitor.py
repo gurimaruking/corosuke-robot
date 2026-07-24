@@ -16,9 +16,42 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import cv2
 
+try:
+    import serial   # pyserial (目ESP32-S3制御用)
+except ImportError:
+    serial = None
+
+import subprocess
+
 PORT = 8080
 YOLO_DIR = "/app/pydev_demo/02_detection_sample/02_ultralytics_yolo11"
+EYE_DEV = "/dev/ttyACM0"          # 目コプロセッサ(ESP32-S3)
+SPK_DEV = "plughw:duplexaudio,0"  # スピーカー(ES8326、名前指定=再起動耐性)
+VOICE_DIR = "/home/sunrise/corosuke/scripts/voices"   # 事前生成した挨拶WAV g0..g3
 os.chdir(YOLO_DIR)   # デモの相対import解決のため(以降は全て絶対パス使用)
+
+
+def speak_wav(idx):
+    """挨拶WAVをスピーカーで再生(非ブロッキング)。TTS未導入なので当面は事前生成音声。"""
+    path = os.path.join(VOICE_DIR, f"g{idx}.wav")
+    if not os.path.exists(path):
+        return
+
+    def _play():
+        try:
+            subprocess.run(["aplay", "-D", SPK_DEV, path],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
+        except Exception:  # noqa
+            pass
+    threading.Thread(target=_play, daemon=True).start()
+
+# 「〜ナリ」定型挨拶(M-C=ローカルLLM導入時に置換予定)。出現ごとに巡回。
+GREETINGS = [
+    "だれか来たナリ！こんにちはナリ！",
+    "やあ、ワガハイはコロ助ナリ！",
+    "会えて嬉しいナリ〜！",
+    "おっ、人が来たナリ！ようこそナリ！",
+]
 
 state = {
     "jpeg": None, "cam_ok": False,
@@ -26,6 +59,7 @@ state = {
     "raw": None,
     "level": 0.0, "peak_hold": 0.0, "audio_ok": False,
     "partial": "", "finals": [],
+    "speech": "", "speech_log": [], "eye_ok": False, "present": False,
 }
 lock = threading.Lock()
 
@@ -58,6 +92,75 @@ def camera_loop():
                 state["jpeg"] = buf.tobytes()
                 state["cam_ok"] = True
         time.sleep(0.03)
+
+
+# ============ 目(ESP32-S3)制御 + 気づいて挨拶 ============
+class Eyes:
+    def __init__(self):
+        self._ser = None
+
+    def _ensure(self):
+        if self._ser or serial is None or not os.path.exists(EYE_DEV):
+            return
+        try:
+            self._ser = serial.Serial(EYE_DEV, 115200, timeout=0.3)
+            time.sleep(0.3)
+            with lock:
+                state["eye_ok"] = True
+        except Exception:  # noqa
+            self._ser = None
+
+    def send(self, line):
+        self._ensure()
+        if not self._ser:
+            return
+        try:
+            self._ser.write((line + "\n").encode("ascii", "ignore"))
+        except Exception:  # noqa
+            try:
+                self._ser.close()
+            finally:
+                self._ser = None
+                with lock:
+                    state["eye_ok"] = False
+
+
+eyes = Eyes()
+_greet = {"present": False, "absent": 0, "idx": 0, "last_gaze": 0.0}
+
+
+def greet_update(person_box, frame_w):
+    """人の出現/追従に応じて目を動かし、新規出現時に1回だけ挨拶する(brain_node相当)。"""
+    if person_box is not None:
+        x1, _, x2, _ = person_box
+        cx = (x1 + x2) / 2.0
+        gaze_x = max(-1.0, min(1.0, cx / frame_w * 2.0 - 1.0))
+        _greet["absent"] = 0
+        if not _greet["present"]:
+            _greet["present"] = True
+            gi = _greet["idx"] % len(GREETINGS)
+            msg = GREETINGS[gi]
+            _greet["idx"] += 1
+            eyes.send("emo happy")
+            eyes.send(f"gaze {gaze_x:.2f} 0")
+            eyes.send("blink")
+            speak_wav(gi)                       # スピーカーで挨拶を発声
+            with lock:
+                state["present"] = True
+                state["speech"] = msg
+                state["speech_log"] = ([time.strftime("%H:%M:%S ") + msg]
+                                       + state["speech_log"])[:8]
+        elif abs(gaze_x - _greet["last_gaze"]) > 0.15:   # 追従(過剰送信を抑制)
+            eyes.send(f"gaze {gaze_x:.2f} 0")
+            _greet["last_gaze"] = gaze_x
+    else:
+        _greet["absent"] += 1
+        if _greet["present"] and _greet["absent"] >= 15:   # ~3秒不在で解除
+            _greet["present"] = False
+            eyes.send("emo neutral")
+            eyes.send("gaze 0 0")
+            with lock:
+                state["present"] = False
 
 
 def yolo_loop():
@@ -95,6 +198,11 @@ def yolo_loop():
                     for b, c, s in zip(boxes, cls, sc)]
             with lock:
                 state["dets"] = dets
+            # 最大の人物boxを選び、気づいて挨拶+目で追従
+            persons = [(b, (b[2] - b[0]) * (b[3] - b[1]))
+                       for b, c in zip(boxes, cls) if int(c) == 0]
+            best = max(persons, key=lambda p: p[1])[0] if persons else None
+            greet_update(best, w)
         except Exception as e:  # noqa
             print("[yolo] 推論エラー:", e)
         time.sleep(0.2)   # ~4-5fps(BPUは余裕、CPU描画とのバランス)
@@ -188,11 +296,17 @@ img{width:100%;border-radius:6px;background:#000}
 #dets{color:#8fd;font-size:.85rem;min-height:1.2em}
 #finals div{border-bottom:1px solid #0f3460;padding:3px 0}
 .ok{color:#4ecca3}.ng{color:#ff2e63}
+#speech{background:#0f3460;border-radius:8px;padding:14px;font-size:1.4rem;color:#ffe08a;min-height:1.6em}
+#speechlog{margin-top:8px;font-size:.85rem;color:#9bb}
+#speechlog div{padding:2px 0}
+.full{flex-basis:100%}
 </style></head><body>
 <h1>🤖 コロ助モニタ <small id="st"></small></h1>
 <div class="grid">
+<div class="card full"><h2>🗣 コロ助のセリフ (<span id="eyest">…</span>)</h2>
+<div id="speech">…</div><div id="speechlog"></div></div>
 <div class="card"><h2>👁 カメラ+検知 (<span id="camst">…</span>)</h2>
-<img src="/stream" alt="camera"><div id="dets"></div></div>
+<img id="cam" src="/stream" alt="camera"><div id="dets"></div></div>
 <div class="card"><h2>🎙 マイク (<span id="micst">…</span>)</h2>
 <div class="meterbox"><div id="meter"></div><div id="peak"></div></div>
 <p>レベル: <span id="lv">0</span> %FS</p>
@@ -210,18 +324,26 @@ es.onmessage = e => {
   document.getElementById('dets').textContent = d.dets.length
       ? '検知: ' + d.dets.map(x => x[0]+'('+x[1].toFixed(2)+')').join(', ') : '';
   document.getElementById('finals').innerHTML = d.finals.map(t => '<div>' + t + '</div>').join('');
+  document.getElementById('speech').textContent = d.speech || '(まだ何も話してないナリ)';
+  document.getElementById('speechlog').innerHTML = d.speech_log.map(t => '<div>' + t + '</div>').join('');
+  document.getElementById('eyest').innerHTML = d.eye_ok
+      ? (d.present ? '<span class=ok>人を発見！</span>' : '<span class=ok>目：待機</span>')
+      : '<span class=ng>目未接続</span>';
   document.getElementById('camst').innerHTML = d.cam_ok
       ? '<span class=ok>稼働' + (d.yolo_ok ? '+YOLO' : '') + '</span>' : '<span class=ng>停止</span>';
   document.getElementById('micst').innerHTML = d.audio_ok ? '<span class=ok>稼働中</span>' : '<span class=ng>停止</span>';
 };
 es.onerror = () => { document.getElementById('st').textContent = '(切断 — 再接続中…)'; };
 es.onopen = () => { document.getElementById('st').textContent = ''; };
+// MJPEGストリームが切れたら自動再接続(imgはEventSourceと違い自動復帰しないため)
+const cam = document.getElementById('cam');
+cam.onerror = () => { setTimeout(() => { cam.src = '/stream?' + Date.now(); }, 1000); };
 </script></body></html>"""
 
 
 class Handler(BaseHTTPRequestHandler):
-    protocol_version = "HTTP/1.1"
-
+    # HTTP/1.0(既定): 各レスポンスで接続を閉じる。MJPEGストリームが最も安定
+    # (v3で1.1にしたらブラウザ側で映像が固まる回帰。1.0に戻す)
     def log_message(self, *a):
         pass
 
@@ -264,7 +386,8 @@ class Handler(BaseHTTPRequestHandler):
                     with lock:
                         snap = {k: state[k] for k in
                                 ("level", "peak_hold", "partial", "finals",
-                                 "cam_ok", "audio_ok", "yolo_ok", "dets")}
+                                 "cam_ok", "audio_ok", "yolo_ok", "dets",
+                                 "speech", "speech_log", "eye_ok", "present")}
                     self.wfile.write(("data: " + json.dumps(snap, ensure_ascii=False) + "\n\n").encode("utf-8"))
                     self.wfile.flush()
                     time.sleep(0.1)

@@ -1,0 +1,20 @@
+[Unit]
+Description=Korosuke Web Monitor (camera+YOLO person greet, mic+sherpa STT, eyes)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sunrise
+Group=sunrise
+WorkingDirectory=/home/sunrise/corosuke/scripts
+Environment=HOME=/home/sunrise
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /home/sunrise/corosuke/scripts/korosuke_monitor.py
+Restart=always
+RestartSec=5
+# カメラ/BPU/音声デバイスが起動直後に未準備でも自己リトライするため寛容に
+StartLimitIntervalSec=0
+
+[Install]
+WantedBy=multi-user.target

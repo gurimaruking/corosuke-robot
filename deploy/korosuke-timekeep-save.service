@@ -1,0 +1,6 @@
+[Unit]
+Description=Save wall clock now
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/korosuke-timekeep.sh save
