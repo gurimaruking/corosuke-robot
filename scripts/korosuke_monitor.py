@@ -571,17 +571,20 @@ img{width:100%;border-radius:6px;background:#000}
 <div class="ctl" style="border-top:1px solid #0f3460;padding-top:8px">💪 腕(両方)
   <button onclick="armdo('wave')">👋手を振る</button>
   <button onclick="armdo('raise')">🙌バンザイ</button>
-  <button onclick="armdo('droop')">😔下げる</button></div>
+  <button onclick="armdo('droop')">😔下げる</button>
+  <button onclick="fetch('/arm?off=both')">🪫脱力(PWM OFF)</button></div>
 <div class="ctl">🫲 左腕のみ
   <button onclick="fetch('/arm?l=160')">上げ</button>
   <button onclick="fetch('/arm?l=90')">中立</button>
   <button onclick="fetch('/arm?l=60')">下げ</button>
+  <button onclick="fetch('/arm?off=l')">🪫脱力</button>
   <input type="range" min="0" max="180" value="90" id="c_al"
    oninput="lbl('l_al',this.value);fetch('/arm?l='+this.value)"><span id="l_al">90</span>°</div>
 <div class="ctl">🫱 右腕のみ
   <button onclick="fetch('/arm?r=160')">上げ</button>
   <button onclick="fetch('/arm?r=90')">中立</button>
   <button onclick="fetch('/arm?r=60')">下げ</button>
+  <button onclick="fetch('/arm?off=r')">🪫脱力</button>
   <input type="range" min="0" max="180" value="90" id="c_ar"
    oninput="lbl('l_ar',this.value);fetch('/arm?r='+this.value)"><span id="l_ar">90</span>°</div>
 <div class="ctl">👁 目テスト
@@ -692,6 +695,12 @@ class Handler(BaseHTTPRequestHandler):
                 eyes.send("arm r " + q["r"][0])
             if "do" in q:
                 arm_gesture(q["do"][0])            # wave/raise/droop
+            if "off" in q:                          # 脱力(省電流): l / r / both
+                v = q["off"][0]
+                if v in ("l", "both"):
+                    eyes.send("arm l off")
+                if v in ("r", "both"):
+                    eyes.send("arm r off")
             self._json_ok()
             return
         if self.path == "/":
