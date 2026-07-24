@@ -825,6 +825,8 @@ img{width:100%;border-radius:6px;background:#000}
   oninput="lbl('l_r',this.value);set('oj_r',this.value)"><span id="l_r">1.12</span></div>
 <div class="ctl">🗣 テスト発声 <input type="text" id="c_say" value="ワガハイはコロ助ナリ！" size="24">
   <button onclick="say()">喋る</button></div>
+<div class="ctl">🤖 LLM対話テスト <input type="text" id="c_llmq" value="今日の調子はどう？" size="20">
+  <button onclick="llmsay()">LLMに聞く</button> <small>(CPU推論5〜10秒。応答は上の吹き出しに)</small></div>
 <div class="ctl">🔁 反応
   <label><input type="checkbox" id="c_g" checked onchange="set('react_greet',this.checked?1:0)"> 入退室で挨拶</label>
   <label><input type="checkbox" id="c_s" checked onchange="set('react_speech',this.checked?1:0)"> 話しかけに反応</label>
@@ -872,6 +874,7 @@ img{width:100%;border-radius:6px;background:#000}
 function set(k,v){ fetch('/set?'+k+'='+encodeURIComponent(v)); }
 function lbl(id,v){ document.getElementById(id).textContent=v; }
 function say(){ fetch('/say?text='+encodeURIComponent(document.getElementById('c_say').value)); }
+function llmsay(){ fetch('/llm?text='+encodeURIComponent(document.getElementById('c_llmq').value)); }
 function eye(k,v){ fetch('/eye?'+k+'='+encodeURIComponent(v)); }
 function armdo(v){ fetch('/arm?do='+v); }
 const es = new EventSource('/events');
@@ -955,6 +958,13 @@ class Handler(BaseHTTPRequestHandler):
                 with lock:
                     state["speech"] = txt
                     state["speech_log"] = ([time.strftime("%H:%M:%S ") + txt] + state["speech_log"])[:8]
+            self._json_ok()
+            return
+        if self.path.startswith("/llm?"):          # Webから直接LLM対話テスト
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            txt = (q.get("text") or [""])[0].strip()
+            if txt and _llm["ready"] and not _llm["busy"]:
+                threading.Thread(target=llm_respond, args=(txt,), daemon=True).start()
             self._json_ok()
             return
         if self.path.startswith("/eye?"):
