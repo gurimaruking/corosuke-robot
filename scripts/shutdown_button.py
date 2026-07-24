@@ -18,13 +18,17 @@ MON = "http://127.0.0.1:8080"
 
 
 def notify_shutdown():
-    """モニタ経由で『おやすみ』を音声+Web吹き出し+眠い目に(ベストエフォート)。"""
-    for url in (MON + "/eye?emo=sleepy",
-                MON + "/say?text=" + urllib.parse.quote(BYE)):
-        try:
-            urllib.request.urlopen(url, timeout=3).read()
-        except Exception:  # noqa: モニタ停止中でも終了は続行
-            pass
+    """モニタ経由で 眠い目 + 『おやすみ』音声(再生完了まで同期) + Web吹き出し。
+    sync=1 でモニタ側が再生完了までブロックして返すので、shutdownで途中切れしない。"""
+    try:
+        urllib.request.urlopen(MON + "/eye?emo=sleepy", timeout=3).read()
+    except Exception:  # noqa
+        pass
+    try:
+        urllib.request.urlopen(
+            MON + "/say?text=" + urllib.parse.quote(BYE) + "&sync=1", timeout=20).read()
+    except Exception:  # noqa: モニタ停止中でも終了は続行
+        pass
 
 
 def mark_off():
@@ -47,8 +51,7 @@ try:
                 time.sleep(POLL)
                 held += POLL
             if held >= HOLD - 1e-6:         # 長押し確定 → 安全終了
-                notify_shutdown()           # 眠い目+「おやすみナリ」音声+Web
-                time.sleep(6)               # 発話再生を待つ
+                notify_shutdown()           # 眠い目+「おやすみナリ」音声(再生完了まで同期)+Web
                 mark_off()                  # ✕✕の目(電源OFF可の合図)
                 time.sleep(1)               # ✕コマンドが目に届くのを待つ
                 subprocess.run(["shutdown", "-h", "now"])

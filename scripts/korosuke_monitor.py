@@ -225,8 +225,9 @@ def _playback(wav):
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
 
 
-def speak(text):
-    """Open JTalkで動的合成→スピーカー再生(非ブロッキング)。発話中フラグで自己反応を抑止。"""
+def speak(text, block=False):
+    """Open JTalkで動的合成→スピーカー再生。発話中フラグで自己反応を抑止。
+    block=True で再生完了まで同期(シャットダウン時など、確実に鳴らしてから次へ進む用)。"""
     def _run():
         try:
             wav = "/tmp/koro_say.wav"
@@ -254,12 +255,27 @@ def speak(text):
         finally:
             with lock:
                 state["speaking"] = False
-    threading.Thread(target=_run, daemon=True).start()
+    if block:
+        _run()                                   # 同期(再生完了まで待つ)
+    else:
+        threading.Thread(target=_run, daemon=True).start()
+
+
+def _is_usb_video(i):
+    """videoN が USBカメラ(UVC)ノードか判定。RDK内部のISP/codecノードを避けるため。"""
+    try:
+        return "usb" in os.path.realpath(
+            "/sys/class/video4linux/video%d/device" % i).lower()
+    except Exception:  # noqa
+        return False
 
 
 def open_camera():
     """開けてフレームが読める最初の /dev/videoN を開いて返す。
-    カメラ交換で番号が変わっても(0→1等)追従。メタデータnodeはread失敗で自動スキップ。"""
+    - USBカメラ(UVC)ノードを優先 → コールドブート時にRDK内部の映像ノードを誤って掴むのを防ぐ
+    - 実際にフレームが読めるノードだけ採用(メタデータ/内部ノードはread失敗で自動スキップ)
+    - カメラ交換で番号が変わっても(0→1等)追従。
+    """
     import glob
     cands = []
     for p in sorted(glob.glob("/dev/video*")):
@@ -267,14 +283,18 @@ def open_camera():
             cands.append(int(p[len("/dev/video"):]))
         except ValueError:
             pass
-    for i in (cands or [0, 1, 2, 3]):
+    if not cands:
+        cands = [0, 1, 2, 3]
+    cands.sort(key=lambda i: (0 if _is_usb_video(i) else 1, i))   # USBカメラ優先
+    for i in cands:
         cap = cv2.VideoCapture(i, cv2.CAP_V4L2)
         if cap.isOpened():
             cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-            ok, _ = cap.read()
-            if ok:
+            ok, frame = cap.read()
+            if ok and frame is not None and getattr(frame, "size", 0) > 0:
+                print("[camera] using /dev/video%d (usb=%s)" % (i, _is_usb_video(i)))
                 return cap
         cap.release()
     return None
@@ -477,6 +497,15 @@ def event_speech(context, canned, emotion="happy", gaze=None, arm=None):
             state["speech_log"] = ([time.strftime("%H:%M:%S ") + msg] + state["speech_log"])[:8]
 
 
+def _settle_neutral():
+    """別れの後、待機中は sad(眠そう/悲しげ)のまま放置せず、数秒後に穏やかな neutral に戻す。
+    (退室→戻ってきても眠そうに見える問題の対策)"""
+    time.sleep(5)
+    if not _greet["present"]:
+        eyes.send("emo neutral")
+        eyes.send("gaze 0 0")
+
+
 def greet_update(person_box, frame_w):
     """人の出現/追従に応じ目を動かし、新規出現時に1回だけ挨拶。"""
     if person_box is not None:
@@ -505,6 +534,7 @@ def greet_update(person_box, frame_w):
             if settings["react_greet"]:
                 event_speech("目の前にいた人が去っていく。名残惜しそうに短く一言。",
                              FAREWELLS, "sad", 0.0, "droop")
+                threading.Thread(target=_settle_neutral, daemon=True).start()  # 待機はneutralへ
             else:
                 eyes.send("emo neutral")
                 eyes.send("gaze 0 0")
@@ -1033,10 +1063,10 @@ class Handler(BaseHTTPRequestHandler):
             q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
             txt = (q.get("text") or [""])[0].strip()
             if txt:
-                speak(txt)
                 with lock:
                     state["speech"] = txt
                     state["speech_log"] = ([time.strftime("%H:%M:%S ") + txt] + state["speech_log"])[:8]
+                speak(txt, block=("sync" in q))   # sync時は再生完了までブロック(シャットダウン用)
             self._json_ok()
             return
         if self.path.startswith("/llm?"):          # Webから直接LLM対話テスト
@@ -1136,6 +1166,26 @@ def touch_loop():
             time.sleep(0.3)
 
 
+BOOT_LINES = [
+    "おはようナリ！コロ助、起きたナリ！",
+    "むくっ…おはようナリ！今日も元気にがんばるナリ！",
+    "やっほー！コロ助、起動したナリ！",
+    "おはようナリ〜！さあ、はじめるナリ！",
+]
+
+
+def boot_greet():
+    """起動時のあいさつ(目/スピーカーの準備を待ってから1回だけ)。"""
+    time.sleep(8)                                        # 目の接続+音声準備を待つ
+    line = BOOT_LINES[int(time.time()) % len(BOOT_LINES)]
+    react("happy", line, blink=True)                     # にっこり+発声+Web表示
+    if settings.get("use_arm", True):
+        try:
+            arm_gesture("wave")                          # 手を振ってごあいさつ
+        except Exception:  # noqa
+            pass
+
+
 if __name__ == "__main__":
     apply_volume(settings["volume"])
     apply_mic_hw_gain()
@@ -1144,5 +1194,6 @@ if __name__ == "__main__":
     threading.Thread(target=camera_loop, daemon=True).start()
     threading.Thread(target=yolo_loop, daemon=True).start()
     threading.Thread(target=audio_loop, daemon=True).start()
+    threading.Thread(target=boot_greet, daemon=True).start()  # 起動あいさつ「おはよう」
     print("コロ助モニタv4起動: http://0.0.0.0:%d/" % PORT)
     ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
