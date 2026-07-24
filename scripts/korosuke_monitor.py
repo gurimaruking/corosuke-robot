@@ -568,14 +568,22 @@ img{width:100%;border-radius:6px;background:#000}
   oninput="lbl('l_kt',this.value);set('kpt_thres',this.value)"><span id="l_kt">0.40</span></div>
 <div class="ctl">⏱ ジェスチャ間隔 <input type="range" min="1" max="15" step="1" value="5" id="c_gcd"
   oninput="lbl('l_gcd',this.value);set('gesture_cd',this.value)"><span id="l_gcd">5</span>秒</div>
-<div class="ctl" style="border-top:1px solid #0f3460;padding-top:8px">💪 腕テスト(サーボ)
+<div class="ctl" style="border-top:1px solid #0f3460;padding-top:8px">💪 腕(両方)
   <button onclick="armdo('wave')">👋手を振る</button>
   <button onclick="armdo('raise')">🙌バンザイ</button>
   <button onclick="armdo('droop')">😔下げる</button></div>
-<div class="ctl">左腕 <input type="range" min="0" max="180" value="90" id="c_al"
-  oninput="lbl('l_al',this.value);fetch('/arm?l='+this.value)"><span id="l_al">90</span>°</div>
-<div class="ctl">右腕 <input type="range" min="0" max="180" value="90" id="c_ar"
-  oninput="lbl('l_ar',this.value);fetch('/arm?r='+this.value)"><span id="l_ar">90</span>°</div>
+<div class="ctl">🫲 左腕のみ
+  <button onclick="fetch('/arm?l=160')">上げ</button>
+  <button onclick="fetch('/arm?l=90')">中立</button>
+  <button onclick="fetch('/arm?l=60')">下げ</button>
+  <input type="range" min="0" max="180" value="90" id="c_al"
+   oninput="lbl('l_al',this.value);fetch('/arm?l='+this.value)"><span id="l_al">90</span>°</div>
+<div class="ctl">🫱 右腕のみ
+  <button onclick="fetch('/arm?r=160')">上げ</button>
+  <button onclick="fetch('/arm?r=90')">中立</button>
+  <button onclick="fetch('/arm?r=60')">下げ</button>
+  <input type="range" min="0" max="180" value="90" id="c_ar"
+   oninput="lbl('l_ar',this.value);fetch('/arm?r='+this.value)"><span id="l_ar">90</span>°</div>
 <div class="ctl">👁 目テスト
   <button onclick="eye('emo','happy')">😊</button>
   <button onclick="eye('emo','sad')">😢</button>

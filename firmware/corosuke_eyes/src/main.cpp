@@ -45,13 +45,24 @@ static constexpr int LEDC_ARM_R = 5;
 
 // ESP32-S3のLEDC最大分解能は14bit(16bit指定はledcSetupが失敗しPWMが出ない!)
 static constexpr int SERVO_RES = 14;             // 14bit -> 20ms周期=16384カウント
-// 角度(0-180)→パルス0.5-2.5ms@50Hz(20ms)をdutyで出力
+static uint32_t armDetachAt[2] = {0, 0};         // 0=脱力不要, else=脱力するmillis
+static const uint32_t ARM_HOLD_MS = 700;         // 移動後この時間で脱力(省電流化)
+static int armIdx(int ledc_ch) { return (ledc_ch == LEDC_ARM_L) ? 0 : 1; }
+// 角度(0-180)→パルス0.5-2.5ms@50Hz(20ms)をdutyで出力。移動後は保持タイマ更新。
 void servoWriteDeg(int ledc_ch, int deg) {
   deg = constrain(deg, 0, 180);
   int us = map(deg, 0, 180, 500, 2500);
   uint32_t maxd = (1UL << SERVO_RES);            // 16384
   uint32_t duty = (uint32_t)((uint64_t)us * maxd / 20000);
   ledcWrite(ledc_ch, duty);
+  armDetachAt[armIdx(ledc_ch)] = millis() + ARM_HOLD_MS;
+}
+void servoDetach(int ledc_ch) { ledcWrite(ledc_ch, 0); }   // パルス停止=脱力=待機電流ほぼ0
+// loop()から呼ぶ: 保持時間経過で自動脱力
+void armUpdate() {
+  uint32_t now = millis();
+  if (armDetachAt[0] && now > armDetachAt[0]) { servoDetach(LEDC_ARM_L); armDetachAt[0] = 0; }
+  if (armDetachAt[1] && now > armDetachAt[1]) { servoDetach(LEDC_ARM_R); armDetachAt[1] = 0; }
 }
 void servoSetup() {
   double fL = ledcSetup(LEDC_ARM_L, 50, SERVO_RES);
@@ -191,9 +202,13 @@ void handleLine(String line, Stream& reply) {
     return;
   }
   if (line.startsWith("idle")) { st.idle = line.endsWith("on"); return; }
-  if (line.startsWith("arm")) {           // "arm l 90" / "arm r 30" (角度0-180)
+  if (line.startsWith("arm")) {           // "arm l 90"/"arm r 30"(角度) / "arm l off"(脱力)
     char side = 0; int deg = 90;
-    if (sscanf(line.c_str(), "arm %c %d", &side, &deg) == 2) {
+    if (line.indexOf("off") >= 0) {       // 明示脱力(省電流)
+      if (line.indexOf('l') >= 0) servoDetach(LEDC_ARM_L);
+      if (line.indexOf('r') >= 0) servoDetach(LEDC_ARM_R);
+      reply.println("arm off");
+    } else if (sscanf(line.c_str(), "arm %c %d", &side, &deg) == 2) {
       if (side == 'l') servoWriteDeg(LEDC_ARM_L, deg);
       else if (side == 'r') servoWriteDeg(LEDC_ARM_R, deg);
       reply.printf("arm %c=%d\n", side, deg);
@@ -241,6 +256,7 @@ void loop() {
   pollStream(Serial, bufUSB);
   pollStream(Serial0, bufU0);   // CH343側からもコマンド可(診断用)
   pollStream(Serial1, bufU1);
+  armUpdate();                  // サーボ保持時間経過で自動脱力(省電流)
 
   // まばたきアニメ(閉じ120ms→開き120ms)
   if (st.blinking) {
