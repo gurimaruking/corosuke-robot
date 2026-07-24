@@ -1,0 +1,58 @@
+/dts-v1/;
+/plugin/;
+
+/* MAX98357A I2S amp on RDK X5 40-pin dw_i2s1.
+ * Wiring: DIN=pin40(I2S1_SDOUT) BCLK=pin12(I2S1_BCLK) LRC=pin35(I2S1_LRCK)
+ *         VIN=5V(pin2) GND(pin6). SD=unconnected(always on). MCLK not used.
+ * Creates ALSA card "max98357a" (playback only).
+ */
+
+/ {
+  fragment@0 {
+    target-path = "/soc/dsp_apb/dw_i2s1@320c0000";
+    __overlay__ {
+      status = "okay";
+      dwc-master = <1>;
+      #sound-dai-cells = <1>;
+    };
+  };
+
+  fragment@1 {
+    target-path = "/";
+    __overlay__ {
+      max98357a_codec: max98357a_codec {
+        #sound-dai-cells = <0>;
+        compatible = "maxim,max98357a";
+        status = "okay";
+      };
+    };
+  };
+
+  fragment@2 {
+    target-path = "/";
+    __overlay__ {
+      max98357a_sound {
+        compatible = "simple-audio-card";
+        #address-cells = <1>;
+        #size-cells = <0>;
+        simple-audio-card,name = "max98357a";
+        status = "okay";
+
+        simple-audio-card,dai-link@0 {
+          link-name = "max98357a-link";
+          reg = <1>;
+          format = "i2s";
+          mclk-fs = <64>;
+          bitclock-master = <&m98_cpu>;
+          frame-master = <&m98_cpu>;
+          m98_cpu: cpu {
+            sound-dai = <&dw_i2s1 1>;
+          };
+          codec {
+            sound-dai = <&max98357a_codec>;
+          };
+        };
+      };
+    };
+  };
+};

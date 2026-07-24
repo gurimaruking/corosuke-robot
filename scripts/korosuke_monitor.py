@@ -32,7 +32,8 @@ POSE_DIR = "/app/pydev_demo/04_pose_sample/01_ultralytics_yolo11_pose"
 POSE_MODEL = POSE_DIR + "/yolo11n_pose_bayese_640x640_nv12.bin"
 # COCO17: 0鼻 5左肩 6右肩 7左肘 8右肘 9左手首 10右手首 11左腰 12右腰
 EYE_DEV = "/dev/ttyACM0"           # 目コプロセッサ(ESP32-S3)
-SPK_DEV = "plughw:duplexaudio,0"   # スピーカー(ES8326、名前指定=再起動耐性)
+# 出力先はsettings["spk_dev"]でWeb切替。カード名指定=再起動でカード番号が入替っても不変。
+#   duplexaudio = オンボードES8326(既定) / max98357a = I2Sアンプ MAX98357A(40pin i2s1)
 
 # ---- Open JTalk(動的日本語TTS) ----
 OJ_BIN = "open_jtalk"
@@ -42,7 +43,8 @@ os.chdir(YOLO_DIR)   # デモの相対import解決のため(以降は全て絶�
 
 # ==== Webから変更できる実行時設定 ====
 settings = {
-    "volume": 75,          # スピーカー音量 %(amixer DAC)
+    "volume": 75,          # 音量 %(ES8326=amixer DAC / max98357a=ソフト音量)
+    "spk_dev": "duplexaudio",  # 出力先: duplexaudio(ES8326) / max98357a(I2Sアンプ40pin)
     "mic_gain": 3.0,       # マイク感度(ソフト増幅倍率)。ハードゲインは起動時に最大化
     "oj_fm": 9,            # 声の高さ(Open JTalk -fm)。voice B=9
     "oj_a": 0.40,         # 声道長(小=子供っぽい)
@@ -138,6 +140,31 @@ _last_speech_react = [0.0]
 _last_motion_react = [0.0]
 
 
+def _playback(wav):
+    """settings["spk_dev"]の出力先へ再生。max98357aはハードミキサ非搭載のためソフト音量。"""
+    dev = settings.get("spk_dev", "duplexaudio")
+    play = wav
+    if dev == "max98357a":
+        try:  # MAX98357Aは音量レジスタが無い→WAVをソフトでスケール
+            import wave as _wave
+            import audioop
+            factor = max(0.0, min(1.0, float(settings.get("volume", 75)) / 100.0))
+            wi = _wave.open(wav, "rb")
+            params = wi.getparams()
+            data = wi.readframes(wi.getnframes())
+            wi.close()
+            data = audioop.mul(data, params.sampwidth, factor)
+            play = "/tmp/koro_say_v.wav"
+            wo = _wave.open(play, "wb")
+            wo.setparams(params)
+            wo.writeframes(data)
+            wo.close()
+        except Exception:  # noqa
+            play = wav
+    subprocess.run(["aplay", "-D", f"plughw:{dev},0", play],
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
+
+
 def speak(text):
     """Open JTalkで動的合成→スピーカー再生(非ブロッキング)。発話中フラグで自己反応を抑止。"""
     def _run():
@@ -161,8 +188,7 @@ def speak(text):
             _speak_until[0] = time.time() + dur + 0.8   # 発話中+余韻はSTT反応を無視
             with lock:
                 state["speaking"] = True
-            subprocess.run(["aplay", "-D", SPK_DEV, wav],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
+            _playback(wav)
         except Exception:  # noqa
             pass
         finally:
@@ -686,6 +712,9 @@ img{width:100%;border-radius:6px;background:#000}
 <h2>💬 音声認識 (sherpa-onnx)</h2>
 <p id="partial"></p><div id="finals"></div></div>
 <div class="card full"><h2>⚙ 設定</h2>
+<div class="ctl">🔈 出力先 <select id="c_spk" onchange="set('spk_dev',this.value)">
+  <option value="duplexaudio">ES8326(既定/現行スピーカー)</option>
+  <option value="max98357a">MAX98357A(I2Sアンプ・40pin)</option></select></div>
 <div class="ctl">🔊 音量 <input type="range" min="0" max="100" value="75" id="c_vol"
   oninput="lbl('l_vol',this.value);set('volume',this.value)"><span id="l_vol">75</span>%</div>
 <div class="ctl">🎙 マイク感度 <input type="range" min="1" max="8" step="0.5" value="3" id="c_mic"
@@ -809,6 +838,9 @@ class Handler(BaseHTTPRequestHandler):
                         settings[k] = float(val)
                     except ValueError:
                         pass
+                elif k == "spk_dev":
+                    if val in ("duplexaudio", "max98357a"):
+                        settings["spk_dev"] = val
                 elif k in ("react_greet", "react_speech", "use_llm", "use_arm", "event_llm"):
                     settings[k] = val in ("1", "true", "on")
             self._json_ok()

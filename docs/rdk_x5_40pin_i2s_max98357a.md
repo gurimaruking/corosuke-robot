@@ -1,0 +1,57 @@
+# RDK X5 40ピン I2S 配線 & MAX98357A 接続
+
+コロ助のスピーカーを小型化するため、I2Sデジタルアンプ **MAX98357A** を
+RDK X5 の 40ピンに直結する。既存のオンボード ES8326（内部 i2s0）はそのまま残し、
+MAX98357A は **40ピンに出ている I2S1（`dw_i2s1`）** に繋いで独立した再生カードにする。
+
+## 出典（公式ピンアサイン）
+- D-Robotics 公式: [RDK X5 40pin define](https://developer.d-robotics.cc/rdk_doc/en/Basic_Application/01_40pin_user_sample/40pin_define)
+- 実機の `/usr/local/lib/python3.10/dist-packages/Hobot/GPIO/gpio_pin_data.py` とも突き合わせ済み（一致）。
+
+## 40ピン I2S1 割り当て（Board Pin = 物理ピン番号）
+
+| Board Pin | 信号 (CVM Func) | X5 Pin Index | 用途 | MAX98357A |
+|---|---|---|---|---|
+| **2**（or 4） | VDD_5V | — | 電源 | **VIN** |
+| **6**（or 9/14/20/25/30/34/39） | GND | — | GND | **GND** |
+| **7** | I2S1_MCLK | 420 | マスタクロック | 不要（内部PLL） |
+| **12** | I2S1_BCLK | 421 | ビットクロック | **BCLK** |
+| **35** | I2S1_LRCK (I2S1 WS) | 422 | LR/ワードセレクト | **LRC** |
+| **38** | I2S1_SDIN (DI) | 423 | データ入力（→ボード, マイク用） | 不要 |
+| **40** | I2S1_SDOUT (DO) | 424 | データ出力（ボード→アンプ） | **DIN** |
+
+> 40ピンは Raspberry Pi 互換の 2×20。**左列=奇数(1,3,…39)／右列=偶数(2,4,…40)**、
+> ピン1が基板内側の角。**必須は 5V / GND / DIN / BCLK / LRC の5本のみ**（MCLK・SDINは未使用）。
+
+```
+ (1) 3V3        5V   (2)   ← VIN
+ (5) ...        GND  (6)   ← GND
+(11) ...   I2S1_BCLK (12)  ← BCLK
+(35) I2S1_LRCK ...   (36)  ← LRC
+(39) GND   I2S1_SDOUT(40)  ← DIN（右下の角）
+```
+
+## MAX98357A の GAIN / SD 端子
+- **GAIN**: 未接続=9dB（既定）。GNDに落とすと12dB。抵抗で3/6/15dBも可だが小型8Ωなら未接続でよい。
+- **SD**（シャットダウン兼 L/R/mono 選択）: 未接続=アンプON・(L+R)/2 mono 相当。
+  ソフトからミュート/省電力したい場合のみ空きGPIOへ（HIGH=再生, 0V=停止）。今回は未接続。
+
+## スピーカー
+- 採用: **秋月 MSI28-12R**（8Ω・φ28mm・厚6mm・定格1W/max2W・ダイナミック）= [g112587](https://akizukidenshi.com/catalog/g/g112587/)
+- 予備所持: WAY50-1-8F32P（8Ω・φ50mm・0.4W）= g109013 → 大きく低出力のため不採用。
+- MAX98357A の SPK+ / SPK− に MSI28-12R をそのまま接続（無極性で可、L/R合わせは任意）。
+  許容2Wなので音量は最大にせず、アンプ既定ゲイン＋モニタの音量スライダーで調整。
+
+## ソフト側（i2s1 再生カードの作成）
+RDK カーネルには MAX98357A 専用ドライバも in-tree ダミーコーデック（spdif-dit）も無いが、
+`hobot-kernel-headers` が導入済みで **out-of-tree ビルド可能**。
+
+1. `snd-soc-max98357a`（`sound/soc/codecs/max98357a.c`, v6.1.83）を out-of-tree ビルド
+   （初回のみ `sudo make -C /usr/src/linux-headers-6 modules_prepare` で `fixdep` 等を生成）。
+2. DTオーバーレイ `max98357a.dtbo`（`simple-audio-card` で `dw_i2s1`(master) ↔ `maxim,max98357a`、
+   `format="i2s"`, `mclk-fs=64`）を `dtc` でコンパイルし `/boot/overlays/` へ配置。
+3. `/boot/config.txt` に `dtoverlay=max98357a` を追記（末尾に空行必須）して再起動。
+4. `aplay -l` に card "max98357a" が出現 → `aplay -D plughw:max98357a ...` で再生確認。
+5. `korosuke_monitor.py` の TTS 出力（Open JTalk → aplay）をこのカードに向ける。
+
+ビルド成果物とオーバーレイソースは `firmware/max98357a/`（本リポジトリ）に保管。
