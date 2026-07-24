@@ -3,7 +3,7 @@
 **Version 1.0 · 2026-07-05** · D-Robotics Robotics Dream Keeper Challenge
 Brain: **RDK X5** (10 TOPS BPU, ROS 2). Full design rationale in [PROPOSAL.md](PROPOSAL.md).
 
-Hard deadline for all three stages: **2026-07-15**.
+Final submission check: **2026-07-26 14:30 GMT**. Stage 3 showcase: [STAGE3.md](STAGE3.md).
 
 ---
 
@@ -18,10 +18,10 @@ Hard deadline for all three stages: **2026-07-15**.
 | M1 | 6/25–7/5 | **Stage 2 — Build** design | Concept + AI architecture + ROS 2 graph + BOM + roadmap + risks, submitted as showcase PR | ✅ |
 | M1b | (parallel) | **Hardware / 3D body** | Full body redesigned for color-split printing; eye + chest-camera mounts | ✅ |
 | M1c | (parallel) | **Eye coprocessor bring-up** | 2× GC9A01 driven by ESP32-S3 (LovyanGFX), emotions/gaze/blink over UART | ✅ |
-| M2 | 7/5–7/7 | **ROS 2 skeleton** | ROS 2 Humble on RDK X5; `korosuke_msgs`; `serial_bridge` moves the eyes from a topic | ⬜ |
-| M3 | 7/8–7/11 | **Perception + dialogue** | `vision_node` (BPU) → `/face_pose`; gaze (eyes+neck) tracking; on-device LLM + VOICEVOX "…nari" voice + lipsync; `expression_node` | ⬜ |
-| M4 | 7/12–7/13 | **Integrated demo** | see → turn → greet → emote → gesture, fully on-device; benchmark table (FPS / latency / thermal) | ⬜ |
-| M5 | 7/14–7/15 | **Stage 3 — Launch** | 3–7 min demo video; benchmark table; Stage 3 showcase PR | ⬜ |
+| M2 | 7/5–7/7 | **ROS 2 skeleton** | ROS 2 Humble on RDK X5; `korosuke_msgs`; `serial_bridge` moves the eyes from a topic | ✅ (eye_demo→bridge→eyes verified) |
+| M3 | 7/8–7/11 | **Perception + dialogue** | vision (BPU)→gaze tracking; **on-device** STT(sherpa)+LLM(TinySwallow)+TTS(OpenJTalk) "…ナリ"; expression | ✅ (VOICEVOX→OpenJTalk; on-device LLM added) |
+| M4 | 7/12–7/13 | **Integrated demo** | see → turn → greet → emote → gesture, fully on-device; benchmark table | ✅ (the `korosuke-monitor` service; +arm actuation, gestures) |
+| M5 | 7/14– | **Stage 3 — Launch** | demo video; benchmark; Stage 3 showcase | 🔄 [STAGE3.md](STAGE3.md) done; benchmarks in-repo; **video pending** |
 | S1 | if time | **Bipedal gait** | quasi-static "penguin" gait, 3+ steps, no fall — *only if* the junk QDD motors revive | ✴️ |
 
 ## Acceptance criteria (measurable goals)
