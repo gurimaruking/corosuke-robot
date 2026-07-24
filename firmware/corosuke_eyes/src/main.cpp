@@ -48,16 +48,22 @@ static constexpr int SERVO_RES = 14;             // 14bit -> 20ms周期=16384カ
 static uint32_t armDetachAt[2] = {0, 0};         // 0=脱力不要, else=脱力するmillis
 static const uint32_t ARM_HOLD_MS = 700;         // 移動後この時間で脱力(省電流化)
 static int armIdx(int ledc_ch) { return (ledc_ch == LEDC_ARM_L) ? 0 : 1; }
+static int armPin(int ledc_ch) { return (ledc_ch == LEDC_ARM_L) ? PIN_ARM_L : PIN_ARM_R; }
 // 角度(0-180)→パルス0.5-2.5ms@50Hz(20ms)をdutyで出力。移動後は保持タイマ更新。
 void servoWriteDeg(int ledc_ch, int deg) {
   deg = constrain(deg, 0, 180);
   int us = map(deg, 0, 180, 500, 2500);
   uint32_t maxd = (1UL << SERVO_RES);            // 16384
   uint32_t duty = (uint32_t)((uint64_t)us * maxd / 20000);
+  ledcAttachPin(armPin(ledc_ch), ledc_ch);       // 脱力後の再通電に対応(再アタッチ)
   ledcWrite(ledc_ch, duty);
   armDetachAt[armIdx(ledc_ch)] = millis() + ARM_HOLD_MS;
 }
-void servoDetach(int ledc_ch) { ledcWrite(ledc_ch, 0); }   // パルス停止=脱力=待機電流ほぼ0
+// LEDCをピンから切り離し+ハイインピーダンス化=信号完全停止=確実に脱力(保持トルク0)
+void servoDetach(int ledc_ch) {
+  ledcDetachPin(armPin(ledc_ch));
+  pinMode(armPin(ledc_ch), INPUT);
+}
 // loop()から呼ぶ: 保持時間経過で自動脱力
 void armUpdate() {
   uint32_t now = millis();
