@@ -769,114 +769,179 @@ def audio_loop():
 PAGE = """<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>コロ助モニタ</title><style>
-body{font-family:sans-serif;background:#1a1a2e;color:#eee;margin:0;padding:16px}
-h1{font-size:1.2rem;margin:0 0 12px}
+:root{--bg:#141428;--card:#1c2748;--panel:#0f3460;--acc:#4ecca3;--acc2:#ffb347;--ok:#4ecca3;--ng:#ff5c7a;--txt:#eaeaf2;--mut:#9fb3c8}
+*{box-sizing:border-box}
+body{font-family:system-ui,"Segoe UI",sans-serif;background:var(--bg);color:var(--txt);margin:0;padding:0}
+header{position:sticky;top:0;z-index:9;background:#141428ee;backdrop-filter:blur(6px);
+  padding:10px 18px;border-bottom:1px solid #ffffff14}
+h1{font-size:1.15rem;margin:0;display:flex;align-items:center;gap:8px}
+h1 small{font-size:.7rem;color:var(--ng);font-weight:400}
+.tabs{display:flex;gap:8px;margin:10px 0 8px}
+.tab{padding:7px 20px;border-radius:22px;border:1px solid #ffffff22;background:transparent;
+  color:var(--mut);cursor:pointer;font-size:.95rem;transition:.15s}
+.tab.active{background:var(--acc);color:#06231b;border-color:var(--acc);font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{background:var(--card);border-radius:16px;padding:4px 12px;font-size:.82rem;border:1px solid #ffffff12}
+.view{padding:18px;max-width:1180px;margin:0 auto}
 .grid{display:flex;flex-wrap:wrap;gap:16px}
-.card{background:#16213e;border-radius:10px;padding:12px;flex:1;min-width:320px}
-.card h2{font-size:1rem;margin:0 0 8px;color:#ffb347}
-img{width:100%;border-radius:6px;background:#000}
-.meterbox{background:#0f3460;border-radius:6px;height:28px;position:relative;overflow:hidden}
+.card,.grp{background:var(--card);border-radius:14px;padding:15px;flex:1;min-width:320px}
+.card h2,.grp h2{font-size:.95rem;margin:0 0 10px;color:var(--acc2)}
+.grp{margin-bottom:16px}
+.full{flex-basis:100%}
+img{width:100%;border-radius:10px;background:#000;display:block}
+.speechcard{margin-bottom:16px}
+#speech{background:var(--panel);border-radius:12px;padding:20px;font-size:1.5rem;color:#ffe08a;
+  min-height:1.6em;transition:background .2s;line-height:1.4}
+#speech.talk{background:#3a5a1c}
+#speechlog{margin-top:10px;font-size:.85rem;color:var(--mut)}
+#speechlog div{padding:2px 0;border-bottom:1px solid #ffffff0d}
+.meterbox{background:var(--panel);border-radius:7px;height:26px;position:relative;overflow:hidden}
 #meter{background:linear-gradient(90deg,#4ecca3,#ffd460 70%,#ff2e63 90%);height:100%;width:0%;transition:width .1s}
 #peak{position:absolute;top:0;width:2px;height:100%;background:#fff}
 #lv{font-variant-numeric:tabular-nums}
-#partial{color:#4ecca3;min-height:1.4em;font-size:1.1rem}
-#dets{color:#8fd;font-size:.85rem;min-height:1.2em}
-#finals div{border-bottom:1px solid #0f3460;padding:3px 0}
-.ok{color:#4ecca3}.ng{color:#ff2e63}
-#speech{background:#0f3460;border-radius:8px;padding:14px;font-size:1.4rem;color:#ffe08a;min-height:1.6em;transition:background .2s}
-#speech.talk{background:#3a5a1c}
-#speechlog{margin-top:8px;font-size:.85rem;color:#9bb}
-#speechlog div{padding:2px 0}
-.full{flex-basis:100%}
-.ctl{margin:8px 0;font-size:.95rem}
-.ctl input[type=range]{vertical-align:middle;width:180px}
-.ctl button{margin:2px;padding:4px 10px;border-radius:6px;border:1px solid #4ecca3;background:#16213e;color:#eee;cursor:pointer}
-.ctl button:hover{background:#0f3460}
-.ctl label{margin:0 8px}
-.ctl input[type=text]{background:#0f3460;border:1px solid #4ecca3;color:#eee;border-radius:4px;padding:3px}
+#partial{color:var(--acc);min-height:1.4em;font-size:1.1rem}
+#dets{color:#8fd;font-size:.85rem;min-height:1.2em;margin-top:8px}
+#finals{max-height:240px;overflow:auto}
+#finals div{border-bottom:1px solid var(--panel);padding:3px 0;font-size:.9rem}
+.ok{color:var(--ok)}.ng{color:var(--ng)}
+.ctl{margin:11px 0;font-size:.95rem;display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.ctl>span.lab{min-width:8.5em}
+.ctl input[type=range]{vertical-align:middle;width:170px;accent-color:var(--acc)}
+.ctl button{padding:6px 13px;border-radius:9px;border:1px solid var(--acc);background:transparent;color:var(--txt);cursor:pointer}
+.ctl button:hover{background:var(--panel)}
+.ctl label{display:inline-flex;align-items:center;gap:5px;margin:0 4px}
+.ctl input[type=text]{background:var(--panel);border:1px solid var(--acc);color:var(--txt);border-radius:7px;padding:5px 8px}
+.ctl select{background:var(--panel);border:1px solid var(--acc);color:var(--txt);border-radius:7px;padding:5px}
+small{color:var(--mut);font-size:.78rem}
 </style></head><body>
-<h1>🤖 コロ助モニタ <small id="st"></small></h1>
-<div class="grid">
-<div class="card full"><h2>🗣 コロ助のセリフ (<span id="eyest">…</span>)</h2>
-<div id="speech">…</div><div id="speechlog"></div></div>
-<div class="card"><h2>👁 カメラ+検知 (<span id="camst">…</span>)</h2>
-<img id="cam" src="/stream" alt="camera"><div id="dets"></div></div>
-<div class="card"><h2>🎙 マイク (<span id="micst">…</span>)</h2>
-<div class="meterbox"><div id="meter"></div><div id="peak"></div></div>
-<p>レベル: <span id="lv">0</span> %FS</p>
-<h2>💬 音声認識 (sherpa-onnx)</h2>
-<p id="partial"></p><div id="finals"></div></div>
-<div class="card full"><h2>⚙ 設定</h2>
-<div class="ctl">🔈 出力先 <select id="c_spk" onchange="set('spk_dev',this.value)">
-  <option value="max98357a" selected>MAX98357A(I2Sアンプ40pin・φ50)</option>
-  <option value="duplexaudio">ES8326(旧・大型SP)</option></select></div>
-<div class="ctl">🔊 音量 <input type="range" min="0" max="100" value="75" id="c_vol"
-  oninput="lbl('l_vol',this.value);set('volume',this.value)"><span id="l_vol">75</span>%</div>
-<div class="ctl">🎛 小型SP最適化(MAX98357A時)
-  <label><input type="checkbox" id="c_dsp" checked onchange="set('dsp',this.checked?1:0)"> HPF+圧縮+リミッタ</label>
-  クリーン上限<input type="range" min="-12" max="0" step="0.5" value="-6" id="c_ceil"
-   oninput="lbl('l_ceil',this.value);set('peak_ceil_db',this.value)"><span id="l_ceil">-6</span>dB
-  <small>(φ50=0.2Wは-6運用。高耐入力SP/箱固定で上げると更に大音量)</small></div>
-<div class="ctl">🎙 マイク感度 <input type="range" min="1" max="8" step="0.5" value="3" id="c_mic"
-  oninput="lbl('l_mic',this.value);set('mic_gain',this.value)"><span id="l_mic">3</span>x</div>
-<div class="ctl">🎵 声の高さ <input type="range" min="0" max="15" value="9" id="c_fm"
-  oninput="lbl('l_fm',this.value);set('oj_fm',this.value)"><span id="l_fm">9</span></div>
-<div class="ctl">⏩ 話速 <input type="range" min="0.7" max="1.5" step="0.05" value="1.12" id="c_r"
-  oninput="lbl('l_r',this.value);set('oj_r',this.value)"><span id="l_r">1.12</span></div>
-<div class="ctl">🗣 テスト発声 <input type="text" id="c_say" value="ワガハイはコロ助ナリ！" size="24">
-  <button onclick="say()">喋る</button></div>
-<div class="ctl">🤖 LLM対話テスト <input type="text" id="c_llmq" value="今日の調子はどう？" size="20">
-  <button onclick="llmsay()">LLMに聞く</button> <small>(CPU推論5〜10秒。応答は上の吹き出しに)</small></div>
-<div class="ctl">🔁 反応
-  <label><input type="checkbox" id="c_g" checked onchange="set('react_greet',this.checked?1:0)"> 入退室で挨拶</label>
-  <label><input type="checkbox" id="c_s" checked onchange="set('react_speech',this.checked?1:0)"> 話しかけに反応</label>
-  <label><input type="checkbox" id="c_llm" checked onchange="set('use_llm',this.checked?1:0)"> LLM会話 <span id="llmst"></span></label>
-  <label><input type="checkbox" id="c_arm" checked onchange="set('use_arm',this.checked?1:0)"> 腕を自動で動かす(調整中はOFF)</label>
-  <label><input type="checkbox" id="c_ev" onchange="set('event_llm',this.checked?1:0)"> 入退室/ジェスチャの台詞をLLM生成(OFF=定型・即時)</label></div>
-<div class="ctl" style="border-top:1px solid #0f3460;padding-top:8px">🔍 認識状態:
-  <b id="reco">—</b></div>
-<div class="ctl">👤 人物検出しきい値 <input type="range" min="0.1" max="0.9" step="0.05" value="0.40" id="c_ps"
-  oninput="lbl('l_ps',this.value);set('pose_score',this.value)"><span id="l_ps">0.40</span></div>
-<div class="ctl">🦴 骨格しきい値 <input type="range" min="0.1" max="0.9" step="0.05" value="0.40" id="c_kt"
-  oninput="lbl('l_kt',this.value);set('kpt_thres',this.value)"><span id="l_kt">0.40</span></div>
-<div class="ctl">⏱ ジェスチャ間隔 <input type="range" min="1" max="15" step="1" value="5" id="c_gcd"
-  oninput="lbl('l_gcd',this.value);set('gesture_cd',this.value)"><span id="l_gcd">5</span>秒</div>
-<div class="ctl" style="border-top:1px solid #0f3460;padding-top:8px">💪 腕(両方)
-  <button onclick="armdo('wave')">👋手を振る</button>
-  <button onclick="armdo('raise')">🙌バンザイ</button>
-  <button onclick="armdo('droop')">😔下げる</button>
-  <button onclick="fetch('/arm?off=both')">🪫脱力(PWM OFF)</button></div>
-<div class="ctl">🫲 左腕のみ
-  <button onclick="fetch('/arm?l=160')">上げ</button>
-  <button onclick="fetch('/arm?l=90')">中立</button>
-  <button onclick="fetch('/arm?l=60')">下げ</button>
-  <button onclick="fetch('/arm?off=l')">🪫脱力</button>
-  <input type="range" min="0" max="180" value="90" id="c_al"
-   oninput="lbl('l_al',this.value);fetch('/arm?l='+this.value)"><span id="l_al">90</span>°</div>
-<div class="ctl">🫱 右腕のみ
-  <button onclick="fetch('/arm?r=160')">上げ</button>
-  <button onclick="fetch('/arm?r=90')">中立</button>
-  <button onclick="fetch('/arm?r=60')">下げ</button>
-  <button onclick="fetch('/arm?off=r')">🪫脱力</button>
-  <input type="range" min="0" max="180" value="90" id="c_ar"
-   oninput="lbl('l_ar',this.value);fetch('/arm?r='+this.value)"><span id="l_ar">90</span>°</div>
-<div class="ctl">👁 目テスト
-  <button onclick="eye('emo','happy')">😊</button>
-  <button onclick="eye('emo','sad')">😢</button>
-  <button onclick="eye('emo','angry')">😠</button>
-  <button onclick="eye('emo','surprised')">😲</button>
-  <button onclick="eye('emo','sleepy')">😴</button>
-  <button onclick="eye('emo','neutral')">😐</button>
-  <button onclick="eye('blink','1')">まばたき</button></div>
-</div>
-</div>
+<header>
+  <h1>🤖 コロ助 <small id="st"></small></h1>
+  <div class="tabs">
+    <button class="tab active" id="tab-monitor" onclick="tab(this,'monitor')">📺 モニタ</button>
+    <button class="tab" id="tab-settings" onclick="tab(this,'settings')">⚙ 設定</button>
+  </div>
+  <div class="chips">
+    <span class="chip">👁 目 <span id="eyest">…</span></span>
+    <span class="chip">📷 カメラ <span id="camst">…</span></span>
+    <span class="chip">🎙 マイク <span id="micst">…</span></span>
+    <span class="chip">🤖 LLM <span id="llmst2">…</span></span>
+  </div>
+</header>
+
+<section id="view-monitor" class="view">
+  <div class="card full speechcard"><h2>🗣 コロ助のセリフ</h2>
+    <div id="speech">…</div><div id="speechlog"></div></div>
+  <div class="grid">
+    <div class="card"><h2>👁 カメラ + 人物/姿勢検知</h2>
+      <img id="cam" src="/stream" alt="camera"><div id="dets"></div>
+      <div style="margin-top:6px"><small>認識: <b id="reco">—</b></small></div></div>
+    <div class="card"><h2>🎙 マイク / 💬 音声認識 (sherpa-onnx)</h2>
+      <div class="meterbox"><div id="meter"></div><div id="peak"></div></div>
+      <p style="margin:6px 0"><small>レベル: <span id="lv">0</span> %FS</small></p>
+      <p id="partial"></p><div id="finals"></div></div>
+  </div>
+</section>
+
+<section id="view-settings" class="view" hidden>
+  <div class="grp"><h2>🔊 音声</h2>
+    <div class="ctl"><span class="lab">🔈 出力先</span>
+      <select id="c_spk" onchange="set('spk_dev',this.value)">
+        <option value="max98357a" selected>MAX98357A(I2Sアンプ40pin・φ50)</option>
+        <option value="duplexaudio">ES8326(旧・大型SP)</option></select></div>
+    <div class="ctl"><span class="lab">🔊 音量</span>
+      <input type="range" min="0" max="100" value="75" id="c_vol"
+       oninput="lbl('l_vol',this.value);set('volume',this.value)"><span id="l_vol">75</span>%</div>
+    <div class="ctl"><span class="lab">🎛 小型SP最適化</span>
+      <label><input type="checkbox" id="c_dsp" checked onchange="set('dsp',this.checked?1:0)"> HPF+圧縮+リミッタ</label>
+      クリーン上限<input type="range" min="-12" max="0" step="0.5" value="-6" id="c_ceil"
+       oninput="lbl('l_ceil',this.value);set('peak_ceil_db',this.value)"><span id="l_ceil">-6</span>dB</div>
+    <div class="ctl"><small>（φ50=0.2Wは-6運用。高耐入力SP/箱固定なら上げて大音量化）</small></div>
+    <div class="ctl"><span class="lab">🎙 マイク感度</span>
+      <input type="range" min="1" max="8" step="0.5" value="3" id="c_mic"
+       oninput="lbl('l_mic',this.value);set('mic_gain',this.value)"><span id="l_mic">3</span>x</div>
+    <div class="ctl"><span class="lab">🎵 声の高さ</span>
+      <input type="range" min="0" max="15" value="9" id="c_fm"
+       oninput="lbl('l_fm',this.value);set('oj_fm',this.value)"><span id="l_fm">9</span></div>
+    <div class="ctl"><span class="lab">⏩ 話速</span>
+      <input type="range" min="0.7" max="1.5" step="0.05" value="1.12" id="c_r"
+       oninput="lbl('l_r',this.value);set('oj_r',this.value)"><span id="l_r">1.12</span></div>
+    <div class="ctl"><span class="lab">🗣 テスト発声</span>
+      <input type="text" id="c_say" value="ワガハイはコロ助ナリ！" size="22">
+      <button onclick="say()">喋る</button></div>
+    <div class="ctl"><span class="lab">🤖 LLM対話テスト</span>
+      <input type="text" id="c_llmq" value="今日の調子はどう？" size="18">
+      <button onclick="llmsay()">LLMに聞く</button> <small>(応答5〜10秒→上の吹き出し)</small></div>
+  </div>
+
+  <div class="grp"><h2>🔁 反応と会話</h2>
+    <div class="ctl">
+      <label><input type="checkbox" id="c_g" checked onchange="set('react_greet',this.checked?1:0)"> 入退室で挨拶</label>
+      <label><input type="checkbox" id="c_s" checked onchange="set('react_speech',this.checked?1:0)"> 話しかけに反応</label>
+      <label><input type="checkbox" id="c_llm" checked onchange="set('use_llm',this.checked?1:0)"> LLM会話 <span id="llmst"></span></label></div>
+    <div class="ctl">
+      <label><input type="checkbox" id="c_arm" checked onchange="set('use_arm',this.checked?1:0)"> 腕を自動で動かす(調整中はOFF)</label>
+      <label><input type="checkbox" id="c_ev" onchange="set('event_llm',this.checked?1:0)"> 入退室/ジェスチャ台詞をLLM生成(OFF=定型・即時)</label></div>
+  </div>
+
+  <div class="grp"><h2>🔍 認識しきい値</h2>
+    <div class="ctl"><span class="lab">👤 人物検出</span>
+      <input type="range" min="0.1" max="0.9" step="0.05" value="0.40" id="c_ps"
+       oninput="lbl('l_ps',this.value);set('pose_score',this.value)"><span id="l_ps">0.40</span></div>
+    <div class="ctl"><span class="lab">🦴 骨格</span>
+      <input type="range" min="0.1" max="0.9" step="0.05" value="0.40" id="c_kt"
+       oninput="lbl('l_kt',this.value);set('kpt_thres',this.value)"><span id="l_kt">0.40</span></div>
+    <div class="ctl"><span class="lab">⏱ ジェスチャ間隔</span>
+      <input type="range" min="1" max="15" step="1" value="5" id="c_gcd"
+       oninput="lbl('l_gcd',this.value);set('gesture_cd',this.value)"><span id="l_gcd">5</span>秒</div>
+  </div>
+
+  <div class="grp"><h2>💪 腕サーボ</h2>
+    <div class="ctl"><span class="lab">両方</span>
+      <button onclick="armdo('wave')">👋手を振る</button>
+      <button onclick="armdo('raise')">🙌バンザイ</button>
+      <button onclick="armdo('droop')">😔下げる</button>
+      <button onclick="fetch('/arm?off=both')">🪫脱力(PWM OFF)</button></div>
+    <div class="ctl"><span class="lab">🫲 左腕のみ</span>
+      <button onclick="fetch('/arm?l=160')">上げ</button>
+      <button onclick="fetch('/arm?l=90')">中立</button>
+      <button onclick="fetch('/arm?l=60')">下げ</button>
+      <button onclick="fetch('/arm?off=l')">🪫脱力</button>
+      <input type="range" min="0" max="180" value="90" id="c_al"
+       oninput="lbl('l_al',this.value);fetch('/arm?l='+this.value)"><span id="l_al">90</span>°</div>
+    <div class="ctl"><span class="lab">🫱 右腕のみ</span>
+      <button onclick="fetch('/arm?r=160')">上げ</button>
+      <button onclick="fetch('/arm?r=90')">中立</button>
+      <button onclick="fetch('/arm?r=60')">下げ</button>
+      <button onclick="fetch('/arm?off=r')">🪫脱力</button>
+      <input type="range" min="0" max="180" value="90" id="c_ar"
+       oninput="lbl('l_ar',this.value);fetch('/arm?r='+this.value)"><span id="l_ar">90</span>°</div>
+  </div>
+
+  <div class="grp"><h2>👁 目テスト</h2>
+    <div class="ctl">
+      <button onclick="eye('emo','happy')">😊 笑顔</button>
+      <button onclick="eye('emo','sad')">😢 悲しい</button>
+      <button onclick="eye('emo','angry')">😠 怒り</button>
+      <button onclick="eye('emo','surprised')">😲 驚き</button>
+      <button onclick="eye('emo','sleepy')">😴 眠い</button>
+      <button onclick="eye('emo','neutral')">😐 通常</button>
+      <button onclick="eye('blink','1')">まばたき</button></div>
+  </div>
+</section>
+
 <script>
+function tab(btn,n){
+  document.querySelectorAll('.view').forEach(v=>{v.hidden = (v.id!=='view-'+n);});
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+}
 function set(k,v){ fetch('/set?'+k+'='+encodeURIComponent(v)); }
 function lbl(id,v){ document.getElementById(id).textContent=v; }
 function say(){ fetch('/say?text='+encodeURIComponent(document.getElementById('c_say').value)); }
 function llmsay(){ fetch('/llm?text='+encodeURIComponent(document.getElementById('c_llmq').value)); }
 function eye(k,v){ fetch('/eye?'+k+'='+encodeURIComponent(v)); }
 function armdo(v){ fetch('/arm?do='+v); }
+function setHTML(id,h){ const el=document.getElementById(id); if(el) el.innerHTML=h; }
 const es = new EventSource('/events');
 es.onmessage = e => {
   const d = JSON.parse(e.data);
@@ -885,7 +950,7 @@ es.onmessage = e => {
   document.getElementById('lv').textContent = d.level.toFixed(1);
   document.getElementById('partial').textContent = d.partial || '';
   document.getElementById('dets').textContent =
-      (d.dets.length ? '人物検知: ' + d.dets.length + '人' : '')
+      (d.dets.length ? '人物検知: ' + d.dets.length + '人' : '人物なし')
       + (d.gesture ? '  🖐 ' + d.gesture : '');
   const reco = document.getElementById('reco');
   if (reco) reco.textContent =
@@ -896,14 +961,16 @@ es.onmessage = e => {
   sp.textContent = d.speech || '(まだ何も話してないナリ)';
   sp.className = d.speaking ? 'talk' : '';
   document.getElementById('speechlog').innerHTML = d.speech_log.map(t => '<div>' + t + '</div>').join('');
-  document.getElementById('eyest').innerHTML = d.eye_ok
-      ? (d.speaking ? '<span class=ok>喋ってるナリ</span>' : (d.present ? '<span class=ok>人を発見！</span>' : '<span class=ok>待機</span>'))
-      : '<span class=ng>目未接続</span>';
-  document.getElementById('camst').innerHTML = d.cam_ok
-      ? '<span class=ok>稼働' + (d.yolo_ok ? '+YOLO' : '') + '</span>' : '<span class=ng>停止</span>';
-  document.getElementById('micst').innerHTML = d.audio_ok ? '<span class=ok>稼働中</span>' : '<span class=ng>停止</span>';
-  const ls = document.getElementById('llmst');
-  if (ls) ls.innerHTML = d.llm_ready ? '<span class=ok>(準備OK)</span>' : '<span class=ng>(読込中/未導入)</span>';
+  const eh = d.eye_ok
+      ? (d.speaking ? '<span class=ok>喋ってる</span>' : (d.present ? '<span class=ok>人を発見</span>' : '<span class=ok>待機</span>'))
+      : '<span class=ng>未接続</span>';
+  setHTML('eyest', eh);
+  const ch = d.cam_ok ? '<span class=ok>稼働' + (d.yolo_ok ? '+YOLO' : '') + '</span>' : '<span class=ng>停止</span>';
+  setHTML('camst', ch);
+  setHTML('micst', d.audio_ok ? '<span class=ok>稼働中</span>' : '<span class=ng>停止</span>');
+  const lh = d.llm_ready ? '<span class=ok>準備OK</span>' : '<span class=ng>読込中</span>';
+  setHTML('llmst2', lh);
+  setHTML('llmst', d.llm_ready ? '<span class=ok>(準備OK)</span>' : '<span class=ng>(読込中/未導入)</span>');
 };
 es.onerror = () => { document.getElementById('st').textContent = '(切断 — 再接続中…)'; };
 es.onopen = () => { document.getElementById('st').textContent = ''; };
