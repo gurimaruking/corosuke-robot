@@ -173,8 +173,10 @@ void renderEye(EyeDisplay& dev, bool isLeft) {
     if (isLeft) spr.fillTriangle(0,topY, 240,topY, 240,topY+60, C_BLACK);
     else        spr.fillTriangle(0,topY, 240,topY, 0,topY+60, C_BLACK);
   }
-  if (st.emo == HAPPY) { // 喜び: 下から頬で隠れる笑い目(∪型)
-    spr.fillCircle(CX, CY + 150, 130, C_BLACK);
+  if (st.emo == HAPPY) { // ニッコリ: 白目に細い笑い弧(同径の円を少しずらして細い三日月に)
+    spr.fillSprite(C_WHITE);                  // 明るい目の背景
+    spr.fillCircle(CX, 128, 112, C_BLACK);    // 黒い円
+    spr.fillCircle(CX, 150, 112, C_WHITE);    // 同径を22pxだけ下にずらして削る=細い上弧→実機で ‿
   }
   spr.pushSprite(&dev, 0, 0);
 }
