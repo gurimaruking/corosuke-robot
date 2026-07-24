@@ -107,6 +107,9 @@ MOTION_LINES = ["おっ、動いたナリ！", "なんナリ？", "びっくり�
 GEST_BANZAI = ["バンザイ！うれしいナリ！", "わーい！一緒にバンザイナリ！", "やったーナリ！ばんざーいナリ！"]
 GEST_WAVE = ["手を振ってるナリ！こんにちはナリ！", "やっほーナリ！", "元気そうナリね！うれしいナリ！"]
 GEST_HAND = ["はーい、ナリ！", "なあにナリ？", "こっちだナリ！ワガハイもあげるナリ！"]
+PET_LINES = ["なでなで気持ちいいナリ〜！", "うれしいナリ！もっと撫でてほしいナリ！",
+             "えへへ、くすぐったいナリ！", "ワガハイ、なでられるの大好きナリ！"]
+_last_pet = [0.0]
 FAREWELLS = [
     "いっちゃいやナリ〜！",
     "もう行っちゃうナリ？さみしいナリ…",
@@ -892,10 +895,29 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
 
 
+def touch_loop():
+    """目ESP32のシリアルから'EVENT touch'(撫で)を受けて反応する。"""
+    while True:
+        try:
+            ser = eyes._ser
+            if ser and ser.is_open and ser.in_waiting:
+                line = ser.readline().decode("ascii", "ignore").strip()
+                if "EVENT touch" in line:
+                    now = time.time()
+                    if now - _last_pet[0] > 3.0 and now >= _speak_until[0] and settings["react_speech"]:
+                        _last_pet[0] = now
+                        event_speech("頭を撫でられた。うれしそうに短く。", PET_LINES, "happy")
+            else:
+                time.sleep(0.05)
+        except Exception:  # noqa
+            time.sleep(0.3)
+
+
 if __name__ == "__main__":
     apply_volume(settings["volume"])
     apply_mic_hw_gain()
     threading.Thread(target=load_llm, daemon=True).start()   # LLMロード(数十秒)
+    threading.Thread(target=touch_loop, daemon=True).start()  # 撫で検知
     threading.Thread(target=camera_loop, daemon=True).start()
     threading.Thread(target=yolo_loop, daemon=True).start()
     threading.Thread(target=audio_loop, daemon=True).start()

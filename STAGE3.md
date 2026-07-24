@@ -41,6 +41,11 @@ gain, voice pitch, thresholds, reaction toggles, eyes, arms) live.
 | Gesture recognition | skeleton (wrist-vs-shoulder) both/one raise + wave | in the pose loop, no extra model |
 | Arm actuation | 2× SG90 (rope-pull bellows arms) on ESP32-S3 LEDC PWM | GPIO4/5, auto-detach to save current |
 
+**Benchmark — whole stack running at once** (camera+pose+STT+LLM+TTS+eyes+arms, measured
+on the board): CPU **49 °C** / BPU **49 °C** / DDR **50 °C** (target < 60 °C ✅, no fan
+throttling), RAM **2.2 GiB / 6.9 GiB used** (LLM + all models resident, 4.6 GiB free),
+system load ~**0.8**. The full experience fits with headroom on one 8 GB board.
+
 **Key point — the BPU does vision, the CPU does language.** We proved on-device that
 the RDK X5's 10 TOPS BPU accelerates YOLO but **cannot** accelerate the LLM (llama.cpp
 runs on the 8× Cortex-A55 CPU; BPU-LLM is S100-only) — so the design puts perception on

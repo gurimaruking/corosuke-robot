@@ -37,6 +37,11 @@ static constexpr int PIN_CS_R = 14;
 static constexpr int PIN_U1RX = 18;   // RDK X5 TX ->
 static constexpr int PIN_U1TX = 17;   // RDK X5 RX <-
 
+// ---------- 静電容量タッチ(撫で検知, ESP32-S3内蔵) ----------
+static constexpr int PIN_TOUCH = 6;   // touch対応GPIO(空き)。導電パッド/ホイルを接続
+uint32_t touchBaseline = 0;
+uint32_t lastTouchMs = 0;
+
 // ---------- サーボ(腕ロープ引き, SG90) ----------
 static constexpr int PIN_ARM_L = 4;   // 左腕サーボ信号(USB非干渉GPIO)
 static constexpr int PIN_ARM_R = 5;   // 右腕サーボ信号
@@ -173,10 +178,10 @@ void renderEye(EyeDisplay& dev, bool isLeft) {
     if (isLeft) spr.fillTriangle(0,topY, 240,topY, 240,topY+60, C_BLACK);
     else        spr.fillTriangle(0,topY, 240,topY, 0,topY+60, C_BLACK);
   }
-  if (st.emo == HAPPY) { // ニッコリ: 白目に細い笑い弧(同径の円を少しずらして細い三日月に)
-    spr.fillSprite(C_WHITE);                  // 明るい目の背景
-    spr.fillCircle(CX, 128, 112, C_BLACK);    // 黒い円
-    spr.fillCircle(CX, 150, 112, C_WHITE);    // 同径を22pxだけ下にずらして削る=細い上弧→実機で ‿
+  if (st.emo == HAPPY) { // ニッコリ(RoboEyes式squint): 白目を塗り、コード下側を丸角黒で覆う
+    spr.fillSprite(C_BLACK);                             // 一旦クリア
+    spr.fillCircle(CX, CY, 118, C_WHITE);               // 白目(塗りつぶし)
+    spr.fillRoundRect(-6, 132, 252, 160, 62, C_BLACK);  // 下側を丸角で覆う→実機(上下反転)で笑った半月
   }
   spr.pushSprite(&dev, 0, 0);
 }
@@ -253,6 +258,10 @@ void setup() {
 
   servoSetup();
   Serial0.println("[boot] servo ready (arm L=GPIO4 R=GPIO5)");
+  // タッチ基準値をサンプル(未接触状態)
+  uint32_t s = 0; for (int i = 0; i < 8; i++) { s += touchRead(PIN_TOUCH); delay(5); }
+  touchBaseline = s / 8;
+  Serial0.printf("[boot] touch baseline=%u (GPIO%d)\n", touchBaseline, PIN_TOUCH);
 
   st.nextBlink = millis() + 2500;
   Serial.println("Korosuke eyes ready nari!");
@@ -265,6 +274,15 @@ void loop() {
   pollStream(Serial0, bufU0);   // CH343側からもコマンド可(診断用)
   pollStream(Serial1, bufU1);
   armUpdate();                  // サーボ保持時間経過で自動脱力(省電流)
+  // 撫で検知(S3は接触で値が上昇)。1.2秒に1回まで通知
+  if (touchBaseline > 0) {
+    uint32_t tv = touchRead(PIN_TOUCH);
+    if (tv > touchBaseline + touchBaseline / 3 && now - lastTouchMs > 1200) {
+      lastTouchMs = now;
+      Serial0.println("EVENT touch");     // モニタが撫で反応(発話)する
+      st.emo = HAPPY; st.blinking = true; st.blinkStart = now;  // 即笑顔
+    }
+  }
 
   // まばたきアニメ(閉じ120ms→開き120ms)
   if (st.blinking) {
