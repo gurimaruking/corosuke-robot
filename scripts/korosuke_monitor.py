@@ -25,6 +25,9 @@ except ImportError:
 
 PORT = 8080
 YOLO_DIR = "/app/pydev_demo/02_detection_sample/02_ultralytics_yolo11"
+POSE_DIR = "/app/pydev_demo/04_pose_sample/01_ultralytics_yolo11_pose"
+POSE_MODEL = POSE_DIR + "/yolo11n_pose_bayese_640x640_nv12.bin"
+# COCO17: 0鼻 5左肩 6右肩 7左肘 8右肘 9左手首 10右手首 11左腰 12右腰
 EYE_DEV = "/dev/ttyACM0"           # 目コプロセッサ(ESP32-S3)
 SPK_DEV = "plughw:duplexaudio,0"   # スピーカー(ES8326、名前指定=再起動耐性)
 
@@ -43,6 +46,10 @@ settings = {
     "oj_r": 1.12,         # 話速
     "react_greet": True,   # 入退室で挨拶する
     "react_speech": True,  # 話しかけに反応する
+    # --- 認識の閾値(Webで調整可) ---
+    "pose_score": 0.40,    # 人物検出の信頼度しきい値
+    "kpt_thres": 0.40,     # 骨格キーポイントの信頼度しきい値(ジェスチャ判定)
+    "gesture_cd": 5.0,     # ジェスチャ反応のクールダウン秒
 }
 
 
@@ -94,7 +101,7 @@ FAREWELLS = [
 
 state = {
     "jpeg": None, "cam_ok": False,
-    "dets": [], "yolo_ok": False, "raw": None,
+    "dets": [], "kpts": [], "gesture": "", "yolo_ok": False, "raw": None,
     "level": 0.0, "peak_hold": 0.0, "audio_ok": False,
     "partial": "", "finals": [],
     "speech": "", "speech_log": [], "eye_ok": False, "present": False, "speaking": False,
@@ -159,11 +166,19 @@ def camera_loop():
         with lock:
             state["raw"] = frame.copy()
             dets = list(state["dets"])
+            kpts = list(state["kpts"])
         for label, score, (x1, y1, x2, y2) in dets:
-            col = (80, 220, 100) if label == "person" else (60, 160, 255)
-            cv2.rectangle(frame, (x1, y1), (x2, y2), col, 2)
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (80, 220, 100), 2)
             cv2.putText(frame, f"{label} {score:.2f}", (x1, max(14, y1 - 6)),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, col, 1, cv2.LINE_AA)
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (80, 220, 100), 1, cv2.LINE_AA)
+        # 骨格(腕のライン + キーポイント点)
+        SKELETON = [(5, 7), (7, 9), (6, 8), (8, 10), (5, 6)]   # 肩-肘-手首と肩間
+        for a, b in SKELETON:
+            if a < len(kpts) and b < len(kpts) and kpts[a][2] > 0.4 and kpts[b][2] > 0.4:
+                cv2.line(frame, kpts[a][:2], kpts[b][:2], (255, 200, 60), 2)
+        for x, yv, sc in kpts:
+            if sc > 0.4:
+                cv2.circle(frame, (x, yv), 4, (60, 160, 255), -1)
         ok2, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
         if ok2:
             with lock:
@@ -273,6 +288,44 @@ def greet_update(person_box, frame_w):
                 eyes.send("gaze 0 0")
 
 
+_gesture = {"last": 0.0, "hist": []}
+
+
+def detect_gesture(kxy, ksc, w):
+    """COCO17骨格から「手を上げた/振った」を判定して反応。手首を目で追う。"""
+    now = time.time()
+
+    kt = float(settings["kpt_thres"])
+
+    def ok(i):
+        return ksc[i] > kt
+    raised = None
+    for wrist, shoulder in ((9, 5), (10, 6)):     # 手首が肩より上(=y小)なら挙手
+        if ok(wrist) and ok(shoulder) and kxy[wrist][1] < kxy[shoulder][1]:
+            raised = kxy[wrist]
+            break
+    if raised is None:
+        _gesture["hist"].clear()
+        with lock:
+            state["gesture"] = ""
+        return
+    _gesture["hist"].append((now, float(raised[0])))
+    _gesture["hist"] = [(t, x) for (t, x) in _gesture["hist"] if now - t < 1.2]
+    xs = [x for (_, x) in _gesture["hist"]]
+    waving = len(xs) >= 4 and (max(xs) - min(xs)) > w * 0.06
+    with lock:
+        state["gesture"] = "手を振ってる" if waving else "手を上げてる"
+    if now - _gesture["last"] < float(settings["gesture_cd"]) or now < _speak_until[0] \
+            or not _greet["present"]:
+        return
+    _gesture["last"] = now
+    gaze_x = max(-1.0, min(1.0, float(raised[0]) / w * 2.0 - 1.0))
+    if waving:
+        react("happy", "手を振ってるナリ！こんにちはナリ！", gaze=gaze_x, blink=True)
+    else:
+        react("surprised", "お手々あげたナリ！どうしたナリ？", gaze=gaze_x, blink=True)
+
+
 def yolo_loop():
     try:
         import importlib.util
@@ -280,17 +333,14 @@ def yolo_loop():
         from types import SimpleNamespace
         sys.path.append("/app/pydev_demo")
         spec = importlib.util.spec_from_file_location(
-            "uy", os.path.join(YOLO_DIR, "ultralytics_yolo11.py"))
-        uy = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(uy)
-        import utils.common_utils as common
-        opt = SimpleNamespace(
-            model_path=os.path.join(YOLO_DIR, "yolo11n_detect_bayese_640x640_nv12.bin"),
-            priority=0, bpu_cores=[0], nms_thres=0.45, score_thres=0.40)
-        y = uy.YoloV11(opt)
-        names = common.load_class_names(os.path.join(YOLO_DIR, "coco_classes.names"))
+            "up", os.path.join(POSE_DIR, "ultralytics_yolo11_pose.py"))
+        up = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(up)
+        opt = SimpleNamespace(model_path=POSE_MODEL, score_thres=0.40)
+        y = up.YoloV11_Pose(opt)
+        y.set_scheduling_params(priority=0, bpu_cores=[0])
     except Exception as e:  # noqa
-        print("[yolo] 無効化:", e)
+        print("[pose] 無効化:", e)
         return
     with lock:
         state["yolo_ok"] = True
@@ -301,19 +351,31 @@ def yolo_loop():
             time.sleep(0.1)
             continue
         try:
+            ps = float(settings["pose_score"])   # 人物検出しきい値をWebから即反映
+            if abs(y.score_thres - ps) > 1e-6:
+                y.score_thres = ps
+                y.conf_thres_raw = -math.log(1.0 / ps - 1.0)
             h, w = frame.shape[:2]
             out = y.forward(y.pre_process(frame))
-            boxes, cls, sc = y.post_process(out, w, h)
-            dets = [(names[int(c)], float(s), [int(v) for v in b])
-                    for b, c, s in zip(boxes, cls, sc)]
+            ids, scores, boxes, kpts_xy, kpts_score = y.post_process(out, h, w)
+            dets = [("person", float(s), [int(v) for v in b]) for s, b in zip(scores, boxes)]
+            # 最大の人物を選ぶ
+            best_i, best_area = -1, 0
+            for i, b in enumerate(boxes):
+                a = (b[2] - b[0]) * (b[3] - b[1])
+                if a > best_area:
+                    best_area, best_i = a, i
+            best_box = [int(v) for v in boxes[best_i]] if best_i >= 0 else None
+            kpts_draw = [(int(x), int(yv), float(sc))
+                         for (x, yv), sc in zip(kpts_xy[best_i], kpts_score[best_i])] if best_i >= 0 else []
             with lock:
                 state["dets"] = dets
-            persons = [(b, (b[2] - b[0]) * (b[3] - b[1]))
-                       for b, c in zip(boxes, cls) if int(c) == 0]
-            best = max(persons, key=lambda p: p[1])[0] if persons else None
-            greet_update(best, w)
+                state["kpts"] = kpts_draw
+            greet_update(best_box, w)
+            if best_i >= 0:
+                detect_gesture(kpts_xy[best_i], kpts_score[best_i], w)
         except Exception as e:  # noqa
-            print("[yolo]", e)
+            print("[pose]", e)
         time.sleep(0.2)
 
 
@@ -469,6 +531,14 @@ img{width:100%;border-radius:6px;background:#000}
 <div class="ctl">🔁 反応
   <label><input type="checkbox" id="c_g" checked onchange="set('react_greet',this.checked?1:0)"> 入退室で挨拶</label>
   <label><input type="checkbox" id="c_s" checked onchange="set('react_speech',this.checked?1:0)"> 話しかけに反応</label></div>
+<div class="ctl" style="border-top:1px solid #0f3460;padding-top:8px">🔍 認識状態:
+  <b id="reco">—</b></div>
+<div class="ctl">👤 人物検出しきい値 <input type="range" min="0.1" max="0.9" step="0.05" value="0.40" id="c_ps"
+  oninput="lbl('l_ps',this.value);set('pose_score',this.value)"><span id="l_ps">0.40</span></div>
+<div class="ctl">🦴 骨格しきい値 <input type="range" min="0.1" max="0.9" step="0.05" value="0.40" id="c_kt"
+  oninput="lbl('l_kt',this.value);set('kpt_thres',this.value)"><span id="l_kt">0.40</span></div>
+<div class="ctl">⏱ ジェスチャ間隔 <input type="range" min="1" max="15" step="1" value="5" id="c_gcd"
+  oninput="lbl('l_gcd',this.value);set('gesture_cd',this.value)"><span id="l_gcd">5</span>秒</div>
 <div class="ctl">👁 目テスト
   <button onclick="eye('emo','happy')">😊</button>
   <button onclick="eye('emo','sad')">😢</button>
@@ -491,8 +561,13 @@ es.onmessage = e => {
   document.getElementById('peak').style.left = d.peak_hold + '%';
   document.getElementById('lv').textContent = d.level.toFixed(1);
   document.getElementById('partial').textContent = d.partial || '';
-  document.getElementById('dets').textContent = d.dets.length
-      ? '検知: ' + d.dets.map(x => x[0]+'('+x[1].toFixed(2)+')').join(', ') : '';
+  document.getElementById('dets').textContent =
+      (d.dets.length ? '人物検知: ' + d.dets.length + '人' : '')
+      + (d.gesture ? '  🖐 ' + d.gesture : '');
+  const reco = document.getElementById('reco');
+  if (reco) reco.textContent =
+      (d.dets.length ? d.dets.length + '人 (' + d.dets.map(x=>x[1].toFixed(2)).join(',') + ')' : '人物なし')
+      + (d.gesture ? ' / 🖐 ' + d.gesture : '') + (d.present ? ' / 追跡中' : '');
   document.getElementById('finals').innerHTML = d.finals.map(t => '<div>' + t + '</div>').join('');
   const sp = document.getElementById('speech');
   sp.textContent = d.speech || '(まだ何も話してないナリ)';
@@ -536,7 +611,7 @@ class Handler(BaseHTTPRequestHandler):
                         settings["oj_fm"] = int(float(val))
                     except ValueError:
                         pass
-                elif k in ("oj_a", "oj_r", "mic_gain"):
+                elif k in ("oj_a", "oj_r", "mic_gain", "pose_score", "kpt_thres", "gesture_cd"):
                     try:
                         settings[k] = float(val)
                     except ValueError:
@@ -597,8 +672,8 @@ class Handler(BaseHTTPRequestHandler):
                     with lock:
                         snap = {k: state[k] for k in
                                 ("level", "peak_hold", "partial", "finals", "cam_ok",
-                                 "audio_ok", "yolo_ok", "dets", "speech", "speech_log",
-                                 "eye_ok", "present", "speaking")}
+                                 "audio_ok", "yolo_ok", "dets", "gesture", "speech",
+                                 "speech_log", "eye_ok", "present", "speaking")}
                     self.wfile.write(("data: " + json.dumps(snap, ensure_ascii=False) + "\n\n").encode("utf-8"))
                     self.wfile.flush()
                     time.sleep(0.1)
