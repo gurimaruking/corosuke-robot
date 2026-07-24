@@ -51,5 +51,7 @@ speaker-test -D plughw:CARD=max98357a -c 2 -t sine -f 440 -l 1
 
 ## コロ助モニタ連携
 `scripts/korosuke_monitor.py` の Web「🔈 出力先」で `ES8326 ⇄ MAX98357A` を切替。
-MAX98357A はハード音量が無いため、音量スライダーはソフトスケール(audioop)で効く。
-GAIN 端子でハードゲイン(未接続=9dB / GND=12dB)も併用可。
+MAX98357A 時は**小型SP最適化DSP**（HPF+圧縮+リミッタ+ピーク正規化）で「割れずに最大音量」。
+天井(`peak_ceil_db`)・HPF・ON/OFF は Web で調整可。詳細と実測値・電力は
+[../../docs/rdk_x5_40pin_i2s_max98357a.md](../../docs/rdk_x5_40pin_i2s_max98357a.md) の
+「音質/音量チューニング」節。GAIN 端子のハードゲイン(未接続=9dB / GND=12dB)も併用可。

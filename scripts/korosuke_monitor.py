@@ -45,6 +45,9 @@ os.chdir(YOLO_DIR)   # デモの相対import解決のため(以降は全て絶�
 settings = {
     "volume": 75,          # 音量 %(ES8326=amixer DAC / max98357a=ソフト音量)
     "spk_dev": "duplexaudio",  # 出力先: duplexaudio(ES8326) / max98357a(I2Sアンプ40pin)
+    "dsp": True,           # max98357a時の小型SP最適化(HPF+圧縮+リミッタ)
+    "hpf": 250,            # ハイパス周波数Hz(小型SPが出せない低域を除去しコーン保護)
+    "peak_ceil_db": -6.0,  # クリーン天井dBFS(実測。SP固定/交換で上げると大音量化)
     "mic_gain": 3.0,       # マイク感度(ソフト増幅倍率)。ハードゲインは起動時に最大化
     "oj_fm": 9,            # 声の高さ(Open JTalk -fm)。voice B=9
     "oj_a": 0.40,         # 声道長(小=子供っぽい)
@@ -141,26 +144,48 @@ _last_motion_react = [0.0]
 
 
 def _playback(wav):
-    """settings["spk_dev"]の出力先へ再生。max98357aはハードミキサ非搭載のためソフト音量。"""
+    """settings["spk_dev"]の出力先へ再生。
+    max98357a: 小型SP最適化。HPF(低域=コーン保護)+圧縮+速リミッタでピークを均し、
+    ピークをクリーン天井(peak_ceil_db)×volumeに正規化して「割れずに最大音量」。
+    (MAX98357Aはハード音量非搭載/低域を無理に出すとコーン底打ちで歪むため)"""
     dev = settings.get("spk_dev", "duplexaudio")
     play = wav
     if dev == "max98357a":
-        try:  # MAX98357Aは音量レジスタが無い→WAVをソフトでスケール
+        vol = max(0.0, min(1.0, float(settings.get("volume", 75)) / 100.0))
+        ceil_db = float(settings.get("peak_ceil_db", -6.0))
+        src = wav
+        if settings.get("dsp", True):
+            try:  # 低域カット+圧縮+速リミッタ(冒頭の突発ピークもここで抑える)
+                hpf = int(settings.get("hpf", 250))
+                af = (f"highpass=f={hpf},"
+                      "acompressor=threshold=-28dB:ratio=8:attack=3:release=100,"
+                      "alimiter=limit=0.9:level=false:attack=1:release=40")
+                dsp = "/tmp/koro_dsp.wav"
+                r = subprocess.run(["ffmpeg", "-y", "-i", wav, "-af", af,
+                                    "-ar", "48000", "-ac", "2", dsp],
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+                if r.returncode == 0 and os.path.exists(dsp):
+                    src = dsp
+            except Exception:  # noqa
+                src = wav
+        try:  # ピークを天井×volumeへ正規化(クリップ防止+最大クリーン音量)
             import wave as _wave
             import audioop
-            factor = max(0.0, min(1.0, float(settings.get("volume", 75)) / 100.0))
-            wi = _wave.open(wav, "rb")
+            wi = _wave.open(src, "rb")
             params = wi.getparams()
             data = wi.readframes(wi.getnframes())
             wi.close()
-            data = audioop.mul(data, params.sampwidth, factor)
+            pk = audioop.max(data, params.sampwidth) / 32768.0
+            target = (10 ** (ceil_db / 20.0)) * vol
+            if pk > 0:
+                data = audioop.mul(data, params.sampwidth, target / pk)
             play = "/tmp/koro_say_v.wav"
             wo = _wave.open(play, "wb")
             wo.setparams(params)
             wo.writeframes(data)
             wo.close()
         except Exception:  # noqa
-            play = wav
+            play = src
     subprocess.run(["aplay", "-D", f"plughw:{dev},0", play],
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
 
@@ -717,6 +742,11 @@ img{width:100%;border-radius:6px;background:#000}
   <option value="max98357a">MAX98357A(I2Sアンプ・40pin)</option></select></div>
 <div class="ctl">🔊 音量 <input type="range" min="0" max="100" value="75" id="c_vol"
   oninput="lbl('l_vol',this.value);set('volume',this.value)"><span id="l_vol">75</span>%</div>
+<div class="ctl">🎛 小型SP最適化(MAX98357A時)
+  <label><input type="checkbox" id="c_dsp" checked onchange="set('dsp',this.checked?1:0)"> HPF+圧縮+リミッタ</label>
+  クリーン上限<input type="range" min="-12" max="0" step="0.5" value="-6" id="c_ceil"
+   oninput="lbl('l_ceil',this.value);set('peak_ceil_db',this.value)"><span id="l_ceil">-6</span>dB
+  <small>(SPを箱/バッフルに固定したら上げると更に大音量)</small></div>
 <div class="ctl">🎙 マイク感度 <input type="range" min="1" max="8" step="0.5" value="3" id="c_mic"
   oninput="lbl('l_mic',this.value);set('mic_gain',this.value)"><span id="l_mic">3</span>x</div>
 <div class="ctl">🎵 声の高さ <input type="range" min="0" max="15" value="9" id="c_fm"
@@ -833,7 +863,8 @@ class Handler(BaseHTTPRequestHandler):
                         settings["oj_fm"] = int(float(val))
                     except ValueError:
                         pass
-                elif k in ("oj_a", "oj_r", "mic_gain", "pose_score", "kpt_thres", "gesture_cd"):
+                elif k in ("oj_a", "oj_r", "mic_gain", "pose_score", "kpt_thres",
+                           "gesture_cd", "peak_ceil_db", "hpf"):
                     try:
                         settings[k] = float(val)
                     except ValueError:
@@ -841,7 +872,8 @@ class Handler(BaseHTTPRequestHandler):
                 elif k == "spk_dev":
                     if val in ("duplexaudio", "max98357a"):
                         settings["spk_dev"] = val
-                elif k in ("react_greet", "react_speech", "use_llm", "use_arm", "event_llm"):
+                elif k in ("react_greet", "react_speech", "use_llm", "use_arm",
+                           "event_llm", "dsp"):
                     settings[k] = val in ("1", "true", "on")
             self._json_ok()
             return
