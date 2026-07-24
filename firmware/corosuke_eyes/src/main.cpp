@@ -14,7 +14,7 @@
  *     必ず両方のCSをGPIOで駆動する(このファームがやる)
  *
  * コマンド (USBシリアル & UART1=RDK X5から / 115200bps, 1行1コマンド):
- *   emo <neutral|happy|happy2|sad|angry|surprised|sleepy|x>   感情切替(x=終了合図の✕✕目)
+ *   emo <neutral|happy|happy2|sad|angry|surprised|sleepy|thinking|x>   感情切替(thinking=考え中/x=終了✕✕)
  *   gaze <x> <y>      視線 (-1.0 .. 1.0)
  *   blink             両目まばたき
  *   wink <l|r>        片目ウインク
@@ -122,7 +122,7 @@ EyeDisplay eyeR(PIN_CS_R, false);   // 右目
 LGFX_Sprite spr(&eyeL);             // 1枚のスプライトを両目で使い回す
 
 // ---------- 目の状態 ----------
-enum Emotion { NEUTRAL, HAPPY, SAD, ANGRY, SURPRISED, SLEEPY, DEAD };
+enum Emotion { NEUTRAL, HAPPY, SAD, ANGRY, SURPRISED, SLEEPY, DEAD, THINKING };
 struct EyeState {
   Emotion emo = NEUTRAL;
   bool happyVar = false;              // にっこりの向き(実機の上下反転に合わせ happy/happy2 で選択)
@@ -196,6 +196,15 @@ void renderEye(EyeDisplay& dev, bool isLeft) {
       spr.fillCircle(CX + i, CY - i, 14, C_BLACK);
     }
   }
+  if (st.emo == THINKING) {  // 考え中: 瞳がゆっくり左右に泳ぐ(少し上下に揺れる)思案顔
+    spr.fillSprite(C_BLACK);
+    spr.fillCircle(CX, CY, 118, C_WHITE);
+    float t = millis() / 520.0f;
+    int px = CX + (int)(40.0f * sinf(t));            // ゆっくり左右に視線
+    int py = CY + (int)(12.0f * sinf(t * 2.3f));     // わずかに上下(左右反転にも安全)
+    spr.fillCircle(px, py, 50, C_BLACK);             // 通常サイズの瞳
+    spr.fillCircle(px - 16, py - 16, 12, C_WHITE);   // ハイライト
+  }
   spr.pushSprite(&dev, 0, 0);
 }
 
@@ -218,6 +227,7 @@ void handleLine(String line, Stream& reply) {
     else if (e == "angry")     st.emo = ANGRY;
     else if (e == "surprised") st.emo = SURPRISED;
     else if (e == "sleepy")    st.emo = SLEEPY;
+    else if (e == "thinking")  st.emo = THINKING;                     // 考え中(瞳が回る)
     else if (e == "x" || e == "dead") st.emo = DEAD;                  // 終了合図の✕✕目
     reply.printf("emo=%s\n", e.c_str()); return;
   }

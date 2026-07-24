@@ -649,6 +649,10 @@ def llm_respond(text):
     with lock:
         state["speech"] = "考え中ナリ…"
     try:
+        eyes.send("emo thinking")             # 考え中の目(瞳がくるくる回る)
+    except Exception:  # noqa
+        pass
+    try:
         r = _llm["model"].create_chat_completion(
             messages=[{"role": "system", "content": LLM_PERSONA}]
                      + LLM_FEWSHOT
@@ -657,8 +661,14 @@ def llm_respond(text):
         reply = r["choices"][0]["message"]["content"].strip()
         if reply:
             react("happy", reply, blink=True)     # 目+発声+Web表示
+        else:
+            eyes.send("emo neutral")
     except Exception as e:  # noqa
         print("[llm] 生成エラー:", e)
+        try:
+            eyes.send("emo neutral")              # 失敗時は考え中の目を戻す
+        except Exception:  # noqa
+            pass
     finally:
         _llm["busy"] = False
 
@@ -924,7 +934,9 @@ small{color:var(--mut);font-size:.78rem}
       <button onclick="eye('emo','angry')">😠 怒り</button>
       <button onclick="eye('emo','surprised')">😲 驚き</button>
       <button onclick="eye('emo','sleepy')">😴 眠い</button>
+      <button onclick="eye('emo','thinking')">🌀 考え中</button>
       <button onclick="eye('emo','neutral')">😐 通常</button>
+      <button onclick="eye('emo','x')">✕ 終了マーク</button>
       <button onclick="eye('blink','1')">まばたき</button></div>
   </div>
 </section>
