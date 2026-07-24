@@ -13,6 +13,7 @@ import struct
 import subprocess
 import threading
 import time
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import cv2
@@ -31,11 +32,39 @@ SPK_DEV = "plughw:duplexaudio,0"   # スピーカー(ES8326、名前指定=再�
 OJ_BIN = "open_jtalk"
 OJ_DIC = "/var/lib/mecab/dic/open-jtalk/naist-jdic"
 OJ_VOICE = "/usr/share/hts-voice/nitech-jp-atr503-m001/nitech_jp_atr503_m001.htsvoice"
-OJ_FM = "9"      # 追加ピッチ(高さ)。ユーザー選択=voice B(甲高い子供声)
-OJ_A = "0.40"    # 声道長(小=子供っぽい)
-OJ_R = "1.12"    # 話速
-
 os.chdir(YOLO_DIR)   # デモの相対import解決のため(以降は全て絶対パス使用)
+
+# ==== Webから変更できる実行時設定 ====
+settings = {
+    "volume": 75,          # スピーカー音量 %(amixer DAC)
+    "mic_gain": 3.0,       # マイク感度(ソフト増幅倍率)。ハードゲインは起動時に最大化
+    "oj_fm": 9,            # 声の高さ(Open JTalk -fm)。voice B=9
+    "oj_a": 0.40,         # 声道長(小=子供っぽい)
+    "oj_r": 1.12,         # 話速
+    "react_greet": True,   # 入退室で挨拶する
+    "react_speech": True,  # 話しかけに反応する
+}
+
+
+def apply_mic_hw_gain():
+    """USBマイクのハードキャプチャゲインを最大化(起動時)。"""
+    try:
+        subprocess.run(["amixer", "-c", "Microphone", "sset", "Mic Capture Volume", "100%"],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+        subprocess.run(["amixer", "-c", "Microphone", "sset", "Mic Capture Switch", "on"],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+    except Exception:  # noqa
+        pass
+
+
+def apply_volume(pct):
+    try:
+        pct = max(0, min(100, int(pct)))
+        settings["volume"] = pct
+        subprocess.run(["amixer", "-c", "duplexaudio", "sset", "DAC", f"{pct}%"],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+    except Exception:  # noqa
+        pass
 
 # ==== 反応辞書(キーワード→表情+セリフ)。誤認識パターンも含める。M-C=LLM導入で置換予定 ====
 GREETINGS = [
@@ -84,7 +113,8 @@ def speak(text):
         try:
             wav = "/tmp/koro_say.wav"
             p = subprocess.run([OJ_BIN, "-x", OJ_DIC, "-m", OJ_VOICE,
-                                "-fm", OJ_FM, "-a", OJ_A, "-r", OJ_R, "-ow", wav],
+                                "-fm", str(settings["oj_fm"]), "-a", str(settings["oj_a"]),
+                                "-r", str(settings["oj_r"]), "-ow", wav],
                                input=(text + "\n").encode("utf-8"),
                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
             if p.returncode != 0 or not os.path.exists(wav):
@@ -215,11 +245,15 @@ def greet_update(person_box, frame_w):
         _greet["absent"] = 0
         if not _greet["present"]:
             _greet["present"] = True
-            msg = GREETINGS[_greet["idx"] % len(GREETINGS)]
-            _greet["idx"] += 1
             with lock:
                 state["present"] = True
-            react("happy", msg, gaze=gaze_x, blink=True)
+            if settings["react_greet"]:
+                msg = GREETINGS[_greet["idx"] % len(GREETINGS)]
+                _greet["idx"] += 1
+                react("happy", msg, gaze=gaze_x, blink=True)
+            else:
+                eyes.send("emo happy")
+                eyes.send(f"gaze {gaze_x:.2f} 0")
         elif abs(gaze_x - _greet["last_gaze"]) > 0.15:
             eyes.send(f"gaze {gaze_x:.2f} 0")
             _greet["last_gaze"] = gaze_x
@@ -229,10 +263,14 @@ def greet_update(person_box, frame_w):
             _greet["present"] = False
             with lock:
                 state["present"] = False
-            # 退室時は寂しがる(いっちゃいやナリ)
-            msg = FAREWELLS[_greet["fidx"] % len(FAREWELLS)]
-            _greet["fidx"] += 1
-            react("sad", msg, gaze=0.0, blink=True)
+            if settings["react_greet"]:
+                # 退室時は寂しがる(いっちゃいやナリ)
+                msg = FAREWELLS[_greet["fidx"] % len(FAREWELLS)]
+                _greet["fidx"] += 1
+                react("sad", msg, gaze=0.0, blink=True)
+            else:
+                eyes.send("emo neutral")
+                eyes.send("gaze 0 0")
 
 
 def yolo_loop():
@@ -281,6 +319,8 @@ def yolo_loop():
 
 def react_to_speech(text):
     """認識テキストにキーワードが含まれたら反応。自己発話・連発を抑止。"""
+    if not settings["react_speech"]:
+        return
     now = time.time()
     if now < _speak_until[0]:                  # 自分の声を拾った分は無視
         return
@@ -342,6 +382,9 @@ def audio_loop():
                         state["partial"] = ""
                     continue
                 mono = audioop.tomono(data, 2, 0.5, 0.5)
+                g = float(settings["mic_gain"])
+                if g != 1.0:
+                    mono = audioop.mul(mono, 2, g)   # ソフト増幅(クリップ付き)
                 s = struct.unpack("<%dh" % (len(mono) // 2), mono)
                 rms = math.sqrt(sum(x * x for x in s) / len(s))
                 level = min(100.0, rms / 327.67)
@@ -394,6 +437,12 @@ img{width:100%;border-radius:6px;background:#000}
 #speechlog{margin-top:8px;font-size:.85rem;color:#9bb}
 #speechlog div{padding:2px 0}
 .full{flex-basis:100%}
+.ctl{margin:8px 0;font-size:.95rem}
+.ctl input[type=range]{vertical-align:middle;width:180px}
+.ctl button{margin:2px;padding:4px 10px;border-radius:6px;border:1px solid #4ecca3;background:#16213e;color:#eee;cursor:pointer}
+.ctl button:hover{background:#0f3460}
+.ctl label{margin:0 8px}
+.ctl input[type=text]{background:#0f3460;border:1px solid #4ecca3;color:#eee;border-radius:4px;padding:3px}
 </style></head><body>
 <h1>🤖 コロ助モニタ <small id="st"></small></h1>
 <div class="grid">
@@ -406,8 +455,35 @@ img{width:100%;border-radius:6px;background:#000}
 <p>レベル: <span id="lv">0</span> %FS</p>
 <h2>💬 音声認識 (sherpa-onnx)</h2>
 <p id="partial"></p><div id="finals"></div></div>
+<div class="card full"><h2>⚙ 設定</h2>
+<div class="ctl">🔊 音量 <input type="range" min="0" max="100" value="75" id="c_vol"
+  oninput="lbl('l_vol',this.value);set('volume',this.value)"><span id="l_vol">75</span>%</div>
+<div class="ctl">🎙 マイク感度 <input type="range" min="1" max="8" step="0.5" value="3" id="c_mic"
+  oninput="lbl('l_mic',this.value);set('mic_gain',this.value)"><span id="l_mic">3</span>x</div>
+<div class="ctl">🎵 声の高さ <input type="range" min="0" max="15" value="9" id="c_fm"
+  oninput="lbl('l_fm',this.value);set('oj_fm',this.value)"><span id="l_fm">9</span></div>
+<div class="ctl">⏩ 話速 <input type="range" min="0.7" max="1.5" step="0.05" value="1.12" id="c_r"
+  oninput="lbl('l_r',this.value);set('oj_r',this.value)"><span id="l_r">1.12</span></div>
+<div class="ctl">🗣 テスト発声 <input type="text" id="c_say" value="ワガハイはコロ助ナリ！" size="24">
+  <button onclick="say()">喋る</button></div>
+<div class="ctl">🔁 反応
+  <label><input type="checkbox" id="c_g" checked onchange="set('react_greet',this.checked?1:0)"> 入退室で挨拶</label>
+  <label><input type="checkbox" id="c_s" checked onchange="set('react_speech',this.checked?1:0)"> 話しかけに反応</label></div>
+<div class="ctl">👁 目テスト
+  <button onclick="eye('emo','happy')">😊</button>
+  <button onclick="eye('emo','sad')">😢</button>
+  <button onclick="eye('emo','angry')">😠</button>
+  <button onclick="eye('emo','surprised')">😲</button>
+  <button onclick="eye('emo','sleepy')">😴</button>
+  <button onclick="eye('emo','neutral')">😐</button>
+  <button onclick="eye('blink','1')">まばたき</button></div>
+</div>
 </div>
 <script>
+function set(k,v){ fetch('/set?'+k+'='+encodeURIComponent(v)); }
+function lbl(id,v){ document.getElementById(id).textContent=v; }
+function say(){ fetch('/say?text='+encodeURIComponent(document.getElementById('c_say').value)); }
+function eye(k,v){ fetch('/eye?'+k+'='+encodeURIComponent(v)); }
 const es = new EventSource('/events');
 es.onmessage = e => {
   const d = JSON.parse(e.data);
@@ -440,7 +516,53 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
 
+    def _json_ok(self):
+        b = b'{"ok":true}'
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(b)))
+        self.end_headers()
+        self.wfile.write(b)
+
     def do_GET(self):
+        if self.path.startswith("/set?"):
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            for k, v in q.items():
+                val = v[0]
+                if k == "volume":
+                    apply_volume(val)
+                elif k == "oj_fm":
+                    try:
+                        settings["oj_fm"] = int(float(val))
+                    except ValueError:
+                        pass
+                elif k in ("oj_a", "oj_r", "mic_gain"):
+                    try:
+                        settings[k] = float(val)
+                    except ValueError:
+                        pass
+                elif k in ("react_greet", "react_speech"):
+                    settings[k] = val in ("1", "true", "on")
+            self._json_ok()
+            return
+        if self.path.startswith("/say?"):
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            txt = (q.get("text") or [""])[0].strip()
+            if txt:
+                speak(txt)
+                with lock:
+                    state["speech"] = txt
+                    state["speech_log"] = ([time.strftime("%H:%M:%S ") + txt] + state["speech_log"])[:8]
+            self._json_ok()
+            return
+        if self.path.startswith("/eye?"):
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            if "emo" in q:
+                eyes.send("emo " + q["emo"][0])
+            if "blink" in q:
+                eyes.send("blink")
+            self._json_ok()
+            return
         if self.path == "/":
             body = PAGE.encode("utf-8")
             self.send_response(200)
@@ -488,6 +610,8 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    apply_volume(settings["volume"])
+    apply_mic_hw_gain()
     threading.Thread(target=camera_loop, daemon=True).start()
     threading.Thread(target=yolo_loop, daemon=True).start()
     threading.Thread(target=audio_loop, daemon=True).start()
