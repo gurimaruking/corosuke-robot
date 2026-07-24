@@ -49,6 +49,7 @@ settings = {
     "oj_r": 1.12,         # 話速
     "react_greet": True,   # 入退室で挨拶する
     "react_speech": True,  # 話しかけに反応する
+    "use_llm": True,       # キーワードに無い発話をローカルLLMで返答
     # --- 認識の閾値(Webで調整可) ---
     "pose_score": 0.40,    # 人物検出の信頼度しきい値
     "kpt_thres": 0.40,     # 骨格キーポイントの信頼度しきい値(ジェスチャ判定)
@@ -408,8 +409,58 @@ def yolo_loop():
         time.sleep(0.2)
 
 
+# ==== ローカルLLM(TinySwallow-1.5B, 完全オンデバイス対話) ====
+LLM_MODEL = "/home/sunrise/models/llm/tinyswallow-q5.gguf"
+LLM_PERSONA = ("あなたは「コロ助」。キテレツ大百科のからくりロボット。"
+               "【厳守ルール】1)一人称は必ず「ワガハイ」。2)全ての文の語尾に必ず「ナリ」を付ける(例外なし)。"
+               "3)明るく元気で少しおっちょこちょい。4)コロッケが大好物。"
+               "5)難しい話はせず1〜2文で短く答える。標準語やですます調は禁止、必ずナリ口調にする。")
+# few-shotで「ナリ」口調を強制(小型モデル対策)
+LLM_FEWSHOT = [
+    {"role": "user", "content": "こんにちは"},
+    {"role": "assistant", "content": "やあ！ワガハイはコロ助ナリ！元気ナリか？"},
+    {"role": "user", "content": "名前を教えて"},
+    {"role": "assistant", "content": "ワガハイはコロ助ナリ！よろしくナリ！"},
+]
+_llm = {"model": None, "ready": False, "busy": False}
+
+
+def load_llm():
+    try:
+        from llama_cpp import Llama
+        m = Llama(model_path=LLM_MODEL, n_ctx=1024, n_threads=6, verbose=False)
+        with lock:
+            _llm["model"] = m
+            _llm["ready"] = True
+        print("[llm] TinySwallow ready")
+    except Exception as e:  # noqa
+        print("[llm] load失敗(キーワード応答のみで継続):", e)
+
+
+def llm_respond(text):
+    if not _llm["ready"] or _llm["busy"]:
+        return
+    _llm["busy"] = True
+    _speak_until[0] = time.time() + 30       # 思考中はSTT自己反応を抑止
+    with lock:
+        state["speech"] = "考え中ナリ…"
+    try:
+        r = _llm["model"].create_chat_completion(
+            messages=[{"role": "system", "content": LLM_PERSONA}]
+                     + LLM_FEWSHOT
+                     + [{"role": "user", "content": text}],
+            max_tokens=64, temperature=0.7, top_p=0.9)
+        reply = r["choices"][0]["message"]["content"].strip()
+        if reply:
+            react("happy", reply, blink=True)     # 目+発声+Web表示
+    except Exception as e:  # noqa
+        print("[llm] 生成エラー:", e)
+    finally:
+        _llm["busy"] = False
+
+
 def react_to_speech(text):
-    """認識テキストにキーワードが含まれたら反応。自己発話・連発を抑止。"""
+    """認識テキストにキーワードが含まれたら定型反応。無ければLLMで返答。"""
     if not settings["react_speech"]:
         return
     now = time.time()
@@ -422,6 +473,11 @@ def react_to_speech(text):
             _last_speech_react[0] = now
             react(emo, reply, blink=True)
             return
+    # キーワードに無い発話 → ローカルLLMで返答(短すぎ/ノイズは除外)
+    if settings["use_llm"] and _llm["ready"] and len(text.strip()) >= 4:
+        _last_speech_react[0] = now
+        threading.Thread(target=llm_respond, args=(text,), daemon=True).start()
+        return
 
 
 def audio_loop():
@@ -559,7 +615,8 @@ img{width:100%;border-radius:6px;background:#000}
   <button onclick="say()">喋る</button></div>
 <div class="ctl">🔁 反応
   <label><input type="checkbox" id="c_g" checked onchange="set('react_greet',this.checked?1:0)"> 入退室で挨拶</label>
-  <label><input type="checkbox" id="c_s" checked onchange="set('react_speech',this.checked?1:0)"> 話しかけに反応</label></div>
+  <label><input type="checkbox" id="c_s" checked onchange="set('react_speech',this.checked?1:0)"> 話しかけに反応</label>
+  <label><input type="checkbox" id="c_llm" checked onchange="set('use_llm',this.checked?1:0)"> LLM会話 <span id="llmst"></span></label></div>
 <div class="ctl" style="border-top:1px solid #0f3460;padding-top:8px">🔍 認識状態:
   <b id="reco">—</b></div>
 <div class="ctl">👤 人物検出しきい値 <input type="range" min="0.1" max="0.9" step="0.05" value="0.40" id="c_ps"
@@ -628,6 +685,8 @@ es.onmessage = e => {
   document.getElementById('camst').innerHTML = d.cam_ok
       ? '<span class=ok>稼働' + (d.yolo_ok ? '+YOLO' : '') + '</span>' : '<span class=ng>停止</span>';
   document.getElementById('micst').innerHTML = d.audio_ok ? '<span class=ok>稼働中</span>' : '<span class=ng>停止</span>';
+  const ls = document.getElementById('llmst');
+  if (ls) ls.innerHTML = d.llm_ready ? '<span class=ok>(準備OK)</span>' : '<span class=ng>(読込中/未導入)</span>';
 };
 es.onerror = () => { document.getElementById('st').textContent = '(切断 — 再接続中…)'; };
 es.onopen = () => { document.getElementById('st').textContent = ''; };
@@ -665,7 +724,7 @@ class Handler(BaseHTTPRequestHandler):
                         settings[k] = float(val)
                     except ValueError:
                         pass
-                elif k in ("react_greet", "react_speech"):
+                elif k in ("react_greet", "react_speech", "use_llm"):
                     settings[k] = val in ("1", "true", "on")
             self._json_ok()
             return
@@ -740,6 +799,7 @@ class Handler(BaseHTTPRequestHandler):
                                 ("level", "peak_hold", "partial", "finals", "cam_ok",
                                  "audio_ok", "yolo_ok", "dets", "gesture", "speech",
                                  "speech_log", "eye_ok", "present", "speaking")}
+                    snap["llm_ready"] = _llm["ready"]
                     self.wfile.write(("data: " + json.dumps(snap, ensure_ascii=False) + "\n\n").encode("utf-8"))
                     self.wfile.flush()
                     time.sleep(0.1)
@@ -753,6 +813,7 @@ class Handler(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     apply_volume(settings["volume"])
     apply_mic_hw_gain()
+    threading.Thread(target=load_llm, daemon=True).start()   # LLMロード(数十秒)
     threading.Thread(target=camera_loop, daemon=True).start()
     threading.Thread(target=yolo_loop, daemon=True).start()
     threading.Thread(target=audio_loop, daemon=True).start()
