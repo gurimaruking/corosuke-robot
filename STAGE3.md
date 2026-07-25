@@ -119,18 +119,48 @@ orange body hides the RDK X5 + fan + MAX98357A amp + φ50 speaker.*
 
 ## 5. Architecture (no cloud)
 
+**The BPU does perception; the CPU does language** — two parallel workloads, one board,
+zero cloud. (GitHub renders the Mermaid diagram below.)
+
+```mermaid
+flowchart LR
+    CAM([UVC Camera]):::s --> YOLO
+    MIC([USB Mic]):::s --> STT
+    TOUCH([Capacitive touch]):::s --> BRAIN
+    BTN([Shutdown button · GPIO]):::s --> BRAIN
+
+    subgraph RDK["RDK X5 · Ubuntu 22.04 · fully on-device"]
+      direction TB
+      subgraph BPU["BPU Bayes-e · 10 TOPS — PERCEPTION"]
+        YOLO["YOLO11n-pose .bin<br/>~19.5 FPS"]
+      end
+      subgraph CPU["8× Cortex-A55 — LANGUAGE"]
+        STT["sherpa-onnx STT<br/>RTF 0.44"]
+        LLM["TinySwallow-1.5B<br/>llama.cpp"]
+        TTS["Open JTalk TTS"]
+      end
+      BRAIN{{"korosuke-monitor<br/>brain + Web dashboard"}}
+    end
+
+    YOLO --> BRAIN
+    STT --> BRAIN
+    BRAIN --> LLM --> BRAIN
+    BRAIN --> TTS --> AMP["MAX98357A I2S amp"] --> SPK([φ50 speaker]):::o
+    BRAIN -->|USB / UART| EYES["ESP32-S3 · 2× GC9A01 eyes<br/>8 emotions + gaze"]:::m
+    BRAIN -->|USB / UART| ARMS["ESP32-S3 · 2× SG90<br/>rope-pull arms"]:::m
+
+    classDef s fill:#1f6feb,color:#fff,stroke:#58a6ff;
+    classDef m fill:#8957e5,color:#fff,stroke:#bc8cff;
+    classDef o fill:#2da44e,color:#fff,stroke:#3fb950;
 ```
-                 RDK X5 (Ubuntu 22.04, 10 TOPS BPU, 8× A55)
-Camera(UVC) ─► YOLO11-pose (BPU) ─► brain ─┬─► eyes: gaze + 8 emotions ─┐
-                                            ├─► arms (rope-pull)         │ USB/UART
-Mic(UVC) ─► sherpa STT (CPU) ─► dialogue ──┤                            ▼
-                                            ├─► TinySwallow LLM (CPU)    ESP32-S3 co-MCU
-                                            └─► Open JTalk TTS ─► MAX98357A ─► φ50 speaker
-Touch(cap) ─► petting reactions                              2×GC9A01 eyes · 2×SG90 arms
-GPIO button ─► graceful shutdown (goodnight voice + ✕✕ eyes)
-```
-The board brings up its own network (eth0 static + usb0) and every component is a systemd
-service that auto-starts on power-on. No dev PC is required at runtime.
+
+*The equivalent **ROS 2 node/topic graph** (design in [PROPOSAL.md §2.2](PROPOSAL.md), code in
+[`ros2_ws/`](ros2_ws/): `vision_node · voice_node · dialogue_node · brain_node ·
+serial_bridge_node`) is the modular form of the same pipeline; the shipped one-shot demo
+runs it as a single low-latency `korosuke-monitor` service.*
+
+The board brings up its own network (eth0 static `192.168.0.200` + usb0 lifeline) and every
+component is a **systemd** service that auto-starts on power-on. **No dev PC at runtime.**
 
 ## 6. Innovation highlights
 
@@ -155,7 +185,52 @@ Wiring/routes: [docs/hardware_block_diagram.md](docs/hardware_block_diagram.md),
 [docs/network_setup.md](docs/network_setup.md),
 [docs/power_usb_troubleshooting.md](docs/power_usb_troubleshooting.md) (power/USB brown-out diagnosis).
 
-## 8. Reproduce
+## 8. Known issues, limitations & failure recovery
+
+| Area | Known limitation | Recovery / mitigation |
+|---|---|---|
+| **LLM latency** | on-device 1.5B on CPU → 5–10 s to reply (the BPU *cannot* accelerate LLM on X5) | "考え中" eye animation covers the wait; canned "…ナリ" fallbacks — see [BPU-LLM analysis](docs/rdk_x5_bpu_llm.md) |
+| **Power / USB brown-out** | an inadequate USB-C cable/adapter → no green LED, USB peripherals drop, flaky network | 5 V/3 A+ certified supply + short thick cable; diagnose from `dmesg`; full guide → [power_usb_troubleshooting.md](docs/power_usb_troubleshooting.md) |
+| **Audio-card cold-boot race** | module load-order can leave the I2S card un-openable | boot-time root service **+** web **"🔈 audio self-test"** auto-rebind |
+| **Peripheral swap** | camera index / mic-card name can change on replug | auto-detected (USB-preference + name lookup) |
+| **No RTC** | battery-less clock resets offline | fake-hwclock; NTP when online |
+| **Bipedal gait** ✴️ | stretch only — the salvaged QDD motors are unreliable | MVP is seated/standing; decoupled from the critical path |
+
+**Safe shutdown / soft E-STOP:** a GPIO button runs a graceful halt (goodnight voice → ✕✕
+"power-off-OK" eyes that persist after the OS halts); the arm servos **auto-detach** (zero
+torque) between moves and on a web "🪫 relax" command — documented safety limit.
+
+## 9. Stage-3 requirement coverage (for reviewers)
+
+| Requirement | Where |
+|---|---|
+| System architecture | §5 Mermaid + ROS 2 graph ([PROPOSAL.md §2.2](PROPOSAL.md), code [`ros2_ws/`](ros2_ws/)) |
+| **BPU-accelerated model** (name + runtime) | **YOLO11n-pose on Bayes-e BPU, ~19.5 FPS** (§2, table below) |
+| Continuous real-time detection | pose loop runs live (not single-frame) |
+| Multi-task (2+ parallel workloads) | BPU vision **+** CPU STT/LLM/TTS concurrently; CPU/BPU load & thermal in §2 |
+| Motor/actuator control + safety limits | 2× SG90 rope-pull arms, auto-detach; 14-bit LEDC (§4, §8) |
+| Safe shutdown / E-STOP | GPIO button + ✕✕-eyes signal (§8) |
+| Interface spec / calibration | [docs/rdk_x5_40pin_i2s_max98357a.md](docs/rdk_x5_40pin_i2s_max98357a.md), [docs/TESTING.md](docs/TESTING.md) |
+| Known issues / failure recovery | §8 + docs/ |
+| Reproducible build / Quick Start | §10 + repo `README.md` |
+| **Demo video 3–7 min (YouTube)** | ⚠️ **TODO** — currently a 10 s clip; a full 3–7 min take on YouTube is required |
+| **LICENSE · community post · showcase PR** | ⚠️ **TODO** before final submission |
+
+**Benchmark (measured on the board):**
+
+| Task | Model / tool | Version | Result |
+|---|---|---|---|
+| Person + pose | YOLO11n-pose (Bayes-e `.bin`) | RDK OS 3.x / hbdk | ~**19.5 FPS** |
+| STT (JP) | sherpa-onnx ReazonSpeech Zipformer int8 + Silero VAD | onnxruntime | **RTF 0.44** |
+| LLM (JP) | TinySwallow-1.5B-Instruct Q5_K_M | llama.cpp | load 24 s, **1.5–3.3 tok/s** |
+| TTS (JP) | Open JTalk (pitched) | apt | instant |
+| Thermal — full stack, LLM at ~600 % CPU | — | `hrut_somstatus` | CPU/BPU/DDR **≈50–51 °C** (<60 °C ✅) |
+
+> **BPU-acceleration proof:** YOLO11n-pose runs as a compiled Bayes-e `.bin` on the BPU
+> (`hrut_somstatus` shows non-zero `bpu0` utilisation during inference); the LLM stays on
+> the 8× A55 CPU **by design** (see [docs/rdk_x5_bpu_llm.md](docs/rdk_x5_bpu_llm.md)).
+
+## 10. Reproduce
 
 ```bash
 # On the RDK X5 — everything is one integrated service, auto-starting on boot:
