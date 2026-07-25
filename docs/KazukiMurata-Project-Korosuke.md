@@ -1,12 +1,14 @@
 # Korosuke (コロ助) — Animatronic AI Robot
 
 - **Participant:** Kazuki Murata
-- **Stage completed:** 2
+- **Stage completed:** 3 (Launch)
 - **Repository:** https://github.com/gurimaruking/corosuke-robot
+- **Stage 3 showcase:** https://github.com/gurimaruking/corosuke-robot/blob/main/STAGE3.md
 - **Design proposal (Stage 2):** https://github.com/gurimaruking/corosuke-robot/blob/main/PROPOSAL.md
 - **Roadmap:** https://github.com/gurimaruking/corosuke-robot/blob/main/ROADMAP.md
-- **Demo video:** (Stage 1 screenshots below; Stage 3 live demo video to follow)
+- **Demo video:** 10 s on-device conversation clip in-repo; **full 3–7 min video: `<YouTube link — TBA>`**
 - **Community post (Stage 2):** https://discord.com/channels/1300358874280230994/1508433443648700516/1523261786034540704
+- **Community post (Stage 3):** `<link — TBA>`
 
 ## Summary
 
@@ -47,6 +49,40 @@ The complete proposal is in [PROPOSAL.md](https://github.com/gurimaruking/corosu
 - **Engineering plan** — [BOM](https://github.com/gurimaruking/corosuke-robot/blob/main/docs/bom.md), ROS 2 workspace layout, a week-by-week [ROADMAP.md](https://github.com/gurimaruking/corosuke-robot/blob/main/ROADMAP.md) through the 7/15 demo, and a top-8 **risk table** with mitigations and pivot triggers (bipedal locomotion is explicitly a decoupled stretch, never on the MVP critical path).
 
 Progress already banked toward Stage 3: the full body has been **redesigned for color-split 3D printing**, and the **eye coprocessor is alive** — 2× GC9A01 round LCDs driven by an ESP32-S3 (LovyanGFX) with emotion/gaze/blink commands over UART.
+
+## Stage 3 — Launch (Fully On-Device Interactive Robot)
+
+Stage 3 delivered the working, packaged robot — a ~46 cm Korosuke that **wakes up and
+greets you, sees and tracks you, listens, thinks, talks back, smiles, ponders, reacts to
+gestures and to being petted, waves its arms, and shuts itself down safely — 100 %
+on-device, no cloud, no dev PC at runtime.** Full showcase (benchmarks, Mermaid
+architecture, known-issues / failure-recovery, requirement-coverage table):
+**[STAGE3.md](https://github.com/gurimaruking/corosuke-robot/blob/main/STAGE3.md)**.
+
+Highlights:
+- **On-device AI pipeline** — BPU YOLO11n-pose (~19.5 FPS) for perception; CPU sherpa-onnx
+  STT (RTF 0.44) → TinySwallow-1.5B LLM (llama.cpp) → Open JTalk TTS for dialogue. **The
+  BPU does perception, the CPU does language** — I verified from D-Robotics' *own* X5
+  packages that the X5 BPU **cannot** accelerate an LLM (an S100/Nash-only feature), so
+  this split is the correct architecture, not a shortfall.
+- **Two integrations of one pipeline** — a **ROS 2 graph** (6 nodes + custom
+  `FacePose`/`EyeCmd` messages, `ros2 launch korosuke_nodes korosuke.launch.py`) and a
+  low-latency monolithic `korosuke-monitor` service (adds the web dashboard, audio DSP and
+  8-state eyes); the demo video shows the monolithic deployment.
+- **Custom kernel work to miniaturize audio** — the oversized speakers were replaced by a
+  φ50 driver on a **MAX98357A I2S amp**, for which I built an **out-of-tree ALSA codec
+  driver + device-tree overlay** the vendor kernel didn't ship, plus a playback DSP so the
+  small speaker is loud without clipping.
+- **Ships like a product** — power-on auto-start (systemd), a physical **safe-shutdown
+  button** (goodnight voice → ✕✕ "safe-to-unplug" eyes), a self-healing audio card, a
+  static maintenance IP, and expressive **smile / thinking / ✕✕** eyes.
+- **Multi-task on one board** — BPU vision + CPU STT/LLM/TTS run concurrently at
+  **≈50 °C** (< 60 °C target) even with the LLM pinning ~600 % CPU.
+
+Engineering investigations produced along the way (all in `docs/`):
+[why BPU-LLM is S100-only](https://github.com/gurimaruking/corosuke-robot/blob/main/docs/rdk_x5_bpu_llm.md),
+the [I2S amp build](https://github.com/gurimaruking/corosuke-robot/blob/main/docs/rdk_x5_40pin_i2s_max98357a.md),
+and a [power/USB brown-out troubleshooting guide](https://github.com/gurimaruking/corosuke-robot/blob/main/docs/power_usb_troubleshooting.md).
 
 ## Links & Evidence
 
