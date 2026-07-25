@@ -152,7 +152,8 @@ RDK X5 8 GB + open-source fan case · 2× GC9A01 + ESP32-S3-N16R8 · UVC USB web
 3-D-printed color-split body (OpenSCAD, `hardware/3d_models/korosuke_print/`).
 Wiring/routes: [docs/hardware_block_diagram.md](docs/hardware_block_diagram.md),
 [docs/rdk_x5_40pin_i2s_max98357a.md](docs/rdk_x5_40pin_i2s_max98357a.md),
-[docs/network_setup.md](docs/network_setup.md).
+[docs/network_setup.md](docs/network_setup.md),
+[docs/power_usb_troubleshooting.md](docs/power_usb_troubleshooting.md) (power/USB brown-out diagnosis).
 
 ## 8. Reproduce
 
