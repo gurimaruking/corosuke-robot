@@ -604,8 +604,8 @@ def detect_gesture(kxy, ksc, w):
     if not (left_up or right_up):
         return
     if now - _gesture["last"] < float(settings["gesture_cd"]) or now < _speak_until[0] \
-            or not _greet["present"]:
-        return
+            or not _greet["present"] or not settings["react_greet"]:
+        return   # ← 「入退室で挨拶(react_greet)」OFFならジェスチャ反応もしない
     _gesture["last"] = now
 
     def gaze_of(side):
