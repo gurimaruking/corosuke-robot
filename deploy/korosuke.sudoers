@@ -1,0 +1,3 @@
+# /etc/sudoers.d/korosuke (mode 0440)
+# monitor(sunrise)が音声カード再バインド修復スクリプトだけをパスワード無しで実行できるようにする。
+sunrise ALL=(root) NOPASSWD: /home/sunrise/corosuke/scripts/fix_max98357a.sh

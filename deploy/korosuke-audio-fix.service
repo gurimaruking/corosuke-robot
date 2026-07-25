@@ -1,0 +1,14 @@
+[Unit]
+Description=Verify/rebind MAX98357A I2S sound card (fix cold-boot load-order race)
+After=systemd-modules-load.service sound.target
+Before=korosuke-monitor.service
+
+[Service]
+Type=oneshot
+ExecStartPre=/bin/sleep 5
+ExecStart=/home/sunrise/corosuke/scripts/fix_max98357a.sh
+RemainAfterExit=yes
+StandardOutput=journal
+
+[Install]
+WantedBy=multi-user.target

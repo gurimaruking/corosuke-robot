@@ -169,6 +169,7 @@ state = {
     "level": 0.0, "peak_hold": 0.0, "audio_ok": False,
     "partial": "", "finals": [],
     "speech": "", "speech_log": [], "eye_ok": False, "present": False, "speaking": False,
+    "spk_ok": True,
 }
 lock = threading.Lock()
 
@@ -223,6 +224,41 @@ def _playback(wav):
             play = src
     subprocess.run(["aplay", "-D", f"plughw:{dev},0", play],
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
+
+
+def _audio_openable(dev):
+    """出力先カードが開けるか判定(0.05秒の無音を再生してPCM openを検証。無音なので聞こえない)。"""
+    try:
+        r = subprocess.run(["aplay", "-q", "-D", f"plughw:{dev},0",
+                            "-f", "S16_LE", "-r", "48000", "-c", "2", "-t", "raw"],
+                           input=b"\x00" * 9600,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+        return r.returncode == 0
+    except Exception:  # noqa
+        return False
+
+
+def ensure_audio_card():
+    """MAX98357Aカードが開けるか検証し、開けなければ root修復スクリプト(sudo)で
+    snd_soc_simple_card を再バインド(コールドブート時のロード順レースでカードが
+    'Invalid argument' で開けなくなる問題の自動対策)。結果を state['spk_ok'] に反映。"""
+    dev = settings.get("spk_dev", "max98357a")
+    if dev != "max98357a":
+        with lock:
+            state["spk_ok"] = True
+        return True
+    ok = _audio_openable(dev)
+    if not ok:
+        try:
+            subprocess.run(["sudo", "-n", "/home/sunrise/corosuke/scripts/fix_max98357a.sh"],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
+        except Exception:  # noqa
+            pass
+        ok = _audio_openable(dev)
+        print("[audio] max98357a ensure ->", "OK" if ok else "NG")
+    with lock:
+        state["spk_ok"] = ok
+    return ok
 
 
 def speak(text, block=False):
@@ -864,6 +900,7 @@ small{color:var(--mut);font-size:.78rem}
     <span class="chip">👁 目 <span id="eyest">…</span></span>
     <span class="chip">📷 カメラ <span id="camst">…</span></span>
     <span class="chip">🎙 マイク <span id="micst">…</span></span>
+    <span class="chip">🔈 音声 <span id="spkst">…</span></span>
     <span class="chip">🤖 LLM <span id="llmst2">…</span></span>
   </div>
 </header>
@@ -908,6 +945,9 @@ small{color:var(--mut);font-size:.78rem}
     <div class="ctl"><span class="lab">🗣 テスト発声</span>
       <input type="text" id="c_say" value="ワガハイはコロ助ナリ！" size="22">
       <button onclick="say()">喋る</button></div>
+    <div class="ctl"><span class="lab">🔈 音声チェック</span>
+      <button onclick="audiocheck()">カード検証＋テスト発声</button>
+      <small>(開けなければ自動で再バインド。「音声チェックOKナリ」が聞こえれば正常)</small></div>
     <div class="ctl"><span class="lab">🤖 LLM対話テスト</span>
       <input type="text" id="c_llmq" value="今日の調子はどう？" size="18">
       <button onclick="llmsay()">LLMに聞く</button> <small>(応答5〜10秒→上の吹き出し)</small></div>
@@ -981,6 +1021,7 @@ function set(k,v){ fetch('/set?'+k+'='+encodeURIComponent(v)); }
 function lbl(id,v){ document.getElementById(id).textContent=v; }
 function say(){ fetch('/say?text='+encodeURIComponent(document.getElementById('c_say').value)); }
 function llmsay(){ fetch('/llm?text='+encodeURIComponent(document.getElementById('c_llmq').value)); }
+function audiocheck(){ fetch('/audiocheck'); }
 function eye(k,v){ fetch('/eye?'+k+'='+encodeURIComponent(v)); }
 function armdo(v){ fetch('/arm?do='+v); }
 function setHTML(id,h){ const el=document.getElementById(id); if(el) el.innerHTML=h; }
@@ -1010,6 +1051,7 @@ es.onmessage = e => {
   const ch = d.cam_ok ? '<span class=ok>稼働' + (d.yolo_ok ? '+YOLO' : '') + '</span>' : '<span class=ng>停止</span>';
   setHTML('camst', ch);
   setHTML('micst', d.audio_ok ? '<span class=ok>稼働中</span>' : '<span class=ng>停止</span>');
+  setHTML('spkst', d.spk_ok ? '<span class=ok>OK</span>' : '<span class=ng>NG</span>');
   const lh = d.llm_ready ? '<span class=ok>準備OK</span>' : '<span class=ng>読込中</span>';
   setHTML('llmst2', lh);
   setHTML('llmst', d.llm_ready ? '<span class=ok>(準備OK)</span>' : '<span class=ng>(読込中/未導入)</span>');
@@ -1057,6 +1099,12 @@ class Handler(BaseHTTPRequestHandler):
                 elif k in ("react_greet", "react_speech", "use_llm", "use_arm",
                            "event_llm", "dsp"):
                     settings[k] = val in ("1", "true", "on")
+            self._json_ok()
+            return
+        if self.path.startswith("/audiocheck"):     # 音声カード検証&自動修復+テスト発声
+            ok = ensure_audio_card()
+            if ok:
+                speak("音声チェック、OKナリ！")     # 聞こえれば正常
             self._json_ok()
             return
         if self.path.startswith("/say?"):
@@ -1136,7 +1184,7 @@ class Handler(BaseHTTPRequestHandler):
                         snap = {k: state[k] for k in
                                 ("level", "peak_hold", "partial", "finals", "cam_ok",
                                  "audio_ok", "yolo_ok", "dets", "gesture", "speech",
-                                 "speech_log", "eye_ok", "present", "speaking")}
+                                 "speech_log", "eye_ok", "present", "speaking", "spk_ok")}
                     snap["llm_ready"] = _llm["ready"]
                     self.wfile.write(("data: " + json.dumps(snap, ensure_ascii=False) + "\n\n").encode("utf-8"))
                     self.wfile.flush()
@@ -1189,6 +1237,7 @@ def boot_greet():
 if __name__ == "__main__":
     apply_volume(settings["volume"])
     apply_mic_hw_gain()
+    ensure_audio_card()                                       # 起動時: 音声カード検証&自動修復
     threading.Thread(target=load_llm, daemon=True).start()   # LLMロード(数十秒)
     threading.Thread(target=touch_loop, daemon=True).start()  # 撫で検知
     threading.Thread(target=camera_loop, daemon=True).start()
