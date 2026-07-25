@@ -154,13 +154,46 @@ flowchart LR
     classDef o fill:#2da44e,color:#fff,stroke:#3fb950;
 ```
 
-*The equivalent **ROS 2 node/topic graph** (design in [PROPOSAL.md §2.2](PROPOSAL.md), code in
-[`ros2_ws/`](ros2_ws/): `vision_node · voice_node · dialogue_node · brain_node ·
-serial_bridge_node`) is the modular form of the same pipeline; the shipped one-shot demo
-runs it as a single low-latency `korosuke-monitor` service.*
-
 The board brings up its own network (eth0 static `192.168.0.200` + usb0 lifeline) and every
 component is a **systemd** service that auto-starts on power-on. **No dev PC at runtime.**
+
+### 5.1 ROS 2 node / topic graph (as-built)
+
+The same pipeline is also implemented as a **ROS 2 graph** — 6 nodes + 2 custom messages,
+started with `ros2 launch korosuke_nodes korosuke.launch.py` (code: [`ros2_ws/`](ros2_ws/);
+Stage-2 design: [PROPOSAL.md §2.2](PROPOSAL.md)):
+
+```mermaid
+flowchart LR
+    ASR[/"user_text · String<br/>(from STT)"/]:::ext
+    VIS(["vision_node"]):::n
+    BRAIN(["brain_node"]):::n
+    DIAG(["dialogue_node"]):::n
+    VOICE(["voice_node"]):::n
+    BRIDGE(["serial_bridge_node"]):::n
+    ESP["ESP32-S3<br/>eyes + arms"]:::hw
+    SPK["φ50 speaker"]:::hw
+
+    VIS -->|"/korosuke/face_pose · FacePose"| BRAIN
+    BRAIN -->|"/korosuke/greet · String"| DIAG
+    ASR -->|"/korosuke/user_text · String"| DIAG
+    DIAG -->|"/korosuke/say_text · String"| VOICE
+    BRAIN -->|"/korosuke/eye_cmd · EyeCmd"| BRIDGE
+    DIAG -->|"/korosuke/eye_cmd · EyeCmd"| BRIDGE
+    BRIDGE -->|"UART frames"| ESP
+    VOICE -->|"Open JTalk"| SPK
+
+    classDef n fill:#8957e5,color:#fff,stroke:#bc8cff;
+    classDef hw fill:#2da44e,color:#fff;
+    classDef ext fill:#1f6feb,color:#fff;
+```
+
+**Two integrations, one pipeline.** The ROS 2 graph above (custom messages `FacePose` /
+`EyeCmd`, topic-based node communication) satisfies the challenge's ROS 2 requirement. For
+the interactive showcase we also ship a **single low-latency `korosuke-monitor` service**
+that fuses the same stages in one process (adding the Web dashboard, audio DSP and the
+8-state eyes). **The demo video shows this monolithic deployment; the ROS 2 launch is the
+modular, node-per-stage equivalent of the same graph.**
 
 ## 6. Innovation highlights
 
