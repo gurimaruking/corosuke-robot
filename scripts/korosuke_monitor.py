@@ -721,6 +721,10 @@ LLM_FEWSHOT_EN = [
     {"role": "assistant", "content": "Hi there! I am Korosuke! Nice to meet you!"},
     {"role": "user", "content": "What is your name?"},
     {"role": "assistant", "content": "I am Korosuke, a little clockwork robot! Nice to meet you!"},
+    {"role": "user", "content": "Do you like croquettes?"},
+    {"role": "assistant", "content": "Yes! I love croquettes so much! They are my favorite food!"},
+    {"role": "user", "content": "こんにちは"},
+    {"role": "assistant", "content": "Hello! I am Korosuke! Let's talk in English!"},
 ]
 _llm = {"model": None, "ready": False, "busy": False}
 
@@ -825,16 +829,18 @@ def audio_loop():
         print("[audio] sherpa/VAD初期化失敗:", e)
         return
 
-    rec = {"obj": None, "lang": None}
+    # req=要求言語(切替検知の基準) / lang=実際にロードした言語(フォールバックで異なりうる)
+    rec = {"obj": None, "lang": None, "req": None}
 
     def load_rec():
         """settings["stt_lang"]に合わせて認識器を(再)ロード。無い言語は日本語へフォールバック。
         戻り値: 実際にロードした言語 or None(モデル皆無/失敗)。"""
-        want = settings.get("stt_lang", "ja")
-        d = _stt_model_dir(want)
-        if d is None and want != "ja":
-            print(f"[audio] {want} のSTTモデルが無い→日本語にフォールバック")
-            want = "ja"
+        req = settings.get("stt_lang", "ja")     # 要求された言語
+        actual = req
+        d = _stt_model_dir(actual)
+        if d is None and actual != "ja":
+            print(f"[audio] {actual} のSTTモデルが無い→日本語にフォールバック")
+            actual = "ja"
             d = _stt_model_dir("ja")
         if d is None:
             print("[audio] STTモデルが見つからない(ja/en とも無し)")
@@ -845,11 +851,13 @@ def audio_loop():
                 decoder=sorted(glob.glob(d + "/decoder*[!8].onnx"))[0],
                 joiner=sorted(glob.glob(d + "/joiner*int8.onnx"))[0],
                 tokens=d + "/tokens.txt", num_threads=6)   # YOLOはBPU中心なのでCPUを多めに
-            rec["lang"] = want
+            # req は要求どおり記録(フォールバックでも「要求は処理済み」として無限再ロードを防ぐ)
+            rec["req"] = req
+            rec["lang"] = actual
             with lock:
-                state["stt_lang_active"] = want
-            print(f"[audio] STTモデル ロード: {want} ({os.path.basename(d)})")
-            return want
+                state["stt_lang_active"] = actual
+            print(f"[audio] STTモデル ロード: req={req} actual={actual} ({os.path.basename(d)})")
+            return actual
         except Exception as e:  # noqa
             print("[audio] STTモデル ロード失敗:", e)
             return None
@@ -865,7 +873,7 @@ def audio_loop():
     ratecv_state = None
     while True:
         # 言語設定に合う認識器が無ければ(再)ロード。ロードできなければ待って再試行。
-        if rec["obj"] is None or rec["lang"] != settings.get("stt_lang", "ja"):
+        if rec["obj"] is None or rec["req"] != settings.get("stt_lang", "ja"):
             if load_rec() is None:
                 time.sleep(3)
                 continue
@@ -881,9 +889,16 @@ def audio_loop():
                 data = p.stdout.read(CHUNK)
                 if not data:
                     raise IOError("stream ended")
-                # 言語切替を検知したら arecord を畳んで認識器を再ロード
-                if settings.get("stt_lang", "ja") != rec["lang"]:
-                    raise IOError("lang switch")
+                # 言語切替を検知。実際に使うモデルが変わる時だけ再ロード
+                # (英語モデル未導入でja→ja据え置きなら、reqだけ更新して録音は継続=無音を作らない)
+                want = settings.get("stt_lang", "ja")
+                if want != rec["req"]:
+                    new_actual = want if _stt_model_dir(want) else "ja"
+                    if new_actual != rec["lang"]:
+                        raise IOError("lang switch")   # モデルが変わる→再ロード
+                    rec["req"] = want                  # 同じモデル→reqだけ更新し継続
+                    with lock:
+                        state["stt_lang_active"] = rec["lang"]
                 # 自分の発話中は認識しない(スピーカー→マイクの自己エコーを排除)
                 if time.time() < _speak_until[0]:
                     pending.clear()
