@@ -1049,6 +1049,10 @@ small{color:var(--mut);font-size:.78rem}
   </div>
 
   <div class="grp"><h2>🌐 言語 / Language</h2>
+    <div class="ctl"><span class="lab">🌐 一括 / All</span>
+      <button onclick="setAllLang('ja')">日本語</button>
+      <button onclick="setAllLang('en')">English</button>
+      <small>STT・LLM・TTS・画面表示をまとめて切替</small></div>
     <div class="ctl"><span class="lab">💬 音声認識 STT</span>
       <select id="c_sttlang" onchange="set('stt_lang',this.value)">
         <option value="ja" selected>日本語 (ReazonSpeech)</option>
@@ -1147,7 +1151,9 @@ const I18N = {
   "🔁 反応と会話":"🔁 Reactions & chat","入退室で挨拶":"Greet on enter/leave","話しかけに反応":"React to speech",
   "LLM会話":"LLM chat","腕を自動で動かす(調整中はOFF)":"Move arms automatically (OFF while tuning)",
   "入退室/ジェスチャ台詞をLLM生成(OFF=定型・即時)":"LLM-generate lines for enter/gesture (OFF=preset, instant)",
-  "🌐 言語 / Language":"🌐 Language","💬 音声認識 STT":"💬 Speech recognition (STT)","🤖 LLM応答":"🤖 LLM replies",
+  "🌐 言語 / Language":"🌐 Language","🌐 一括 / All":"🌐 All at once",
+  "STT・LLM・TTS・画面表示をまとめて切替":"Switch STT, LLM, TTS & screen all at once",
+  "💬 音声認識 STT":"💬 Speech recognition (STT)","🤖 LLM応答":"🤖 LLM replies",
   "🔊 音声合成 TTS":"🔊 Speech synthesis (TTS)","日本語 (ReazonSpeech)":"Japanese (ReazonSpeech)",
   "日本語（ナリ口調）":"Japanese (nari style)","日本語 (Open JTalk)":"Japanese (Open JTalk)",
   "英語STTは英語sherpaモデル、英語TTSは espeak-ng が必要。未導入時は自動で日本語にフォールバックします。":"English STT needs an English sherpa model; English TTS needs espeak-ng. Falls back to Japanese if absent.",
@@ -1183,6 +1189,13 @@ function applyUiLang(){
   const b = document.getElementById('langbtn'); if (b) b.textContent = uiEN ? '🌐 日本語' : '🌐 EN';
 }
 function toggleLang(){ uiEN = !uiEN; localStorage.setItem('koro_ui', uiEN ? 'en' : 'ja'); applyUiLang(); }
+// 一括切替: STT/LLM/TTS(サーバ側)＋画面表示(UI)をまとめてja/enに
+function setAllLang(lang){
+  ['stt_lang','llm_lang','tts_lang'].forEach(k => set(k, lang));
+  const ids = ['c_sttlang','c_llmlang','c_ttslang'];
+  ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = lang; });
+  uiEN = (lang === 'en'); localStorage.setItem('koro_ui', lang); applyUiLang();
+}
 
 const es = new EventSource('/events');
 es.onmessage = e => {
