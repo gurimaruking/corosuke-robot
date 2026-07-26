@@ -71,6 +71,7 @@ sudo systemctl daemon-reload && sudo systemctl enable --now korosuke-monitor kor
 # 4b) — or — run the MODULAR ROS 2 graph (same on-device stack: TinySwallow + Open JTalk, no cloud)
 cd ros2_ws && colcon build && source install/setup.bash
 ros2 launch korosuke_nodes korosuke.launch.py         # vision → brain → eyes / dialogue → voice
+ros2 launch korosuke_nodes korosuke.launch.py with_web:=true   # + rosbridge :9090 → open web/console.html
 #   NB: eye path is HW-verified; full graph is code-complete but not yet run end-to-end (see STAGE3 §5.1)
 
 # Safe shutdown:  hold the GPIO button ~1 s  → goodnight voice → ✕✕ eyes → OS halt → cut power.

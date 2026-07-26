@@ -204,6 +204,14 @@ stages in one process (adding the Web dashboard, audio DSP and the 8-state eyes)
 > consumes `/korosuke/user_text`, which the monolith's sherpa-onnx STT (or manual input)
 > publishes; a dedicated `stt_node` is future work.
 
+**Web control of the ROS graph.** Launch with `with_web:=true` to also start
+`rosbridge_server` (WebSocket :9090); then open [`ros2_ws/.../web/console.html`](ros2_ws/src/korosuke_nodes/web/console.html)
+in a browser and connect to `ws://<board-ip>:9090`. The page is **dependency-free** — it
+speaks the rosbridge JSON protocol over a raw WebSocket (no roslibjs, no CDN, on-device
+friendly) — and lets you talk to `/korosuke/user_text`, drive `/korosuke/eye_cmd`
+(emotions incl. thinking/✕✕, gaze, blink), and watch `/korosuke/say_text` +
+`/korosuke/face_pose` live. (The monolith keeps its own richer dashboard at `:8080`.)
+
 ## 6. Innovation highlights
 
 - **A complete on-device conversational + expressive robot on a $140-class board** —

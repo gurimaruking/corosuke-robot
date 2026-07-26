@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>コロ助 ROS Web操作卓 (rosbridge)</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, "Segoe UI", sans-serif;
+         background: #0d1117; color: #e6edf3; padding: 16px; }
+  h1 { font-size: 1.2rem; margin: 0 0 12px; }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 10px;
+          padding: 14px; margin-bottom: 14px; }
+  .card h2 { font-size: .95rem; margin: 0 0 10px; color: #8b949e; font-weight: 600; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  input[type=text] { background: #0d1117; border: 1px solid #30363d; color: #e6edf3;
+         border-radius: 6px; padding: 8px 10px; font-size: 1rem; }
+  #utext { flex: 1; min-width: 180px; }
+  button { background: #21262d; border: 1px solid #30363d; color: #e6edf3;
+           border-radius: 6px; padding: 8px 12px; font-size: .95rem; cursor: pointer; }
+  button:hover { background: #30363d; }
+  button.primary { background: #238636; border-color: #2ea043; }
+  button.emo { min-width: 92px; }
+  #status { font-weight: 600; padding: 3px 10px; border-radius: 999px; font-size: .85rem; }
+  .ok { background: #033a16; color: #3fb950; }
+  .ng { background: #3d1418; color: #f85149; }
+  #log { height: 240px; overflow-y: auto; background: #0d1117; border: 1px solid #30363d;
+         border-radius: 6px; padding: 10px; font-size: .9rem; line-height: 1.5; }
+  .me { color: #58a6ff; }
+  .koro { color: #f0c674; }
+  .sys { color: #8b949e; font-style: italic; }
+  #face { font-family: ui-monospace, monospace; color: #7ee787; }
+  small { color: #8b949e; }
+</style>
+</head>
+<body>
+  <h1>🤖 コロ助 ROS Web操作卓 <small>(rosbridge / 完全オンデバイス・外部JSなし)</small></h1>
+
+  <div class="card">
+    <h2>接続</h2>
+    <div class="row">
+      ws:// <input type="text" id="host" value="192.168.0.200" style="width:150px"> :9090
+      <button class="primary" id="btnConn" onclick="toggle()">接続</button>
+      <span id="status" class="ng">未接続</span>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <small>ボード側で <code>ros2 launch korosuke_nodes korosuke.launch.py with_web:=true</code>
+      （または <code>ros2 run rosbridge_server rosbridge_websocket</code>）を起動しておくこと。</small>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>💬 話しかける → /korosuke/user_text</h2>
+    <div class="row">
+      <input type="text" id="utext" placeholder="コロ助への言葉を入力…" onkeydown="if(event.key==='Enter')talk()">
+      <button class="primary" onclick="talk()">送信</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button onclick="quick('こんにちは')">こんにちは</button>
+      <button onclick="quick('名前を教えて')">名前を教えて</button>
+      <button onclick="quick('コロッケは好き？')">コロッケは好き？</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>😀 目の表情 → /korosuke/eye_cmd</h2>
+    <div class="row">
+      <button class="emo" onclick="emo('neutral')">😐 neutral</button>
+      <button class="emo" onclick="emo('happy')">😊 happy</button>
+      <button class="emo" onclick="emo('thinking')">🌀 thinking</button>
+      <button class="emo" onclick="emo('sad')">😢 sad</button>
+      <button class="emo" onclick="emo('angry')">😠 angry</button>
+      <button class="emo" onclick="emo('surprised')">😲 surprised</button>
+      <button class="emo" onclick="emo('sleepy')">😴 sleepy</button>
+      <button class="emo" onclick="emo('dead')">✕ dead</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      視線: <button onclick="gaze(-0.8,0)">← 左</button>
+      <button onclick="gaze(0,0)">・中央</button>
+      <button onclick="gaze(0.8,0)">右 →</button>
+      <button onclick="blink()">まばたき</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>👁 監視</h2>
+    <div class="row" style="margin-bottom:8px">顔検出 /korosuke/face_pose: <span id="face">—</span></div>
+    <div id="log"></div>
+  </div>
+
+<script>
+// ---- rosbridge JSON プロトコルを生WebSocketで直接話す(roslibjs等の外部依存なし) ----
+// ROS 2 の型は pkg/msg/Type 形式で送る。
+let ws = null, connected = false;
+const T_STRING = 'std_msgs/msg/String';
+const T_EYE    = 'korosuke_msgs/msg/EyeCmd';
+const T_FACE   = 'korosuke_msgs/msg/FacePose';
+
+function setStatus(text, ok) {
+  const s = document.getElementById('status');
+  s.textContent = text; s.className = ok ? 'ok' : 'ng';
+  document.getElementById('btnConn').textContent = ok ? '切断' : '接続';
+  connected = ok;
+}
+function send(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
+function pub(topic, msg) { send({ op: 'publish', topic, msg }); }
+
+function toggle() { connected ? ws && ws.close() : connect(); }
+
+function connect() {
+  const host = document.getElementById('host').value.trim();
+  addLog('接続中… ws://' + host + ':9090', 'sys');
+  try { ws = new WebSocket('ws://' + host + ':9090'); }
+  catch (e) { addLog('接続失敗: ' + e, 'sys'); return; }
+
+  ws.onopen = () => {
+    setStatus('接続済み', true);
+    addLog('接続しました', 'sys');
+    // 購読
+    send({ op: 'subscribe', topic: '/korosuke/say_text', type: T_STRING });
+    send({ op: 'subscribe', topic: '/korosuke/greet',    type: T_STRING });
+    send({ op: 'subscribe', topic: '/korosuke/face_pose', type: T_FACE });
+    // 配信(advertise)
+    send({ op: 'advertise', topic: '/korosuke/user_text', type: T_STRING });
+    send({ op: 'advertise', topic: '/korosuke/eye_cmd',   type: T_EYE });
+  };
+  ws.onclose = () => { setStatus('未接続', false); addLog('切断されました', 'sys'); };
+  ws.onerror = () => { setStatus('エラー', false); addLog('WebSocketエラー(ボード/rosbridge/IPを確認)', 'sys'); };
+  ws.onmessage = (e) => {
+    let m; try { m = JSON.parse(e.data); } catch (_) { return; }
+    if (m.op === 'publish') onMsg(m.topic, m.msg);
+  };
+}
+
+function onMsg(topic, msg) {
+  if (topic === '/korosuke/say_text') addLog('コロ助: ' + msg.data, 'koro');
+  else if (topic === '/korosuke/greet') addLog('(greet) ' + msg.data, 'sys');
+  else if (topic === '/korosuke/face_pose') {
+    document.getElementById('face').textContent = msg.detected
+      ? `検出  x=${(+msg.x).toFixed(2)}  y=${(+msg.y).toFixed(2)}  size=${(+msg.size).toFixed(2)}`
+      : '未検出';
+  }
+}
+
+// ---- 操作 ----
+function talk() {
+  const el = document.getElementById('utext');
+  const t = el.value.trim();
+  if (!t || !connected) return;
+  pub('/korosuke/user_text', { data: t });
+  addLog('あなた: ' + t, 'me');
+  el.value = '';
+}
+function quick(t) { document.getElementById('utext').value = t; talk(); }
+function emo(e) { if (connected) pub('/korosuke/eye_cmd', { emotion: e, gaze_x: 0.0, gaze_y: 0.0, blink: false }); }
+function gaze(x, y) { if (connected) pub('/korosuke/eye_cmd', { emotion: '', gaze_x: x, gaze_y: y, blink: false }); }
+function blink() { if (connected) pub('/korosuke/eye_cmd', { emotion: '', gaze_x: 0.0, gaze_y: 0.0, blink: true }); }
+
+function addLog(text, cls) {
+  const d = document.getElementById('log');
+  const line = document.createElement('div');
+  if (cls) line.className = cls;
+  line.textContent = text;
+  d.appendChild(line);
+  d.scrollTop = d.scrollHeight;
+}
+</script>
+</body>
+</html>
