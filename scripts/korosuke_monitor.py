@@ -34,6 +34,10 @@ POSE_DIR = "/app/pydev_demo/04_pose_sample/01_ultralytics_yolo11_pose"
 POSE_MODEL = POSE_DIR + "/yolo11n_pose_bayese_640x640_nv12.bin"
 # COCO17: 0鼻 5左肩 6右肩 7左肘 8右肘 9左手首 10右手首 11左腰 12右腰
 EYE_DEV = "/dev/ttyACM0"           # 目コプロセッサ(ESP32-S3)
+MEDIA_DIR = "/home/sunrise/corosuke/media"   # 📷メディアギャラリー(写真/動画)。docs/photoをここへ配置
+MEDIA_EXT = {"jpg": "image", "jpeg": "image", "png": "image", "gif": "image",
+             "webp": "image", "bmp": "image", "mp4": "video", "mov": "video",
+             "webm": "video", "m4v": "video", "avi": "video"}
 # 出力先はsettings["spk_dev"]でWeb切替。カード名指定=再起動でカード番号が入替っても不変。
 #   duplexaudio = オンボードES8326(既定) / max98357a = I2Sアンプ MAX98357A(40pin i2s1)
 
@@ -1299,6 +1303,12 @@ small{color:var(--mut);font-size:.78rem}
       <button onclick="eye('emo','x')">✕ 終了マーク</button>
       <button onclick="eye('blink','1')">まばたき</button></div>
   </div>
+
+  <div class="grp"><h2>📷 メディア / Gallery</h2>
+    <div class="ctl"><button onclick="loadMedia()">🔄 読み込み</button>
+      <small>ボードの <code>media/</code> 内の写真・動画を表示/再生</small></div>
+    <div id="gallery" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:6px"></div>
+  </div>
 </section>
 
 <script>
@@ -1316,6 +1326,28 @@ function setUiLang(lang){ uiEN=(lang==='en'); localStorage.setItem('koro_ui',lan
 function audiocheck(){ fetch('/audiocheck'); }
 function eye(k,v){ fetch('/eye?'+k+'='+encodeURIComponent(v)); }
 function armdo(v){ fetch('/arm?do='+v); }
+function loadMedia(){
+  const g=document.getElementById('gallery'); if(!g) return;
+  g.innerHTML='<small>読み込み中…</small>';
+  fetch('/media').then(r=>r.json()).then(items=>{
+    g.innerHTML='';
+    if(!items.length){ g.innerHTML='<small>メディアなし（ボードの media/ に写真・動画を配置）</small>'; return; }
+    items.forEach(it=>{
+      const url='/media/'+encodeURIComponent(it.name);
+      const w=document.createElement('div'); w.style.cssText='display:flex;flex-direction:column;gap:3px;max-width:260px';
+      let el;
+      if(it.kind==='image'){ el=document.createElement('img'); el.src=url; el.loading='lazy';
+        el.style.cssText='height:150px;width:auto;border-radius:8px;cursor:pointer;object-fit:cover;border:1px solid #ffffff22';
+        el.title='クリックで拡大'; el.onclick=()=>window.open(url,'_blank'); }
+      else { el=document.createElement('video'); el.src=url; el.controls=true; el.preload='metadata';
+        el.style.cssText='height:180px;width:auto;border-radius:8px;background:#000;border:1px solid #ffffff22'; }
+      w.appendChild(el);
+      const cap=document.createElement('small'); cap.textContent=it.name+' ('+Math.round(it.size/1024)+'KB)';
+      cap.style.cssText='color:var(--mut);word-break:break-all'; w.appendChild(cap);
+      g.appendChild(w);
+    });
+  }).catch(()=>{ g.innerHTML='<small>読み込み失敗</small>'; });
+}
 function setHTML(id,h){ const el=document.getElementById(id); if(el) el.innerHTML=h; }
 
 // ===== UI多言語 (クライアント側i18n・外部依存なし) =====
@@ -1456,6 +1488,52 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b)
 
+    def _serve_media(self):
+        """MEDIA_DIR内のファイルを配信。動画のシーク用に Range(206) 対応。"""
+        import mimetypes
+        name = urllib.parse.unquote(self.path[len("/media/"):].split("?")[0])
+        if "/" in name or "\\" in name or ".." in name:   # パストラバーサル防止
+            self.send_response(403); self.end_headers(); return
+        fp = os.path.join(MEDIA_DIR, name)
+        if not os.path.isfile(fp):
+            self.send_response(404); self.end_headers(); return
+        ctype = mimetypes.guess_type(fp)[0] or "application/octet-stream"
+        fsize = os.path.getsize(fp)
+        rng = self.headers.get("Range", "")
+        start, end = 0, fsize - 1
+        partial = False
+        if rng.startswith("bytes="):
+            try:
+                s, _, e = rng[6:].partition("-")
+                start = int(s) if s else 0
+                end = int(e) if e else fsize - 1
+                end = min(end, fsize - 1)
+                partial = 0 <= start <= end
+            except Exception:  # noqa
+                partial = False
+        try:
+            self.send_response(206 if partial else 200)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Accept-Ranges", "bytes")
+            if partial:
+                self.send_header("Content-Range", "bytes %d-%d/%d" % (start, end, fsize))
+            length = (end - start + 1) if partial else fsize
+            self.send_header("Content-Length", str(length))
+            self.send_header("Cache-Control", "public, max-age=3600")
+            self.end_headers()
+            with open(fp, "rb") as f:
+                if partial:
+                    f.seek(start)
+                remaining = length
+                while remaining > 0:
+                    chunk = f.read(min(65536, remaining))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    remaining -= len(chunk)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+
     def do_GET(self):
         if self.path.startswith("/set?"):
             q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
@@ -1531,6 +1609,26 @@ class Handler(BaseHTTPRequestHandler):
                 if v in ("r", "both"):
                     eyes.send("arm r off")
             self._json_ok()
+            return
+        if self.path == "/media" or self.path.startswith("/media?"):
+            items = []
+            try:
+                for fn in sorted(os.listdir(MEDIA_DIR)):
+                    fp = os.path.join(MEDIA_DIR, fn)
+                    kind = MEDIA_EXT.get(fn.lower().rsplit(".", 1)[-1]) if os.path.isfile(fp) else None
+                    if kind:
+                        items.append({"name": fn, "kind": kind, "size": os.path.getsize(fp)})
+            except Exception:  # noqa
+                pass
+            body = json.dumps(items).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if self.path.startswith("/media/"):
+            self._serve_media()
             return
         if self.path == "/":
             body = PAGE.encode("utf-8")
