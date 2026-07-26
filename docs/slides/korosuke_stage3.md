@@ -116,9 +116,9 @@ the voice, **and** the web dashboard — instantly, **on-device**.
 <!-- _class: lead -->
 ## Demo
 
-**Wake & greet → see & follow → talk (JP↔EN) → gesture → pet → safe shutdown**
+**Wake & greet → see & follow → talk (JP↔EN) → gesture → safe shutdown**
 
-🎥 *[insert demo video here]*
+🎥 **https://youtu.be/NJwj6Iazd20**
 
 🔗 github.com/gurimaruking/corosuke-robot · STAGE3.md
 

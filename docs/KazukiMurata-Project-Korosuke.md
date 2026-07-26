@@ -6,7 +6,7 @@
 - **Stage 3 showcase:** https://github.com/gurimaruking/corosuke-robot/blob/main/STAGE3.md
 - **Design proposal (Stage 2):** https://github.com/gurimaruking/corosuke-robot/blob/main/PROPOSAL.md
 - **Roadmap:** https://github.com/gurimaruking/corosuke-robot/blob/main/ROADMAP.md
-- **Demo video:** 10 s on-device conversation clip in-repo; **full 3–7 min video: `<YouTube link — TBA>`**
+- **Demo video (3–7 min):** https://youtu.be/NJwj6Iazd20
 - **Community post (Stage 2):** https://discord.com/channels/1300358874280230994/1508433443648700516/1523261786034540704
 - **Community post (Stage 3):** `<link — TBA>`
 

@@ -21,7 +21,7 @@ Final submission check: **2026-07-26 14:30 GMT**. Stage 3 showcase: [STAGE3.md](
 | M2 | 7/5–7/7 | **ROS 2 skeleton** | ROS 2 Humble on RDK X5; `korosuke_msgs`; `serial_bridge` moves the eyes from a topic | ✅ (eye_demo→bridge→eyes verified) |
 | M3 | 7/8–7/11 | **Perception + dialogue** | vision (BPU)→gaze tracking; **on-device** STT(sherpa)+LLM(TinySwallow)+TTS(OpenJTalk) "…ナリ"; expression | ✅ (VOICEVOX→OpenJTalk; on-device LLM added) |
 | M4 | 7/12–7/13 | **Integrated demo** | see → turn → greet → emote → gesture, fully on-device; benchmark table | ✅ (the `korosuke-monitor` service; +arm actuation, gestures) |
-| M5 | 7/14– | **Stage 3 — Launch** | demo video; benchmark; Stage 3 showcase | 🔄 [STAGE3.md](STAGE3.md) + README Quick Start + benchmarks + ROS 2 graph + failure-recovery docs all done; **3–7 min YouTube demo + showcase PR pending** |
+| M5 | 7/14– | **Stage 3 — Launch** | demo video; benchmark; Stage 3 showcase | 🔄 [STAGE3.md](STAGE3.md) + README Quick Start + benchmarks + ROS 2 graph + failure-recovery docs all done; **demo video done ([youtu.be/NJwj6Iazd20](https://youtu.be/NJwj6Iazd20)); showcase PR pending** |
 | S1 | if time | **Bipedal gait** | quasi-static "penguin" gait, 3+ steps, no fall — *only if* the junk QDD motors revive | ✴️ |
 
 ## Acceptance criteria (measurable goals)

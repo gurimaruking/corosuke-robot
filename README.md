@@ -12,6 +12,7 @@ his arms, and shuts himself down safely. Everything runs **100 % on-device on a 
 RDK X5**, with an ESP32-S3 driving the eyes and arms.
 
 > 🏆 **D-Robotics Robotics Dream Keeper Challenge — Stage 3 (Launch)**
+> 🎥 **[Watch the demo (YouTube)](https://youtu.be/NJwj6Iazd20)** — Korosuke in action
 > 📄 [STAGE3.md](STAGE3.md) — showcase & benchmarks · 🧩 [PROPOSAL.md](PROPOSAL.md) · 🗺 [ROADMAP.md](ROADMAP.md)
 
 ![Korosuke revision 0.1 — fully assembled, smiling](docs/photo/20260725_korosuke-robot-revision_0.1.jpg)

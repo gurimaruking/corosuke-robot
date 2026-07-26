@@ -52,7 +52,7 @@ Benchmarks (all measured on the board): YOLO11n-pose ~19.5 FPS, STT RTF 0.44, LL
 1.5–3.3 tok/s, and the whole stack runs at ≈50 °C (< 60 °C) even with the LLM pinning
 ~600 % CPU.
 
-🎥 **Demo video:** `<YouTube link>`
+🎥 **Demo video:** https://youtu.be/NJwj6Iazd20
 💻 **Repo:** https://github.com/gurimaruking/corosuke-robot
 📄 **Full showcase & benchmarks:** https://github.com/gurimaruking/corosuke-robot/blob/main/STAGE3.md
 🧩 **Design:** [PROPOSAL.md](https://github.com/gurimaruking/corosuke-robot/blob/main/PROPOSAL.md) · 🗺 [ROADMAP.md](https://github.com/gurimaruking/corosuke-robot/blob/main/ROADMAP.md)
