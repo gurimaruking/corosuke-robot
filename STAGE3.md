@@ -154,8 +154,9 @@ flowchart LR
     classDef o fill:#2da44e,color:#fff,stroke:#3fb950;
 ```
 
-The board brings up its own network (eth0 static `192.168.0.200` + usb0 lifeline) and every
-component is a **systemd** service that auto-starts on power-on. **No dev PC at runtime.**
+The board brings up its own network — reachable at **eth0 static `192.168.0.200`** on the LAN,
+**or `192.168.128.10` over the Type-C (USB-C) gadget link** to a PC — and every component is a
+**systemd** service that auto-starts on power-on. **No dev PC at runtime.**
 
 ### 5.1 ROS 2 node / topic graph (as-built)
 
