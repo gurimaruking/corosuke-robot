@@ -215,7 +215,12 @@ friendly) — and lets you talk to `/korosuke/user_text`, drive `/korosuke/eye_c
 ## 6. Innovation highlights
 
 - **A complete on-device conversational + expressive robot on a $140-class board** —
-  JP-ASR, a real JP LLM, JP-TTS, 8-state emotion, gesture, touch and actuation, zero cloud.
+  ASR, a real LLM, TTS, 8-state emotion, gesture, touch and actuation, zero cloud.
+- **Bilingual, on the fly (日本語 / English)** — one switch flips the *whole* robot between
+  Japanese and English: speech recognition (sherpa-onnx), the LLM's persona & replies
+  (TinySwallow-1.5B), the voice (Open JTalk / espeak-ng) **and** the web dashboard — with
+  **no cloud, no API keys**. The dashboard shows the live AI stack in use (LLM / persona /
+  STT / TTS) so what's running is always transparent.
 - **Character-faithful & alive**: pitched "ワガハイ…ナリ" voice; hand-tuned **smile** and a
   **"thinking" eye animation** during the LLM's think time so the wait feels intentional;
   a rope-pulled bellows arm matching the 3-D-printed center-bore.

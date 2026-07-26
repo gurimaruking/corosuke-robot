@@ -7,9 +7,9 @@
 [![On-device](https://img.shields.io/badge/AI-100%25%20on--device%20·%20no%20cloud-2da44e.svg)](STAGE3.md)
 
 A ~46 cm open-source animatronic of **Korosuke (コロ助)** from *Kiteretsu Daihyakka* that
-**sees, listens, thinks, talks, emotes, reacts to gestures & touch, and shuts itself down
-safely — 100 % on-device** on a **D-Robotics RDK X5**, with an ESP32-S3 driving the eyes
-and arms.
+**sees, listens, thinks, talks (in Japanese *or* English), emotes, reacts to gestures &
+touch, and shuts itself down safely — 100 % on-device** on a **D-Robotics RDK X5**, with an
+ESP32-S3 driving the eyes and arms.
 
 > 🏆 **D-Robotics Robotics Dream Keeper Challenge** — **Stage 3 (Launch)**.
 > 📄 Full showcase & benchmarks: **[STAGE3.md](STAGE3.md)** · 🧩 Design: [PROPOSAL.md](PROPOSAL.md) · 🗺 [ROADMAP.md](ROADMAP.md)
@@ -31,12 +31,32 @@ lets you tune everything.
 | Subsystem | Implementation | Measured |
 |---|---|---|
 | Vision | BPU YOLO11n-pose (Bayes-e `.bin`) | ~19.5 FPS |
-| Speech-to-text (JP) | sherpa-onnx ReazonSpeech + Silero VAD | RTF 0.44 |
-| LLM dialogue (JP) | llama.cpp + TinySwallow-1.5B (CPU) | 1.5–3.3 tok/s |
-| Text-to-speech (JP) | Open JTalk (pitched childlike voice) | instant |
+| Speech-to-text | sherpa-onnx + Silero VAD — **JP** ReazonSpeech / **EN** Zipformer | RTF 0.44 |
+| LLM dialogue | llama.cpp + TinySwallow-1.5B (CPU) — **JP & EN** personas | 1.5–3.3 tok/s |
+| Text-to-speech | **JP** Open JTalk / **EN** espeak-ng (pitched childlike voice) | instant |
+| **Language** | **日本語 / English** — STT · LLM · TTS · Web UI all switchable, on the fly | on-device |
 | Audio out | **MAX98357A I2S amp** (custom kernel driver) → φ50 speaker | DSP-tuned |
 | Eyes | 2× GC9A01 on ESP32-S3 — 8 emotions incl. smile / thinking / ✕✕ | ≥30 FPS |
 | Arms | 2× SG90 rope-pull bellows arms | auto-detach |
+
+> 🌐 **Bilingual & fully on-device.** One button switches the whole robot — speech
+> recognition, LLM replies, voice, *and* the dashboard — between **Japanese and English**,
+> with **no cloud and no API keys**. The web dashboard shows the live AI stack in use
+> (LLM / persona / STT / TTS).
+
+## Challenge journey — Stage 1 → 2 → 3
+
+Korosuke was built up across the three challenge stages, each reusing the last:
+
+| Stage | Theme | What was proven | Doc |
+|---|---|---|---|
+| **1 — Ideation** | On-device perception | YOLO11 vision running **on the RDK X5 BPU** (+ the open-source [RDK X5 case](https://github.com/gurimaruking/rdk-x5-modular-case)) | [STAGE1.md](STAGE1.md) |
+| **2 — Build** | System design | Re-wire to the **RDK X5 as the single cognitive core** under a **ROS 2 graph**; ESP32s become actuator sub-controllers | [PROPOSAL.md](PROPOSAL.md) |
+| **3 — Launch** | Shipped robot | The full interactive Korosuke — sees/listens/thinks/talks/emotes, **bilingual JP/EN**, 100 % on-device (this repo) | [STAGE3.md](STAGE3.md) |
+
+Stage 1's proven BPU vision is still the perception layer today; Stage 2's ROS 2 design is
+shipped as [`ros2_ws/`](ros2_ws/) alongside the low-latency monolith. **Each stage builds
+directly on the previous — re-wiring, not re-inventing.**
 
 ### Not (yet) implemented — honest scope
 
