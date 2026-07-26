@@ -1047,6 +1047,7 @@ h1 small{font-size:.7rem;color:var(--ng);font-weight:400}
 .tab{padding:7px 20px;border-radius:22px;border:1px solid #ffffff22;background:transparent;
   color:var(--mut);cursor:pointer;font-size:.95rem;transition:.15s}
 .tab.active{background:var(--acc);color:#06231b;border-color:var(--acc);font-weight:700}
+button.on{background:var(--acc);color:#06231b;border-color:var(--acc);font-weight:700}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chip{background:var(--card);border-radius:16px;padding:4px 12px;font-size:.82rem;border:1px solid #ffffff12}
 .view{padding:18px;max-width:1180px;margin:0 auto}
@@ -1164,9 +1165,9 @@ small{color:var(--mut);font-size:.78rem}
 
   <div class="grp"><h2>🌐 言語 / Language</h2>
     <div class="ctl"><span class="lab">🌐 一括 / All</span>
-      <button onclick="setAllLang('ja')">日本語</button>
-      <button onclick="setAllLang('en')">English</button>
-      <small>STT・LLM・TTS・表示をまとめて切替</small></div>
+      <button id="all_ja" onclick="setAllLang('ja')">日本語</button>
+      <button id="all_en" onclick="setAllLang('en')">English</button>
+      <small>STT・LLM・TTS・表示をまとめて切替（右上🌐ボタンと同じ）</small></div>
     <div class="ctl"><span class="lab">🖥 表示言語 / Display</span>
       <select id="c_uilang" onchange="setUiLang(this.value)">
         <option value="ja" selected>日本語</option>
@@ -1312,6 +1313,9 @@ function applyUiLang(){
   document.documentElement.lang = uiEN ? 'en' : 'ja';
   const b = document.getElementById('langbtn'); if (b) b.textContent = uiEN ? '🌐 日本語' : '🌐 EN';
   const u = document.getElementById('c_uilang'); if (u) u.value = uiEN ? 'en' : 'ja';
+  // 一括ボタンの現在選択をハイライト(右上ボタンと同じ状態を共有)
+  const aj = document.getElementById('all_ja'); if (aj) aj.classList.toggle('on', !uiEN);
+  const ae = document.getElementById('all_en'); if (ae) ae.classList.toggle('on', uiEN);
 }
 // ヘッダの🌐ボタン: UI表示だけでなく、STT/LLM/TTSの発話言語もまとめて切替
 function toggleLang(){ setAllLang(uiEN ? 'ja' : 'en'); }
