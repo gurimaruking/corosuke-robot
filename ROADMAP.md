@@ -29,9 +29,9 @@ Final submission check: **2026-07-26 14:30 GMT**. Stage 3 showcase: [STAGE3.md](
 Mapped from [PROPOSAL.md §1.3](PROPOSAL.md):
 
 - **G1 Vision:** ≥10 FPS sustained on BPU; detection→action latency <150 ms.
-- **G2 Gaze:** eyes + neck follow a face, error <5° after 300 ms.
-- **G3 Voice:** wake → LLM → speech start <3.0 s; "…nari" style.
-- **G4 Lip-sync:** mouth follows audio envelope within 100 ms.
+- **G2 Gaze:** eyes + neck follow a face, error <5° after 300 ms. — *as-built: **eyes-only** (no neck servo fitted); neck-follow deferred.*
+- **G3 Voice:** wake → LLM → speech start <3.0 s; "…nari" style. — *on-device STT→LLM→TTS built; LLM reply is 5–10 s on CPU (BPU can't accelerate LLM on X5), covered by the "thinking" eyes.*
+- **G4 Lip-sync:** mouth follows audio envelope within 100 ms. — ***not implemented*** *(no 2-axis mouth mechanism); expression is via the eyes + voice instead.*
 - **G5 Eye emotion:** ≥30 FPS on 2× GC9A01, 7 emotions.
 - **G6 Thermal:** sustained BPU+CPU+vision <60 °C (fan lid validated at Stage 1).
 - **G7 Bipedal ✴️:** quasi-static gait, 3+ steps (stretch only).

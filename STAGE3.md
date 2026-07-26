@@ -208,24 +208,22 @@ modular, node-per-stage equivalent of the same graph.**
 - **Ships like a product**: power-on-to-greeting auto-start, a physical safe-shutdown with
   a clear "safe to unplug" signal, a static maintenance IP, and a web self-test.
 
-## 7. Build / BOM (summary)
+## 7. Build / BOM
 
-| Subsystem | Part | Notes | Ref |
-|---|---|---|---|
-| **Brain** | RDK X5 8 GB + open-source fan case | 10 TOPS BPU (Bayes-e), 8× A55 | [RDK X5](https://developer.d-robotics.cc/en/rdkx5) · [case](https://github.com/gurimaruking/rdk-x5-modular-case) |
-| **Eyes (co-MCU)** | 2× GC9A01 (1.28″ 240×240 round) + ESP32-S3-N16R8 | LovyanGFX, 8 emotions incl. smile/thinking/✕✕ | [firmware/corosuke_eyes/](firmware/corosuke_eyes/) |
-| **Camera + Mic** | UVC USB webcam (Logitech C270) | mic built-in → feeds STT; auto-detected | [C270](https://www.logicool.co.jp/ja-jp/products/webcams/c270-hd-webcam.960-001063.html) |
-| **Audio amp** | MAX98357A (I2S Class-D mono) | **custom out-of-tree driver + DT overlay** | [build guide](docs/rdk_x5_40pin_i2s_max98357a.md) · [firmware/max98357a/](firmware/max98357a/) |
-| **Speaker** | φ50 mm 8 Ω dynamic (WYGD50D-8-03) | on MAX98357A SPK± | [akizuki g109012](https://akizukidenshi.com/catalog/g/g109012/) |
-| **Arms** | 2× SG90 servo (rope-pull bellows) | GPIO4/5, auto-detach to save current | [firmware/corosuke_eyes/](firmware/corosuke_eyes/) |
-| **Touch** | capacitive touch sensor | "petting" reactions | — |
-| **Safe power** | GPIO shutdown button | goodnight voice → ✕✕ eyes → halt | [deploy/](deploy/) |
-| **Servo power** | 1S Li-ion rail | servo current off the main 5 V | — |
-| **Body** | 3-D-printed color-split (OpenSCAD) | eye/nose/chest mounts | [hardware/3d_models/korosuke_print/](hardware/3d_models/korosuke_print/) |
+📋 **Full itemized BOM (with rationale) is in the Stage-2 design → [PROPOSAL.md §3.1](PROPOSAL.md).**
+To avoid duplication, this section lists only the **Stage-3 as-built hardware changes** vs. that plan:
 
-> **Louder-speaker upgrade path** (optional): a φ40 mm **4 Ω / 3 W** full-range
-> ([akizuki DXYD40-22P-4A](https://akizukidenshi.com/catalog/g/g116025/)) in a small
-> sealed baffle roughly doubles clean output; keep the DSP ceiling (§8) in mind.
+| Change in Stage 3 | Part | Why / ref |
+|---|---|---|
+| **Speaker miniaturized** | MAX98357A I2S amp + φ50 mm 8 Ω driver (WYGD50D-8-03) | fit the body; needed a **custom out-of-tree kernel driver + DT overlay** — [build](docs/rdk_x5_40pin_i2s_max98357a.md) · [firmware/max98357a/](firmware/max98357a/) · [g109012](https://akizukidenshi.com/catalog/g/g109012/) |
+| **Camera** | UVC USB webcam (Logitech C270), mic built-in | on-device vision + STT; auto-detected on replug |
+| **Safe power** | GPIO shutdown button | graceful halt (goodnight voice → ✕✕ eyes) — [deploy/](deploy/) |
+| **Touch** | capacitive touch sensor | "petting" reactions |
+| Mic | uses the C270's built-in mic (INMP441 in the plan not needed) | one fewer part |
+
+> Louder-speaker upgrade path (optional): a φ40 mm **4 Ω / 3 W** full-range
+> ([DXYD40-22P-4A](https://akizukidenshi.com/catalog/g/g116025/)) in a small sealed baffle
+> roughly doubles clean output (mind the DSP ceiling, §8).
 
 **Wiring & diagnostics:** [hardware block diagram](docs/hardware_block_diagram.md) ·
 [40-pin I2S / MAX98357A](docs/rdk_x5_40pin_i2s_max98357a.md) ·
@@ -242,6 +240,11 @@ modular, node-per-stage equivalent of the same graph.**
 | **Peripheral swap** | camera index / mic-card name can change on replug | auto-detected (USB-preference + name lookup) |
 | **No RTC** | battery-less clock resets offline | fake-hwclock; NTP when online |
 | **Bipedal gait** ✴️ | stretch only — the salvaged QDD motors are unreliable | MVP is seated/standing; decoupled from the critical path |
+
+**Not implemented in this build (deferred, not claimed as done):**
+- **2-axis mouth / lip-sync** — no mouth mechanism is fitted; all expression is via the eyes and voice. Lip-sync (proposed as G4) is deferred.
+- **Bipedal "penguin" walking (QDD legs)** — stretch only; the salvaged QDD motors are unreliable, so the MVP is a seated/standing torso.
+- **Back-mounted sword prop** — not built.
 
 **Safe shutdown / soft E-STOP:** a GPIO button runs a graceful halt (goodnight voice → ✕✕
 "power-off-OK" eyes that persist after the OS halts); the arm servos **auto-detach** (zero

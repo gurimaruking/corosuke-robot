@@ -9,6 +9,12 @@ Korosuke (コロ助) is the samurai-robot from *Kiteretsu Daihyakka*, rebuilt as
 > **Key pivot documented here:** the original design (3× ESP32 + a home server
 > doing the AI) is **re-wired** so the RDK X5 is the cognitive core and the ESP32s
 > become its servo/actuator sub-controllers, all under a ROS 2 graph.
+>
+> ⚠️ **This is the Stage-2 *plan*, not the shipped robot.** Some proposed subsystems
+> were **deferred / not built** — notably the **2-axis mouth & lip-sync**, the **neck servo**
+> (gaze is eyes-only), **bipedal QDD walking** (stretch), and VOICEVOX was replaced by
+> on-device Open JTalk TTS. See **[STAGE3.md §8](STAGE3.md#8-known-issues-limitations--failure-recovery)**
+> for exactly what shipped vs. what was deferred.
 
 ---
 
@@ -125,7 +131,7 @@ RDK X5 = 8× Cortex-A55 (CPU), 10 TOPS BPU, 8 GB LPDDR4, Mali GPU.
 ## 3. Engineering Plan
 
 ### 3.1 Bill of Materials (summary)
-Full detail and rationale in [bom.md](docs/bom.md) / [inventory.md](docs/inventory.md)(docs/inventory.md).
+This table is the canonical BOM. As-built hardware deltas for the shipped robot (φ50 speaker on a MAX98357A I2S amp, Logitech C270 camera, safe-power button, mic taken from the C270) are in [STAGE3.md](STAGE3.md).
 
 | Subsystem | Part | Qty | Status |
 |-----------|------|-----|--------|
@@ -181,7 +187,7 @@ designed ✅. See the live plan in [ROADMAP.md](ROADMAP.md).
 | R4 | Thermal throttling under multi-task | low | med | fan lid validated (−17 °C); monitor `hrut_somstatus` |
 | R5 | Eye looks small (φ32 LCD in a 50 mm socket) | med | low | white diffuser ring + recessed mount in `corosuke_exterior.scad` |
 | R6 | RoboEyes is **GPL-3.0** | low | med (licensing) | isolate eye firmware as a separate GPL component; keep core under its own license |
-| R7 | Power budget if QDD added (high stall current) | med | med | separate LiPo rail + DC-DC per [inventory.md](docs/inventory.md); current-limit; MVP runs on bench PSU |
+| R7 | Power budget if QDD added (high stall current) | med | med | separate LiPo rail + DC-DC (see BOM §3.1); current-limit; MVP runs on bench PSU |
 | R8 | Timeline (7/8 is tight) | med | high | MVP-first decoupling; reuse existing firmware/server; this plan front-loads integration |
 
 ---
