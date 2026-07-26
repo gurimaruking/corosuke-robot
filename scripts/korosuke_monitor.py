@@ -12,6 +12,7 @@ import glob
 import json
 import math
 import os
+import shutil
 import struct
 import subprocess
 import threading
@@ -58,6 +59,7 @@ settings = {
     "use_llm": True,       # キーワードに無い発話をローカルLLMで返答
     "stt_lang": "ja",      # 音声認識の言語: ja=日本語(ReazonSpeech) / en=英語(要英語モデル)
     "llm_lang": "ja",      # LLM応答の言語: ja=「ナリ」口調 / en=English
+    "tts_lang": "ja",      # 音声合成の言語: ja=Open JTalk / en=espeak-ng(要インストール)
     "use_arm": True,       # 挨拶/ジェスチャで腕サーボを自動で動かす(調整中はOFF)
     "event_llm": False,    # 入退室/ジェスチャの台詞: True=LLM生成(多彩,数秒遅延)/False=定型(即時)
     # --- 認識の閾値(Webで調整可) ---
@@ -263,18 +265,32 @@ def ensure_audio_card():
     return ok
 
 
+def _synthesize(text, wav):
+    """textをwavへ合成する。tts_lang=="en"かつespeak-ngがあれば英語音声、
+    それ以外(または未インストール)は日本語Open JTalk。戻り値: 成功True。"""
+    if settings.get("tts_lang", "ja") == "en" and shutil.which("espeak-ng"):
+        # 英語(espeak-ng)。子供っぽく高め・やや速めのロボ声。
+        p = subprocess.run(
+            ["espeak-ng", "-v", "en-us+f3", "-s", "165", "-p", "80", "-w", wav, text],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+        return p.returncode == 0 and os.path.exists(wav) and os.path.getsize(wav) > 0
+    # 日本語(Open JTalk)
+    p = subprocess.run(
+        [OJ_BIN, "-x", OJ_DIC, "-m", OJ_VOICE,
+         "-fm", str(settings["oj_fm"]), "-a", str(settings["oj_a"]),
+         "-r", str(settings["oj_r"]), "-ow", wav],
+        input=(text + "\n").encode("utf-8"),
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+    return p.returncode == 0 and os.path.exists(wav) and os.path.getsize(wav) > 0
+
+
 def speak(text, block=False):
-    """Open JTalkで動的合成→スピーカー再生。発話中フラグで自己反応を抑止。
+    """テキストを合成(言語はtts_lang)→スピーカー再生。発話中フラグで自己反応を抑止。
     block=True で再生完了まで同期(シャットダウン時など、確実に鳴らしてから次へ進む用)。"""
     def _run():
         try:
             wav = "/tmp/koro_say.wav"
-            p = subprocess.run([OJ_BIN, "-x", OJ_DIC, "-m", OJ_VOICE,
-                                "-fm", str(settings["oj_fm"]), "-a", str(settings["oj_a"]),
-                                "-r", str(settings["oj_r"]), "-ow", wav],
-                               input=(text + "\n").encode("utf-8"),
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
-            if p.returncode != 0 or not os.path.exists(wav):
+            if not _synthesize(text, wav):
                 return
             dur = 3.0
             try:
@@ -963,6 +979,7 @@ small{color:var(--mut);font-size:.78rem}
   <div class="tabs">
     <button class="tab active" id="tab-monitor" onclick="tab(this,'monitor')">📺 モニタ</button>
     <button class="tab" id="tab-settings" onclick="tab(this,'settings')">⚙ 設定</button>
+    <button class="tab" id="langbtn" onclick="toggleLang()" style="margin-left:auto">🌐 EN</button>
   </div>
   <div class="chips">
     <span class="chip">👁 目 <span id="eyest">…</span></span>
@@ -1041,7 +1058,11 @@ small{color:var(--mut);font-size:.78rem}
       <select id="c_llmlang" onchange="set('llm_lang',this.value)">
         <option value="ja" selected>日本語（ナリ口調）</option>
         <option value="en">English</option></select></div>
-    <div class="ctl"><small>英語STTは英語sherpaモデルが必要。未導入時は自動で日本語にフォールバックします。</small></div>
+    <div class="ctl"><span class="lab">🔊 音声合成 TTS</span>
+      <select id="c_ttslang" onchange="set('tts_lang',this.value)">
+        <option value="ja" selected>日本語 (Open JTalk)</option>
+        <option value="en">English (espeak-ng)</option></select></div>
+    <div class="ctl"><small>英語STTは英語sherpaモデル、英語TTSは espeak-ng が必要。未導入時は自動で日本語にフォールバックします。</small></div>
   </div>
 
   <div class="grp"><h2>🔍 認識しきい値</h2>
@@ -1106,43 +1127,100 @@ function audiocheck(){ fetch('/audiocheck'); }
 function eye(k,v){ fetch('/eye?'+k+'='+encodeURIComponent(v)); }
 function armdo(v){ fetch('/arm?do='+v); }
 function setHTML(id,h){ const el=document.getElementById(id); if(el) el.innerHTML=h; }
+
+// ===== UI多言語 (クライアント側i18n・外部依存なし) =====
+const I18N = {
+  "🤖 コロ助":"🤖 Korosuke","📺 モニタ":"📺 Monitor","⚙ 設定":"⚙ Settings",
+  "👁 目":"👁 Eyes","📷 カメラ":"📷 Camera","🎙 マイク":"🎙 Mic","🔈 音声":"🔈 Audio",
+  "🗣 コロ助のセリフ":"🗣 Korosuke says","👁 カメラ + 人物/姿勢検知":"👁 Camera + person/pose",
+  "認識:":"Detected:","🎙 マイク / 💬 音声認識 (sherpa-onnx)":"🎙 Mic / 💬 Speech recognition (sherpa-onnx)",
+  "レベル:":"Level:",
+  "🔊 音声":"🔊 Audio","🔈 出力先":"🔈 Output",
+  "MAX98357A(I2Sアンプ40pin・φ50)":"MAX98357A (I2S amp 40pin, φ50)","ES8326(旧・大型SP)":"ES8326 (old large SP)",
+  "🔊 音量":"🔊 Volume","🎛 小型SP最適化":"🎛 Small-SP tuning","HPF+圧縮+リミッタ":"HPF+comp+limiter",
+  "クリーン上限":"Clean ceiling",
+  "（φ50=0.2Wは-6運用。高耐入力SP/箱固定なら上げて大音量化）":"(φ50 0.2W uses -6; raise for louder with a tougher SP / fixed box)",
+  "🎙 マイク感度":"🎙 Mic gain","🎵 声の高さ":"🎵 Pitch","⏩ 話速":"⏩ Speed","🗣 テスト発声":"🗣 Test speak",
+  "喋る":"Speak","🔈 音声チェック":"🔈 Audio check","カード検証＋テスト発声":"Verify card + test speak",
+  "(開けなければ自動で再バインド。「音声チェックOKナリ」が聞こえれば正常)":"(auto re-binds if it can't open; OK if you hear the check line)",
+  "🤖 LLM対話テスト":"🤖 LLM chat test","LLMに聞く":"Ask LLM","(応答5〜10秒→上の吹き出し)":"(reply 5-10s -> bubble above)",
+  "🔁 反応と会話":"🔁 Reactions & chat","入退室で挨拶":"Greet on enter/leave","話しかけに反応":"React to speech",
+  "LLM会話":"LLM chat","腕を自動で動かす(調整中はOFF)":"Move arms automatically (OFF while tuning)",
+  "入退室/ジェスチャ台詞をLLM生成(OFF=定型・即時)":"LLM-generate lines for enter/gesture (OFF=preset, instant)",
+  "🌐 言語 / Language":"🌐 Language","💬 音声認識 STT":"💬 Speech recognition (STT)","🤖 LLM応答":"🤖 LLM replies",
+  "🔊 音声合成 TTS":"🔊 Speech synthesis (TTS)","日本語 (ReazonSpeech)":"Japanese (ReazonSpeech)",
+  "日本語（ナリ口調）":"Japanese (nari style)","日本語 (Open JTalk)":"Japanese (Open JTalk)",
+  "英語STTは英語sherpaモデル、英語TTSは espeak-ng が必要。未導入時は自動で日本語にフォールバックします。":"English STT needs an English sherpa model; English TTS needs espeak-ng. Falls back to Japanese if absent.",
+  "🔍 認識しきい値":"🔍 Detection thresholds","👤 人物検出":"👤 Person detect","🦴 骨格":"🦴 Skeleton",
+  "⏱ ジェスチャ間隔":"⏱ Gesture interval","秒":"s",
+  "💪 腕サーボ":"💪 Arm servos","両方":"Both","👋手を振る":"👋 Wave","🙌バンザイ":"🙌 Hurray","😔下げる":"😔 Lower",
+  "🪫脱力(PWM OFF)":"🪫 Relax (PWM OFF)","🫲 左腕のみ":"🫲 Left arm","🫱 右腕のみ":"🫱 Right arm",
+  "上げ":"Up","中立":"Center","下げ":"Down","🪫脱力":"🪫 Relax",
+  "👁 目テスト":"👁 Eye test","😊 笑顔":"😊 Happy","😢 悲しい":"😢 Sad","😠 怒り":"😠 Angry",
+  "😲 驚き":"😲 Surprised","😴 眠い":"😴 Sleepy","🌀 考え中":"🌀 Thinking","😐 通常":"😐 Neutral",
+  "✕ 終了マーク":"✕ Shutdown mark","まばたき":"Blink"
+};
+// 動的文字列(JSが都度生成)用
+const TD = {
+  "停止":"Stopped","稼働":"Running","喋ってる":"Speaking","人を発見":"Person found","待機":"Idle",
+  "未接続":"Disconnected","稼働中":"Running","準備OK":"Ready","読込中":"Loading","(準備OK)":"(ready)",
+  "(読込中/未導入)":"(loading/absent)","人物なし":"No person","追跡中":"tracking",
+  "(まだ何も話してないナリ)":"(nothing said yet)","（聞いてるナリ…）":"(listening...)","実際: ":"actual: "
+};
+let uiEN = localStorage.getItem('koro_ui') === 'en';
+function t(s){ return uiEN && TD[s] !== undefined ? TD[s] : s; }
+let _i18nNodes = null;
+function _collect(){
+  const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT), a = [];
+  while (w.nextNode()) { const n = w.currentNode, k = n.nodeValue.trim();
+    if (k && I18N[k] !== undefined) a.push({n: n, raw: n.nodeValue, k: k}); }
+  return a;
+}
+function applyUiLang(){
+  if (!_i18nNodes) _i18nNodes = _collect();
+  _i18nNodes.forEach(o => { o.n.nodeValue = uiEN ? o.raw.replace(o.k, I18N[o.k]) : o.raw; });
+  document.documentElement.lang = uiEN ? 'en' : 'ja';
+  const b = document.getElementById('langbtn'); if (b) b.textContent = uiEN ? '🌐 日本語' : '🌐 EN';
+}
+function toggleLang(){ uiEN = !uiEN; localStorage.setItem('koro_ui', uiEN ? 'en' : 'ja'); applyUiLang(); }
+
 const es = new EventSource('/events');
 es.onmessage = e => {
   const d = JSON.parse(e.data);
   document.getElementById('meter').style.width = d.level + '%';
   document.getElementById('peak').style.left = d.peak_hold + '%';
   document.getElementById('lv').textContent = d.level.toFixed(1);
-  document.getElementById('partial').textContent = d.partial || '';
+  document.getElementById('partial').textContent = t(d.partial || '');
   document.getElementById('dets').textContent =
-      (d.dets.length ? '人物検知: ' + d.dets.length + '人' : '人物なし')
+      (d.dets.length ? (uiEN ? 'People: ' + d.dets.length : '人物検知: ' + d.dets.length + '人') : t('人物なし'))
       + (d.gesture ? '  🖐 ' + d.gesture : '');
   const reco = document.getElementById('reco');
   if (reco) reco.textContent =
-      (d.dets.length ? d.dets.length + '人 (' + d.dets.map(x=>x[1].toFixed(2)).join(',') + ')' : '人物なし')
-      + (d.gesture ? ' / 🖐 ' + d.gesture : '') + (d.present ? ' / 追跡中' : '');
-  document.getElementById('finals').innerHTML = d.finals.map(t => '<div>' + t + '</div>').join('');
+      (d.dets.length ? d.dets.length + (uiEN ? ' ppl (' : '人 (') + d.dets.map(x=>x[1].toFixed(2)).join(',') + ')' : t('人物なし'))
+      + (d.gesture ? ' / 🖐 ' + d.gesture : '') + (d.present ? ' / ' + t('追跡中') : '');
+  document.getElementById('finals').innerHTML = d.finals.map(x => '<div>' + x + '</div>').join('');
   const sp = document.getElementById('speech');
-  sp.textContent = d.speech || '(まだ何も話してないナリ)';
+  sp.textContent = d.speech || t('(まだ何も話してないナリ)');
   sp.className = d.speaking ? 'talk' : '';
-  document.getElementById('speechlog').innerHTML = d.speech_log.map(t => '<div>' + t + '</div>').join('');
+  document.getElementById('speechlog').innerHTML = d.speech_log.map(x => '<div>' + x + '</div>').join('');
   const eh = d.eye_ok
-      ? (d.speaking ? '<span class=ok>喋ってる</span>' : (d.present ? '<span class=ok>人を発見</span>' : '<span class=ok>待機</span>'))
-      : '<span class=ng>未接続</span>';
+      ? (d.speaking ? '<span class=ok>' + t('喋ってる') + '</span>' : (d.present ? '<span class=ok>' + t('人を発見') + '</span>' : '<span class=ok>' + t('待機') + '</span>'))
+      : '<span class=ng>' + t('未接続') + '</span>';
   setHTML('eyest', eh);
-  const ch = d.cam_ok ? '<span class=ok>稼働' + (d.yolo_ok ? '+YOLO' : '') + '</span>' : '<span class=ng>停止</span>';
+  const ch = d.cam_ok ? '<span class=ok>' + t('稼働') + (d.yolo_ok ? '+YOLO' : '') + '</span>' : '<span class=ng>' + t('停止') + '</span>';
   setHTML('camst', ch);
   const alng = (d.stt_lang_active || 'ja').toUpperCase();
-  setHTML('micst', (d.audio_ok ? '<span class=ok>稼働中</span>' : '<span class=ng>停止</span>') + ' <small>(' + alng + ')</small>');
-  setHTML('sttlangnote', ' 実際: ' + alng);
+  setHTML('micst', (d.audio_ok ? '<span class=ok>' + t('稼働中') + '</span>' : '<span class=ng>' + t('停止') + '</span>') + ' <small>(' + alng + ')</small>');
+  setHTML('sttlangnote', ' ' + t('実際: ') + alng);
   setHTML('spkst', d.spk_ok ? '<span class=ok>OK</span>' : '<span class=ng>NG</span>');
-  const lh = d.llm_ready ? '<span class=ok>準備OK</span>' : '<span class=ng>読込中</span>';
-  setHTML('llmst2', lh);
-  setHTML('llmst', d.llm_ready ? '<span class=ok>(準備OK)</span>' : '<span class=ng>(読込中/未導入)</span>');
+  setHTML('llmst2', d.llm_ready ? '<span class=ok>' + t('準備OK') + '</span>' : '<span class=ng>' + t('読込中') + '</span>');
+  setHTML('llmst', d.llm_ready ? '<span class=ok>' + t('(準備OK)') + '</span>' : '<span class=ng>' + t('(読込中/未導入)') + '</span>');
 };
-es.onerror = () => { document.getElementById('st').textContent = '(切断 — 再接続中…)'; };
+es.onerror = () => { document.getElementById('st').textContent = uiEN ? '(disconnected - reconnecting...)' : '(切断 — 再接続中…)'; };
 es.onopen = () => { document.getElementById('st').textContent = ''; };
 const cam = document.getElementById('cam');
 cam.onerror = () => { setTimeout(() => { cam.src = '/stream?' + Date.now(); }, 1000); };
+applyUiLang();   // 保存済みのUI言語をロード時に適用
 </script></body></html>"""
 
 
@@ -1179,7 +1257,7 @@ class Handler(BaseHTTPRequestHandler):
                 elif k == "spk_dev":
                     if val in ("duplexaudio", "max98357a"):
                         settings["spk_dev"] = val
-                elif k in ("stt_lang", "llm_lang"):
+                elif k in ("stt_lang", "llm_lang", "tts_lang"):
                     if val in ("ja", "en"):
                         settings[k] = val
                 elif k in ("react_greet", "react_speech", "use_llm", "use_arm",
