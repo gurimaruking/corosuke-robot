@@ -189,12 +189,20 @@ flowchart LR
     classDef ext fill:#1f6feb,color:#fff;
 ```
 
-**Two integrations, one pipeline.** The ROS 2 graph above (custom messages `FacePose` /
-`EyeCmd`, topic-based node communication) satisfies the challenge's ROS 2 requirement. For
-the interactive showcase we also ship a **single low-latency `korosuke-monitor` service**
-that fuses the same stages in one process (adding the Web dashboard, audio DSP and the
-8-state eyes). **The demo video shows this monolithic deployment; the ROS 2 launch is the
-modular, node-per-stage equivalent of the same graph.**
+**Two integrations of one on-device pipeline.** The ROS 2 graph above (custom messages
+`FacePose` / `EyeCmd`, topic-based nodes) satisfies the challenge's ROS 2 requirement; its
+`dialogue_node` / `voice_node` run the **same fully on-device stack as the monolith —
+TinySwallow-1.5B via llama.cpp and Open JTalk (no cloud, no API keys)**. For the interactive
+showcase we also ship a **single low-latency `korosuke-monitor` service** that fuses the same
+stages in one process (adding the Web dashboard, audio DSP and the 8-state eyes).
+
+> **Verification status (honest).** All live testing and the demo video use the **monolith**.
+> In the ROS 2 graph, the `vision_node → brain_node → serial_bridge → eyes` path is
+> **verified on hardware**; the full graph including `dialogue_node` / `voice_node` is
+> **code-complete and reuses the monolith's proven on-device modules, but has not yet been
+> run end-to-end on the board.** Listening (STT) is **not yet a ROS node** — `dialogue_node`
+> consumes `/korosuke/user_text`, which the monolith's sherpa-onnx STT (or manual input)
+> publishes; a dedicated `stt_node` is future work.
 
 ## 6. Innovation highlights
 

@@ -38,6 +38,17 @@ lets you tune everything.
 | Eyes | 2× GC9A01 on ESP32-S3 — 8 emotions incl. smile / thinking / ✕✕ | ≥30 FPS |
 | Arms | 2× SG90 rope-pull bellows arms | auto-detach |
 
+### Not (yet) implemented — honest scope
+
+These were proposed in the design but are **not in this build** (not claimed as done):
+
+| Planned feature | Status |
+|---|---|
+| 2-axis mouth / lip-sync | ❌ deferred — no mouth mechanism; expression is via the **eyes + voice** |
+| Neck servo (head turn) | ❌ deferred — face tracking is **eyes-only** (no neck actuator) |
+| Bipedal "penguin" walking (QDD legs) | ✴️ stretch only — salvaged QDD motors unreliable; MVP is seated/standing |
+| Back-mounted sword prop | ❌ not built |
+
 ## Quick Start (on the RDK X5)
 
 > All on-device. **No cloud, no API keys.** Perception on the BPU, dialogue on the CPU.
@@ -57,9 +68,10 @@ sudo cp deploy/*.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now korosuke-monitor korosuke-shutdown-btn
 #     → open  http://<board-ip>:8080   (Monitor / Settings tabs)
 
-# 4b) — or — run the MODULAR ROS 2 graph (same pipeline, node-per-stage)
+# 4b) — or — run the MODULAR ROS 2 graph (same on-device stack: TinySwallow + Open JTalk, no cloud)
 cd ros2_ws && colcon build && source install/setup.bash
 ros2 launch korosuke_nodes korosuke.launch.py         # vision → brain → eyes / dialogue → voice
+#   NB: eye path is HW-verified; full graph is code-complete but not yet run end-to-end (see STAGE3 §5.1)
 
 # Safe shutdown:  hold the GPIO button ~1 s  → goodnight voice → ✕✕ eyes → OS halt → cut power.
 ```

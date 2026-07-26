@@ -3,7 +3,7 @@
 serial_bridge_node — ROS 2 -> ESP32-S3 目コプロセッサ (UART/USB)
 
 コロ助の目ファーム(firmware/corosuke_eyes)は「テキスト行」プロトコル:
-  emo <neutral|happy|sad|angry|surprised|sleepy>
+  emo <neutral|happy|sad|angry|surprised|sleepy|thinking|dead>
   gaze <x> <y>        (-1.0..1.0)
   blink
   idle <on|off>
@@ -80,7 +80,8 @@ class SerialBridge(Node):
     def on_eye(self, msg: EyeCmd):
         self._ensure_open()
         emo = (msg.emotion or '').strip().lower()
-        valid = {'neutral', 'happy', 'sad', 'angry', 'surprised', 'sleepy'}
+        valid = {'neutral', 'happy', 'sad', 'angry', 'surprised', 'sleepy',
+                 'thinking', 'dead'}   # thinking=考え中(LLM推論中), dead=✕✕(終了)
         if emo in valid and emo != self._last_emo:
             self._write(f'emo {emo}')
             self._last_emo = emo

@@ -65,10 +65,13 @@ Highlights:
   BPU does perception, the CPU does language** — I verified from D-Robotics' *own* X5
   packages that the X5 BPU **cannot** accelerate an LLM (an S100/Nash-only feature), so
   this split is the correct architecture, not a shortfall.
-- **Two integrations of one pipeline** — a **ROS 2 graph** (6 nodes + custom
-  `FacePose`/`EyeCmd` messages, `ros2 launch korosuke_nodes korosuke.launch.py`) and a
-  low-latency monolithic `korosuke-monitor` service (adds the web dashboard, audio DSP and
-  8-state eyes); the demo video shows the monolithic deployment.
+- **Two integrations of one on-device pipeline** — a **ROS 2 graph** (6 nodes + custom
+  `FacePose`/`EyeCmd` messages, `ros2 launch korosuke_nodes korosuke.launch.py`) whose
+  `dialogue_node`/`voice_node` run the **same on-device stack as the monolith (TinySwallow
+  via llama.cpp + Open JTalk, no cloud)**, and a low-latency monolithic `korosuke-monitor`
+  service (adds the web dashboard, audio DSP and 8-state eyes). All live testing and the
+  demo video use the monolith; in the ROS graph the vision→eyes path is HW-verified and the
+  full dialogue graph is code-complete (end-to-end board run pending) — see STAGE3 §5.1.
 - **Custom kernel work to miniaturize audio** — the oversized speakers were replaced by a
   φ50 driver on a **MAX98357A I2S amp**, for which I built an **out-of-tree ALSA codec
   driver + device-tree overlay** the vendor kernel didn't ship, plus a playback DSP so the

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-dialogue_node — コロ助の対話脳 (on-device, LLM = Claude haiku)
+dialogue_node — コロ助の対話脳 (**完全オンデバイス**, LLM = TinySwallow-1.5B / llama.cpp CPU)
 
 入力:
   /korosuke/greet     (std_msgs/String) … brain が人検出時に出す発話トリガ
@@ -9,15 +9,20 @@ dialogue_node — コロ助の対話脳 (on-device, LLM = Claude haiku)
   /korosuke/say_text  (std_msgs/String) … コロ助のセリフ("〜ナリ") → voice_node へ
   /korosuke/eye_cmd   (EyeCmd)          … セリフに合った表情 → 目に反映
 
-APIキー(ANTHROPIC_API_KEY)が無い/ネット不通なら、定型の「ナリ」応答にフォールバック。
-依存を増やさないため標準ライブラリ urllib のみ使用。LLM呼出は別スレッドで
-実行し、ROS のスピンをブロックしない。
+クラウドAPI(Anthropic等)には一切依存しない。モノリス
+scripts/korosuke_monitor.py と同じモデル(TinySwallow Q5 gguf)・同じ人格
+プロンプト・same few-shot を使い、llama.cpp(llama_cpp)でCPU推論する。
+モデルが無い/ロード失敗時は定型の「ナリ」応答にフォールバックし、
+パイプライン自体は止めない。推論は別スレッドで実行しスピンをブロックしない。
+
+パラメータ:
+  llm_model    gguf モデルパス (default personality.LLM_MODEL_DEFAULT)
+  n_ctx        コンテキスト長 (default 1024)
+  n_threads    CPUスレッド数 (default 6)
+  max_tokens   生成上限 (default 64)
+  temperature  (default 0.7)   top_p (default 0.9)
 """
-import os
-import json
 import threading
-import urllib.request
-import urllib.error
 
 import rclpy
 from rclpy.node import Node
@@ -25,30 +30,51 @@ from std_msgs.msg import String
 from korosuke_msgs.msg import EyeCmd
 
 from korosuke_nodes.personality import (
-    COROSUKE_SYSTEM_PROMPT, detect_eye_emotion,
+    LLM_MODEL_DEFAULT, LLM_PERSONA, LLM_FEWSHOT, detect_eye_emotion,
 )
 
 FALLBACK_GREET = "ワガハイはコロ助ナリ！よろしくナリ！"
 FALLBACK_REPLY = "なるほどナリ！ワガハイもそう思うナリ！"
-MODEL = "claude-3-haiku-20240307"
 
 
 class Dialogue(Node):
     def __init__(self):
         super().__init__('dialogue_node')
-        self.declare_parameter('model', MODEL)
-        self.declare_parameter('max_tokens', 120)
+        self.declare_parameter('llm_model', LLM_MODEL_DEFAULT)
+        self.declare_parameter('n_ctx', 1024)
+        self.declare_parameter('n_threads', 6)
+        self.declare_parameter('max_tokens', 64)
+        self.declare_parameter('temperature', 0.7)
+        self.declare_parameter('top_p', 0.9)
+
         self.say = self.create_publisher(String, '/korosuke/say_text', 10)
         self.eye = self.create_publisher(EyeCmd, '/korosuke/eye_cmd', 10)
         self.create_subscription(String, '/korosuke/greet', self.on_greet, 10)
         self.create_subscription(String, '/korosuke/user_text', self.on_user, 10)
+
         self.history = []          # [{role, content}]
-        self.api_key = os.environ.get('ANTHROPIC_API_KEY', '').strip()
+        self._model = None
+        self._ready = False
         self._busy = False
-        if self.api_key:
-            self.get_logger().info('dialogue_node 起動 (Claude haiku on-device)')
-        else:
-            self.get_logger().warn('ANTHROPIC_API_KEY 未設定 → 定型ナリ応答モード')
+        # モデルロードは重い(数百MB)ので別スレッドで。ロード中もノードは生きる。
+        threading.Thread(target=self._load_model, daemon=True).start()
+
+    # ---- LLM ロード(別スレッド, 完全オンデバイス) ----
+    def _load_model(self):
+        path = self.get_parameter('llm_model').value
+        try:
+            from llama_cpp import Llama
+            m = Llama(
+                model_path=path,
+                n_ctx=int(self.get_parameter('n_ctx').value),
+                n_threads=int(self.get_parameter('n_threads').value),
+                verbose=False)
+            self._model = m
+            self._ready = True
+            self.get_logger().info(f'dialogue_node: TinySwallow ready (on-device, {path})')
+        except Exception as e:  # noqa
+            self.get_logger().warn(
+                f'LLMロード失敗→定型ナリ応答モードで継続 ({path}): {e}')
 
     # ---- トリガ ----
     def on_greet(self, msg: String):
@@ -63,37 +89,35 @@ class Dialogue(Node):
 
     # ---- LLM 呼び出し(別スレッド) ----
     def _ask_async(self, user_text: str):
-        if self._busy or not self.api_key:
-            if not self.api_key:
-                self._emit(FALLBACK_REPLY)
+        if self._busy:
+            return
+        if not self._ready:
+            self._emit(FALLBACK_REPLY)          # まだロード中/失敗 → 定型
             return
         self._busy = True
         threading.Thread(target=self._ask, args=(user_text,), daemon=True).start()
 
     def _ask(self, user_text: str):
+        # 考え中の目(瞳がくるくる)を出してから推論
+        self.eye.publish(EyeCmd(emotion='thinking', gaze_x=0.0, gaze_y=0.0, blink=False))
         try:
             self.history.append({"role": "user", "content": user_text})
-            self.history = self.history[-20:]
-            body = json.dumps({
-                "model": self.get_parameter('model').value,
-                "max_tokens": int(self.get_parameter('max_tokens').value),
-                "system": COROSUKE_SYSTEM_PROMPT,
-                "messages": self.history,
-            }).encode('utf-8')
-            req = urllib.request.Request(
-                "https://api.anthropic.com/v1/messages", data=body,
-                headers={
-                    "Content-Type": "application/json",
-                    "x-api-key": self.api_key,
-                    "anthropic-version": "2023-06-01",
-                }, method="POST")
-            with urllib.request.urlopen(req, timeout=30) as r:
-                data = json.loads(r.read().decode('utf-8'))
-            reply = data["content"][0]["text"].strip()
-            self.history.append({"role": "assistant", "content": reply})
-            self._emit(reply)
+            self.history = self.history[-8:]
+            r = self._model.create_chat_completion(
+                messages=[{"role": "system", "content": LLM_PERSONA}]
+                         + LLM_FEWSHOT
+                         + self.history,
+                max_tokens=int(self.get_parameter('max_tokens').value),
+                temperature=float(self.get_parameter('temperature').value),
+                top_p=float(self.get_parameter('top_p').value))
+            reply = r["choices"][0]["message"]["content"].strip()
+            if reply:
+                self.history.append({"role": "assistant", "content": reply})
+                self._emit(reply)
+            else:
+                self.eye.publish(EyeCmd(emotion='neutral', gaze_x=0.0, gaze_y=0.0, blink=False))
         except Exception as e:  # noqa
-            self.get_logger().warn(f'LLM失敗→定型: {e}')
+            self.get_logger().warn(f'LLM生成失敗→定型: {e}')
             self._emit(FALLBACK_REPLY)
         finally:
             self._busy = False

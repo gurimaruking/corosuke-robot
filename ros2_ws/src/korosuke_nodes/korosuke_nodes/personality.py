@@ -1,7 +1,12 @@
 """
 コロ助 人格定義 (server/corosuke_personality.py をROS 2側へ移植)
-「〜ナリ」口調のシステムプロンプト、表情検出、VOICEVOX話者ID。
-目ファームの感情6種へのマッピング(EYE_EMOTION)を追加。
+「〜ナリ」口調のシステムプロンプト、表情検出、目ファームの感情6種への
+マッピング(EYE_EMOTION)、そして **完全オンデバイス** の対話/音声設定
+(LLM=TinySwallow via llama.cpp / TTS=Open JTalk) を集約する。
+
+※ dialogue_node / voice_node はここの定数のみを参照し、クラウドAPIや
+  VOICEVOX には一切依存しない(プロジェクトの「no cloud / no API key」原則)。
+  モノリス scripts/korosuke_monitor.py と同じ実装・同じモデルを使う。
 """
 
 COROSUKE_SYSTEM_PROMPT = """あなたは「コロ助」です。キテレツ大百科に登場するからくりロボットとして振る舞ってください。
@@ -69,5 +74,34 @@ def detect_eye_emotion(text: str) -> str:
     return EYE_EMOTION.get(detect_expression(text), "neutral")
 
 
-VOICEVOX_SPEAKER_ID = 3  # ずんだもん
-VOICEVOX_SPEAKERS = {"zundamon": 3, "metan": 2, "tsumugi": 8, "ritsu": 6}
+# ============================================================================
+# 完全オンデバイス対話 (LLM = TinySwallow-1.5B via llama.cpp, CPU)
+#   モノリス korosuke_monitor.py と同じモデル/プロンプト/few-shot を使う。
+#   クラウドAPIには一切依存しない。
+# ============================================================================
+LLM_MODEL_DEFAULT = "/home/sunrise/models/llm/tinyswallow-q5.gguf"
+
+# 小型モデル向けの短い人格プロンプト(長文プロンプトより「ナリ」順守率が高い)
+LLM_PERSONA = ("あなたは「コロ助」。キテレツ大百科のからくりロボット。"
+               "【厳守ルール】1)一人称は必ず「ワガハイ」。2)全ての文の語尾に必ず「ナリ」を付ける(例外なし)。"
+               "3)明るく元気で少しおっちょこちょい。4)コロッケが大好物。"
+               "5)難しい話はせず1〜2文で短く答える。標準語やですます調は禁止、必ずナリ口調にする。")
+
+# few-shot で「ナリ」口調を強制(小型モデル対策)
+LLM_FEWSHOT = [
+    {"role": "user", "content": "こんにちは"},
+    {"role": "assistant", "content": "やあ！ワガハイはコロ助ナリ！元気ナリか？"},
+    {"role": "user", "content": "名前を教えて"},
+    {"role": "assistant", "content": "ワガハイはコロ助ナリ！よろしくナリ！"},
+]
+
+# ============================================================================
+# 完全オンデバイス音声合成 (TTS = Open JTalk, 動的日本語合成)
+#   VOICEVOX(別サーバ)ではなく、モノリスと同じ Open JTalk を使う。
+# ============================================================================
+OJ_BIN = "open_jtalk"
+OJ_DIC = "/var/lib/mecab/dic/open-jtalk/naist-jdic"
+OJ_VOICE = "/usr/share/hts-voice/nitech-jp-atr503-m001/nitech_jp_atr503_m001.htsvoice"
+OJ_FM = 9       # 声の高さ(-fm)。コロ助=高め
+OJ_A = 0.40     # 声道長(-a)。小=子供っぽい
+OJ_R = 1.12     # 話速(-r)
