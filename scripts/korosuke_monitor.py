@@ -1109,14 +1109,6 @@ small{color:var(--mut);font-size:.78rem}
              onkeydown="if(event.key==='Enter')chat()">
       <button onclick="chat()">送信 / Send</button></div>
     <div><small>入力するとローカルLLMが返答(5〜10秒)→上の吹き出し＆発声</small></div></div>
-  <div class="card full"><h2>🧠 AI構成 / AI setup（使用中）</h2>
-    <div class="chips">
-      <span class="chip">🤖 LLM: <b id="i_llm">…</b></span>
-      <span class="chip">🎭 ペルソナ: <b id="i_persona">…</b></span>
-      <span class="chip">💬 STT: <b id="i_stt">…</b></span>
-      <span class="chip">🔊 TTS: <b id="i_tts">…</b></span>
-    </div>
-    <div style="margin-top:6px"><small>すべてオンデバイス（クラウド不使用・APIキー無し）</small></div></div>
   <div class="grid">
     <div class="card"><h2>👁 カメラ + 人物/姿勢検知</h2>
       <img id="cam" src="/stream" alt="camera"><div id="dets"></div>
@@ -1126,6 +1118,14 @@ small{color:var(--mut);font-size:.78rem}
       <p style="margin:6px 0"><small>レベル: <span id="lv">0</span> %FS</small></p>
       <p id="partial"></p><div id="finals"></div></div>
   </div>
+  <div class="card full"><h2>🧠 AI構成 / AI setup（使用中）</h2>
+    <div class="chips">
+      <span class="chip">🤖 LLM: <b id="i_llm">…</b></span>
+      <span class="chip">🎭 ペルソナ: <b id="i_persona">…</b></span>
+      <span class="chip">💬 STT: <b id="i_stt">…</b></span>
+      <span class="chip">🔊 TTS: <b id="i_tts">…</b></span>
+    </div>
+    <div style="margin-top:6px"><small>すべてオンデバイス（クラウド不使用・APIキー無し）／日本語・英語 切替対応</small></div></div>
 </section>
 
 <section id="view-settings" class="view" hidden>
