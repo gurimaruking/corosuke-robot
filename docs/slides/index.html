@@ -21,10 +21,10 @@
   body{ overflow:hidden; }
 
   #deck{ position:fixed; inset:0; }
-  .slide{ position:absolute; inset:0; display:none; flex-direction:column;
+  .slide{ position:absolute; inset:0; display:flex; flex-direction:column;
     justify-content:center; padding:min(6vh,52px) clamp(24px,7vw,104px);
-    opacity:0; transition:opacity .45s ease; }
-  .slide.on{ display:flex; opacity:1; }
+    opacity:0; visibility:hidden; pointer-events:none; transition:opacity .4s ease; }
+  .slide.on{ opacity:1; visibility:visible; pointer-events:auto; }
   @media (prefers-reduced-motion: reduce){ .slide{ transition:none; } }
 
   .eyebrow{ font-family:var(--mono); font-size:clamp(11px,1.1vw,14px);
@@ -72,6 +72,8 @@
   .atag{ font-size:12px; color:var(--muted); font-family:var(--mono); margin-top:2px; }
   .aflow{ align-self:center; color:var(--accent); font-size:24px; font-weight:800; }
   @media (max-width:860px){ .aflow{ transform:rotate(90deg); } }
+  .mermaid{ margin:.4em 0; text-align:center; min-height:40px; }
+  .mermaid svg{ max-width:100%; max-height:48vh; height:auto; }
 
   .eyes{ display:flex; gap:22px; margin-bottom:22px; }
   .eye{ width:clamp(50px,7vw,88px); height:clamp(50px,7vw,88px); border-radius:50%;
@@ -132,27 +134,21 @@
     <h2>One RDK X5 owns cognition; an ESP32-S3 drives the body</h2>
     <p class="lead" style="margin:0 0 .3em">A ~46 cm Korosuke — perception, speech, LLM, voice &amp; expression,
       <b class="accent2">all on the board. No cloud, no API keys.</b></p>
-    <div class="arch">
-      <div class="acol">
-        <div class="ahead">Sensors</div>
-        <div class="anode">📷 USB camera</div>
-        <div class="anode">🎙 Microphone</div>
-      </div>
-      <div class="aflow">▶</div>
-      <div class="acol core">
-        <div class="ahead">RDK X5 · 10 TOPS BPU · 8× Cortex-A55</div>
-        <div class="anode"><b>BPU</b> — YOLO11n-pose (person + skeleton) · ~19.5 FPS</div>
-        <div class="anode"><b>CPU</b> — voice: <b>SenseVoice</b> (STT) → <b>TinySwallow</b> (LLM) → <b>Open JTalk / espeak</b> (TTS)</div>
-        <div class="atag">mirrors D-Robotics' RDK voice-interaction reference (SenseVoice + Qwen2.5-1.5B)</div>
-      </div>
-      <div class="aflow">▶</div>
-      <div class="acol">
-        <div class="ahead">Body · ESP32-S3</div>
-        <div class="anode">👁 2× round eye LCDs</div>
-        <div class="anode">💪 rope-pull arms</div>
-        <div class="anode">🔊 I2S speaker (MAX98357A)</div>
-      </div>
-    </div>
+<pre class="mermaid">
+flowchart LR
+  CAM([📷 Camera]):::s --> RDK
+  MIC([🎙 Mic]):::s --> RDK
+  subgraph RDK["RDK X5 · 10 TOPS BPU · 8x A55 — fully on-device"]
+    direction TB
+    BPU["BPU · YOLO11n-pose · ~19.5 FPS"]:::bpu
+    CPU["CPU · SenseVoice(STT) → TinySwallow(LLM) → Open JTalk/espeak(TTS)"]:::cpu
+  end
+  RDK -->|UART| ESP["ESP32-S3 · eyes / arms / I2S speaker"]:::m
+  classDef s fill:#1f6feb,color:#fff,stroke:#58a6ff;
+  classDef bpu fill:#ff5a3c,color:#fff,stroke:#ff8a6c;
+  classDef cpu fill:#2dd4a7,color:#06231b,stroke:#2dd4a7;
+  classDef m fill:#8957e5,color:#fff,stroke:#bc8cff;
+</pre>
     <p class="lead" style="margin-top:.6em">The X5 BPU can’t accelerate an LLM — so <b>perception on the BPU,
       language on the CPU</b> is the right split, not a shortfall.</p>
   </section>
@@ -211,4 +207,16 @@
   });
   addEventListener('click', e => { if (e.target.closest('#hud')) return; (e.clientX > innerWidth / 2) ? next() : prev(); });
   show(0);
+</script>
+<!-- GitHub Pages: load mermaid from CDN. (On the claude.ai Artifact this is blocked by CSP,
+     but the Artifact renders <pre class="mermaid"> natively, so the diagram still shows.) -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+  try {
+    if (window.mermaid) {
+      const dark = matchMedia('(prefers-color-scheme: dark)').matches
+                   || document.documentElement.getAttribute('data-theme') === 'dark';
+      mermaid.initialize({ startOnLoad: true, theme: dark ? 'dark' : 'default', securityLevel: 'loose' });
+    }
+  } catch (e) {}
 </script>
