@@ -4,37 +4,38 @@
 電源2系統）の接続。**電源は2系統（RDK用モバイルバッテリ ＋ サーボ用LiPo）で、GNDは共通**。
 
 ```mermaid
-flowchart TB
-  PB(["🔋 モバイルバッテリ / Power bank<br/>5V ≥ 3A"]):::pwr
-  LIPO(["🔋 LiPo（サーボ用）"]):::pwr
+flowchart LR
+  %% すべて矩形(□)。色はカテゴリ別。ピン番号は各配線(矢印)のラベルに分離。
+  PB["🔋 モバイルバッテリ<br/>(power bank) 5V/3A"]:::power
+  LIPO["🔋 LiPo<br/>(サーボ用)"]:::power
+  RDK["RDK X5<br/>(頭脳)"]:::compute
+  ESP["ESP32-S3<br/>(目/腕 MCU)"]:::compute
+  AMP["MAX98357A<br/>I2Sアンプ (GAIN=9dB)"]:::module
+  EYES["2× GC9A01<br/>丸型LCD (目)"]:::module
+  CAM["📷 カメラ C270<br/>(マイク内蔵)"]:::periph
+  BTN["⏻ シャットダウンSW"]:::periph
+  SPK["🔊 φ50 スピーカー"]:::periph
+  SRV["💪 2× SG90<br/>サーボ (腕)"]:::periph
 
-  subgraph RDK["RDK X5 — 頭脳 (Ubuntu, on-device)"]
-    P40["40-pin ヘッダ"]
-    USBH["USB ポート"]
-  end
+  PB   -->|"USB-C 5V/3A"| RDK
+  CAM  -->|"USB (映像+音声)"| RDK
+  BTN  -->|"pin18(GPIO24) / pin20(GND)"| RDK
+  RDK  -->|"USB (電源+データ · ttyACM0)"| ESP
+  RDK  -->|"5V:pin2/4 · GND:pin6<br/>BCLK:pin12 · LRC:pin35 · DIN:pin40"| AMP
+  AMP  -->|"アナログ +/−"| SPK
+  ESP  -->|"SPI: SCK12·MOSI11·DC9·RST8<br/>CS_L10·CS_R14 · 3V3·GND"| EYES
+  ESP  -->|"PWM: GPIO4(左) / GPIO5(右)"| SRV
+  LIPO -->|"LiPo電圧を直結 (BECなし)"| SRV
+  LIPO -.->|"共通GND ⚠ (必須)"| ESP
 
-  subgraph ESP["ESP32-S3 — 目/腕 コプロセッサ"]
-    EG["GPIO / SPI"]
-  end
-
-  PB  -->|"USB-C 5V/3A"| RDK
-  CAM(["📷 カメラ C270（マイク内蔵）"]):::io -->|"USB (映像+音声)"| USBH
-  BTN(["⏻ 安全シャットダウンSW"]):::io -->|"pin18 (GPIO24) ↔ pin20 (GND)"| P40
-  USBH -->|"USBケーブル = 電源 + データ<br/>(/dev/ttyACM0)"| ESP
-
-  P40 -->|"pin2/4 = 5V · pin6 = GND"| AMP
-  P40 -->|"pin12 BCLK · pin35 LRC · pin40 DIN"| AMP
-  AMP["🔈 MAX98357A I2Sアンプ<br/>(GAIN 未接続 = 9dB)"]:::amp -->|"アナログ +/−"| SPK(["🔊 φ50 スピーカー"]):::io
-
-  EG -->|"SPI: SCK12 MOSI11 DC9 RST8<br/>CS_L10 / CS_R14 · 3V3 · GND"| EYES(["👁 2× GC9A01 丸型LCD"]):::io
-  EG -->|"信号: GPIO4(左) / GPIO5(右)"| SRV(["💪 2× SG90 サーボ（腕）"]):::io
-  LIPO -->|"LiPo電圧を直結（BECなし）"| SRV
-  LIPO -.->|"⚠ 共通GND (必須)"| ESP
-
-  classDef pwr fill:#f6b73f,color:#3a2a00,stroke:#c98a12,stroke-width:2px;
-  classDef io  fill:#2dd4a7,color:#06231b,stroke:#12a17f;
-  classDef amp fill:#ff5a3c,color:#fff,stroke:#c93b1a;
+  classDef power   fill:#f6b73f,color:#3a2a00,stroke:#c98a12,stroke-width:2px;
+  classDef compute fill:#1f6feb,color:#fff,stroke:#58a6ff,stroke-width:2px;
+  classDef module  fill:#8957e5,color:#fff,stroke:#bc8cff,stroke-width:2px;
+  classDef periph  fill:#2da44e,color:#fff,stroke:#3fb950,stroke-width:2px;
 ```
+
+**凡例 / Legend**: 🟡 電源 ・ 🔵 コンピュート(基板) ・ 🟣 モジュール ・ 🟢 周辺機器。
+モジュールはすべて□(矩形)、**ピン番号は各配線(矢印)のラベル**に記載。
 
 ## 接続表（配線一覧）
 
