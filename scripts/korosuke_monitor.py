@@ -1140,7 +1140,7 @@ small{color:var(--mut);font-size:.78rem}
     <button class="tab active" id="tab-monitor" onclick="tab(this,'monitor')">📺 モニタ</button>
     <button class="tab" id="tab-settings" onclick="tab(this,'settings')">⚙ 設定</button>
     <button class="tab" id="langbtn" onclick="toggleLang()" style="margin-left:auto"
-      title="全部まとめて切替: 表示 + 音声認識 + 対話 + 音声 / Switch everything (display + STT + LLM + TTS)">🌐 EN</button>
+      title="クリックで巡回: 日本語 → English → Auto。全部(表示+STT+LLM+TTS)まとめて切替">🌐 EN</button>
   </div>
   <div class="chips">
     <span class="chip">👁 目 <span id="eyest">…</span></span>
@@ -1377,16 +1377,20 @@ function applyUiLang(){
   if (!_i18nNodes) _i18nNodes = _collect();
   _i18nNodes.forEach(o => { o.n.nodeValue = uiEN ? o.raw.replace(o.k, I18N[o.k]) : o.raw; });
   document.documentElement.lang = uiEN ? 'en' : 'ja';
-  const b = document.getElementById('langbtn'); if (b) b.textContent = uiEN ? '🌐 日本語' : '🌐 EN';
   const u = document.getElementById('c_uilang'); if (u) u.value = uiEN ? 'en' : 'ja';
-  // 一括ボタンの現在選択をハイライト(LLM言語の設定値=代表 に合わせる。ja/en/auto)
+  // 現在の統一言語(LLM言語=代表, ja/en/auto)でヘッダ表示と一括ハイライトを同期
   const cur = (document.getElementById('c_llmlang') || {}).value || (uiEN ? 'en' : 'ja');
+  const lb = document.getElementById('langbtn');
+  if (lb) lb.textContent = {ja: '🌐 日本語', en: '🌐 English', auto: '🌐 Auto'}[cur] || '🌐 EN';
   ['ja', 'en', 'auto'].forEach(v => {
-    const b = document.getElementById('all_' + v); if (b) b.classList.toggle('on', v === cur);
+    const bb = document.getElementById('all_' + v); if (bb) bb.classList.toggle('on', v === cur);
   });
 }
-// ヘッダの🌐ボタン: UI表示だけでなく、STT/LLM/TTSの発話言語もまとめて切替
-function toggleLang(){ setAllLang(uiEN ? 'ja' : 'en'); }
+// ヘッダの🌐ボタン: 日本語 → English → Auto → … を巡回(全部まとめて切替)
+function toggleLang(){
+  const cur = (document.getElementById('c_llmlang') || {}).value || (uiEN ? 'en' : 'ja');
+  setAllLang({ja: 'en', en: 'auto', auto: 'ja'}[cur] || 'en');
+}
 // 一括切替: STT/LLM/TTS(サーバ側)＋画面表示(UI)をまとめてja/enに
 function setAllLang(lang){
   ['stt_lang','llm_lang','tts_lang'].forEach(k => set(k, lang));
