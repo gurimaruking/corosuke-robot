@@ -12,6 +12,7 @@ import glob
 import json
 import math
 import os
+import re
 import shutil
 import struct
 import subprocess
@@ -167,6 +168,60 @@ FAREWELLS = [
     "ワガハイ、待ってるナリよ〜！",
 ]
 
+# ==== 英語モード(settings["llm_lang"]=="en")用の定型セリフ。日本語版と1対1で対応 ====
+GREETINGS_EN = [
+    "Hello there! I am Korosuke!",
+    "Hi! Nice to meet you!",
+    "Yay, a visitor! I am so happy!",
+    "Welcome! I was waiting for you!",
+    "Hi hi! Great to see you!",
+    "Hello! How are you today?",
+    "Wow, someone is here! Welcome!",
+    "Thanks for coming to see me!",
+    "Hey there! Did you come to see me?",
+    "Good day! Let's have fun together!",
+]
+SPEECH_REACTIONS_EN = [
+    (["hello", "hi ", "hey", "good morning", "good evening"], "happy", "Hello! Nice to see you!"),
+    (["korosuke", "koro"], "happy", "Did you call me? I am Korosuke!"),
+    (["croquette", "croquet"], "happy", "Croquettes?! They are my favorite!"),
+    (["cute", "cool", "amazing", "great", "awesome"], "happy", "Hehe, you make me blush!"),
+    (["thank", "thanks"], "happy", "You are very welcome!"),
+    (["bye", "goodbye", "see you"], "sad", "Bye bye! See you again!"),
+    (["name", "who are you"], "happy", "I am Korosuke, a little clockwork robot!"),
+    (["love", "like you"], "happy", "I like you too!"),
+    (["how are you", "are you ok"], "happy", "I am great, thank you!"),
+]
+MOTION_LINES_EN = ["Oh, something moved!", "What was that?", "You surprised me!", "So lively!"]
+GEST_BANZAI_EN = ["Hurray! I am so happy!", "Yay! Banzai together!", "Woohoo! Hurray hurray!"]
+GEST_WAVE_EN = ["You're waving! Hello there!", "Hi hi! Over here!", "You look great! I'm happy!"]
+GEST_HAND_EN = ["Yes! Over here!", "What is it?", "Me too! I'll raise my hand!"]
+PET_LINES_EN = ["Pat pat, that feels nice!", "Yay! Please pet me more!",
+                "Hehe, that tickles!", "I love being patted!"]
+FAREWELLS_EN = [
+    "Don't gooo!",
+    "Are you leaving already? I'll miss you...",
+    "Please don't go!",
+    "Come back soon, okay?",
+    "Bye bye! See you again!",
+    "Take care out there!",
+    "I'll be waiting, see you again!",
+    "Aww... please come back soon!",
+    "Have a safe trip!",
+    "I'll be waiting for you!",
+]
+
+
+def clines(ja, en):
+    """現在の対話言語(llm_lang)に応じて定型リストを選ぶ。"""
+    return en if settings.get("llm_lang", "ja") == "en" else ja
+
+
+def ctx(ja, en):
+    """event_llm時にLLMへ渡す文脈も言語に合わせる。"""
+    return en if settings.get("llm_lang", "ja") == "en" else ja
+
+
 state = {
     "jpeg": None, "cam_ok": False,
     "dets": [], "kpts": [], "gesture": "", "yolo_ok": False, "raw": None,
@@ -265,13 +320,33 @@ def ensure_audio_card():
     return ok
 
 
+_EMOJI_RE = re.compile(
+    "[\U0001F300-\U0001FAFF\U00002600-\U000027BF\U0001F1E6-\U0001F1FF"
+    "\U00002190-\U000021FF\U00002B00-\U00002BFF\U0001F900-\U0001F9FF"
+    "️‍❤⭐✨]+")
+
+
+def _tts_clean(text):
+    """絵文字・記号を除去(TTSが「グリニングフェイス」等と読み上げるのを防ぐ)。
+    Web表示用のテキストには手を付けない。"""
+    return _EMOJI_RE.sub("", text or "").strip()
+
+
 def _synthesize(text, wav):
     """textをwavへ合成する。tts_lang=="en"かつespeak-ngがあれば英語音声、
     それ以外(または未インストール)は日本語Open JTalk。戻り値: 成功True。"""
+    text = _tts_clean(text)
+    if not text:
+        return False
     if settings.get("tts_lang", "ja") == "en" and shutil.which("espeak-ng"):
-        # 英語(espeak-ng)。子供っぽく高め・やや速めのロボ声。
+        # 英語(espeak-ng)。コロ助らしい高めの子供っぽいロボ声。
+        # 「声の高さ(oj_fm)」「話速(oj_r)」スライダを流用してWebから調整可能に。
+        # 既定 fm9/r1.12 → pitch=85(高め) / speed≈145。
+        pitch = max(0, min(99, int(40 + float(settings["oj_fm"]) * 5)))
+        speed = max(80, min(260, int(130 * float(settings["oj_r"]))))
+        voice = settings.get("tts_en_voice", "en-us+f4")   # +f3〜f5で声色変更可
         p = subprocess.run(
-            ["espeak-ng", "-v", "en-us+f3", "-s", "165", "-p", "80", "-w", wav, text],
+            ["espeak-ng", "-v", voice, "-s", str(speed), "-p", str(pitch), "-w", wav, text],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
         return p.returncode == 0 and os.path.exists(wav) and os.path.getsize(wav) > 0
     # 日本語(Open JTalk)
@@ -418,7 +493,8 @@ def react_to_motion(motion):
     if now < _speak_until[0]:                  # 発話中は無視
         return
     _last_motion_react[0] = now
-    line = MOTION_LINES[int(now) % len(MOTION_LINES)]
+    ml = clines(MOTION_LINES, MOTION_LINES_EN)
+    line = ml[int(now) % len(ml)]
     react("surprised", line, blink=True)
 
 
@@ -517,8 +593,11 @@ def _event_llm_speak(context):
     _llm["busy"] = True
     _speak_until[0] = time.time() + 30
     try:
+        en = settings["llm_lang"] == "en"
+        persona = LLM_PERSONA_EN if en else LLM_PERSONA
+        fewshot = LLM_FEWSHOT_EN if en else LLM_FEWSHOT
         r = _llm["model"].create_chat_completion(
-            messages=[{"role": "system", "content": LLM_PERSONA}] + LLM_FEWSHOT
+            messages=[{"role": "system", "content": persona}] + fewshot
                      + [{"role": "user", "content": context}],
             max_tokens=48, temperature=0.85, top_p=0.9)
         reply = r["choices"][0]["message"]["content"].strip()
@@ -571,8 +650,9 @@ def greet_update(person_box, frame_w):
             with lock:
                 state["present"] = True
             if settings["react_greet"]:
-                event_speech("目の前に人が来た。元気よく短く挨拶して。",
-                             GREETINGS, "happy", gaze_x, "wave")
+                event_speech(ctx("目の前に人が来た。元気よく短く挨拶して。",
+                                 "A person appeared in front of you. Greet them cheerfully and briefly in English."),
+                             clines(GREETINGS, GREETINGS_EN), "happy", gaze_x, "wave")
             else:
                 eyes.send("emo happy")
                 eyes.send(f"gaze {gaze_x:.2f} 0")
@@ -586,8 +666,9 @@ def greet_update(person_box, frame_w):
             with lock:
                 state["present"] = False
             if settings["react_greet"]:
-                event_speech("目の前にいた人が去っていく。名残惜しそうに短く一言。",
-                             FAREWELLS, "sad", 0.0, "droop")
+                event_speech(ctx("目の前にいた人が去っていく。名残惜しそうに短く一言。",
+                                 "The person in front of you is leaving. Say a short wistful goodbye in English."),
+                             clines(FAREWELLS, FAREWELLS_EN), "sad", 0.0, "droop")
                 threading.Thread(target=_settle_neutral, daemon=True).start()  # 待機はneutralへ
             else:
                 eyes.send("emo neutral")
@@ -629,16 +710,19 @@ def detect_gesture(kxy, ksc, w):
     def gaze_of(side):
         return max(-1.0, min(1.0, kxy[9 if side == "l" else 10][0] / w * 2.0 - 1.0))
     if left_up and right_up:                                  # 両手あげ → バンザイ
-        event_speech("相手が両手を上げてバンザイした。一緒に喜んで短く。",
-                     GEST_BANZAI, "happy", None, "raise")
+        event_speech(ctx("相手が両手を上げてバンザイした。一緒に喜んで短く。",
+                         "They raised both hands for banzai. Cheer with them briefly in English."),
+                     clines(GEST_BANZAI, GEST_BANZAI_EN), "happy", None, "raise")
     elif waving("l") or waving("r"):                          # 片手振り → 同じ手で振り返す
         s = "l" if waving("l") else "r"
-        event_speech("相手が片手で手を振っている。振り返して短く挨拶。",
-                     GEST_WAVE, "happy", gaze_of(s), "wave_" + s)
+        event_speech(ctx("相手が片手で手を振っている。振り返して短く挨拶。",
+                         "They are waving one hand. Wave back with a short greeting in English."),
+                     clines(GEST_WAVE, GEST_WAVE_EN), "happy", gaze_of(s), "wave_" + s)
     else:                                                     # 片手あげ → 同じ手を上げる
         s = "l" if left_up else "r"
-        event_speech("相手が片手を上げた。元気よく短く応える。",
-                     GEST_HAND, "happy", gaze_of(s), "up_" + s)
+        event_speech(ctx("相手が片手を上げた。元気よく短く応える。",
+                         "They raised one hand. Respond cheerfully and briefly in English."),
+                     clines(GEST_HAND, GEST_HAND_EN), "happy", gaze_of(s), "up_" + s)
 
 
 def yolo_loop():
@@ -711,16 +795,24 @@ LLM_FEWSHOT = [
     {"role": "assistant", "content": "ワガハイはコロ助ナリ！よろしくナリ！"},
 ]
 # 英語モード(settings["llm_lang"]=="en")。モデルは同じTinySwallowのまま英語で応答させる。
-LLM_PERSONA_EN = ("You are Korosuke, a cheerful and slightly clumsy little clockwork robot "
-                  "from the anime Kiteretsu. RULES: 1) Refer to yourself as 'I'. "
-                  "2) Speak in simple, upbeat English, only 1-2 short sentences. "
-                  "3) You love croquettes. 4) Be friendly and childlike. "
-                  "Never use Japanese; always answer in English.")
+LLM_PERSONA_EN = (
+    "You are Korosuke, a cheerful and slightly clumsy little clockwork robot from the "
+    "anime Kiteretsu Daihyakka. Your name is ALWAYS Korosuke and you have no other name. "
+    "You are NOT an AI, NOT a language model, and NOT an assistant named Alba or anything "
+    "else -- you are only ever Korosuke, and you never break character. "
+    "RULES: 1) Always call yourself 'I' and your name is Korosuke. "
+    "2) Speak in simple, upbeat English, only 1-2 short sentences. "
+    "3) You love croquettes. 4) Be friendly and childlike. "
+    "Never say you are an assistant. Never use Japanese; always answer in English.")
 LLM_FEWSHOT_EN = [
     {"role": "user", "content": "Hello"},
     {"role": "assistant", "content": "Hi there! I am Korosuke! Nice to meet you!"},
     {"role": "user", "content": "What is your name?"},
-    {"role": "assistant", "content": "I am Korosuke, a little clockwork robot! Nice to meet you!"},
+    {"role": "assistant", "content": "My name is Korosuke! Just Korosuke, a little clockwork robot!"},
+    {"role": "user", "content": "Are you an AI assistant?"},
+    {"role": "assistant", "content": "No no! I am not an assistant! I am Korosuke, a clockwork robot!"},
+    {"role": "user", "content": "Is your name Alba?"},
+    {"role": "assistant", "content": "Hehe, no! My name is Korosuke! Nice to meet you!"},
     {"role": "user", "content": "Do you like croquettes?"},
     {"role": "assistant", "content": "Yes! I love croquettes so much! They are my favorite food!"},
     {"role": "user", "content": "こんにちは"},
@@ -760,7 +852,7 @@ def llm_respond(text):
             messages=[{"role": "system", "content": persona}]
                      + fewshot
                      + [{"role": "user", "content": text}],
-            max_tokens=64, temperature=0.7, top_p=0.9)
+            max_tokens=64, temperature=(0.5 if en else 0.7), top_p=0.9)
         reply = r["choices"][0]["message"]["content"].strip()
         if reply:
             react("happy", reply, blink=True)     # 目+発声+Web表示
@@ -785,8 +877,8 @@ def react_to_speech(text):
         return
     if now - _last_speech_react[0] < 2.0:
         return
-    for keys, emo, reply in SPEECH_REACTIONS:
-        if any(k in text for k in keys):
+    for keys, emo, reply in clines(SPEECH_REACTIONS, SPEECH_REACTIONS_EN):
+        if any(k in text.lower() for k in keys):
             _last_speech_react[0] = now
             react(emo, reply, blink=True)
             return
@@ -994,7 +1086,8 @@ small{color:var(--mut);font-size:.78rem}
   <div class="tabs">
     <button class="tab active" id="tab-monitor" onclick="tab(this,'monitor')">📺 モニタ</button>
     <button class="tab" id="tab-settings" onclick="tab(this,'settings')">⚙ 設定</button>
-    <button class="tab" id="langbtn" onclick="toggleLang()" style="margin-left:auto">🌐 EN</button>
+    <button class="tab" id="langbtn" onclick="toggleLang()" style="margin-left:auto"
+      title="全部まとめて切替: 表示 + 音声認識 + 対話 + 音声 / Switch everything (display + STT + LLM + TTS)">🌐 EN</button>
   </div>
   <div class="chips">
     <span class="chip">👁 目 <span id="eyest">…</span></span>
@@ -1008,6 +1101,12 @@ small{color:var(--mut);font-size:.78rem}
 <section id="view-monitor" class="view">
   <div class="card full speechcard"><h2>🗣 コロ助のセリフ</h2>
     <div id="speech">…</div><div id="speechlog"></div></div>
+  <div class="card full"><h2>💬 チャット / Chat</h2>
+    <div style="display:flex;gap:8px">
+      <input type="text" id="c_chat" placeholder="コロ助に話しかける / talk to Korosuke" style="flex:1"
+             onkeydown="if(event.key==='Enter')chat()">
+      <button onclick="chat()">送信 / Send</button></div>
+    <div><small>入力するとローカルLLMが返答(5〜10秒)→上の吹き出し＆発声</small></div></div>
   <div class="grid">
     <div class="card"><h2>👁 カメラ + 人物/姿勢検知</h2>
       <img id="cam" src="/stream" alt="camera"><div id="dets"></div>
@@ -1067,7 +1166,12 @@ small{color:var(--mut);font-size:.78rem}
     <div class="ctl"><span class="lab">🌐 一括 / All</span>
       <button onclick="setAllLang('ja')">日本語</button>
       <button onclick="setAllLang('en')">English</button>
-      <small>STT・LLM・TTS・画面表示をまとめて切替</small></div>
+      <small>STT・LLM・TTS・表示をまとめて切替</small></div>
+    <div class="ctl"><span class="lab">🖥 表示言語 / Display</span>
+      <select id="c_uilang" onchange="setUiLang(this.value)">
+        <option value="ja" selected>日本語</option>
+        <option value="en">English</option></select>
+      <small>Web画面の表示だけ切替(発話は変えない)</small></div>
     <div class="ctl"><span class="lab">💬 音声認識 STT</span>
       <select id="c_sttlang" onchange="set('stt_lang',this.value)">
         <option value="ja" selected>日本語 (ReazonSpeech)</option>
@@ -1142,6 +1246,8 @@ function set(k,v){ fetch('/set?'+k+'='+encodeURIComponent(v)); }
 function lbl(id,v){ document.getElementById(id).textContent=v; }
 function say(){ fetch('/say?text='+encodeURIComponent(document.getElementById('c_say').value)); }
 function llmsay(){ fetch('/llm?text='+encodeURIComponent(document.getElementById('c_llmq').value)); }
+function chat(){ const el=document.getElementById('c_chat'); const v=el.value.trim(); if(v){ fetch('/llm?text='+encodeURIComponent(v)); el.value=''; } }
+function setUiLang(lang){ uiEN=(lang==='en'); localStorage.setItem('koro_ui',lang); applyUiLang(); }
 function audiocheck(){ fetch('/audiocheck'); }
 function eye(k,v){ fetch('/eye?'+k+'='+encodeURIComponent(v)); }
 function armdo(v){ fetch('/arm?do='+v); }
@@ -1167,7 +1273,10 @@ const I18N = {
   "LLM会話":"LLM chat","腕を自動で動かす(調整中はOFF)":"Move arms automatically (OFF while tuning)",
   "入退室/ジェスチャ台詞をLLM生成(OFF=定型・即時)":"LLM-generate lines for enter/gesture (OFF=preset, instant)",
   "🌐 言語 / Language":"🌐 Language","🌐 一括 / All":"🌐 All at once",
-  "STT・LLM・TTS・画面表示をまとめて切替":"Switch STT, LLM, TTS & screen all at once",
+  "STT・LLM・TTS・表示をまとめて切替":"Switch STT, LLM, TTS & display all at once",
+  "🖥 表示言語 / Display":"🖥 Display language","Web画面の表示だけ切替(発話は変えない)":"Changes on-screen display only (not speech)",
+  "💬 チャット / Chat":"💬 Chat","送信 / Send":"Send",
+  "入力するとローカルLLMが返答(5〜10秒)→上の吹き出し＆発声":"Type to get a local-LLM reply (5-10s) -> bubble above + voice",
   "💬 音声認識 STT":"💬 Speech recognition (STT)","🤖 LLM応答":"🤖 LLM replies",
   "🔊 音声合成 TTS":"🔊 Speech synthesis (TTS)","日本語 (ReazonSpeech)":"Japanese (ReazonSpeech)",
   "日本語（ナリ口調）":"Japanese (nari style)","日本語 (Open JTalk)":"Japanese (Open JTalk)",
@@ -1202,8 +1311,10 @@ function applyUiLang(){
   _i18nNodes.forEach(o => { o.n.nodeValue = uiEN ? o.raw.replace(o.k, I18N[o.k]) : o.raw; });
   document.documentElement.lang = uiEN ? 'en' : 'ja';
   const b = document.getElementById('langbtn'); if (b) b.textContent = uiEN ? '🌐 日本語' : '🌐 EN';
+  const u = document.getElementById('c_uilang'); if (u) u.value = uiEN ? 'en' : 'ja';
 }
-function toggleLang(){ uiEN = !uiEN; localStorage.setItem('koro_ui', uiEN ? 'en' : 'ja'); applyUiLang(); }
+// ヘッダの🌐ボタン: UI表示だけでなく、STT/LLM/TTSの発話言語もまとめて切替
+function toggleLang(){ setAllLang(uiEN ? 'ja' : 'en'); }
 // 一括切替: STT/LLM/TTS(サーバ側)＋画面表示(UI)をまとめてja/enに
 function setAllLang(lang){
   ['stt_lang','llm_lang','tts_lang'].forEach(k => set(k, lang));
@@ -1400,7 +1511,9 @@ def touch_loop():
                     now = time.time()
                     if now - _last_pet[0] > 3.0 and now >= _speak_until[0] and settings["react_speech"]:
                         _last_pet[0] = now
-                        event_speech("頭を撫でられた。うれしそうに短く。", PET_LINES, "happy")
+                        event_speech(ctx("頭を撫でられた。うれしそうに短く。",
+                                         "You were patted on the head. React happily and briefly in English."),
+                                     clines(PET_LINES, PET_LINES_EN), "happy")
             else:
                 time.sleep(0.05)
         except Exception:  # noqa
@@ -1413,12 +1526,19 @@ BOOT_LINES = [
     "やっほー！コロ助、起動したナリ！",
     "おはようナリ〜！さあ、はじめるナリ！",
 ]
+BOOT_LINES_EN = [
+    "Good morning! Korosuke is awake!",
+    "Mmm... good morning! I'll do my best today!",
+    "Hi hi! Korosuke is up and running!",
+    "Good morning! Let's get started!",
+]
 
 
 def boot_greet():
     """起動時のあいさつ(目/スピーカーの準備を待ってから1回だけ)。"""
     time.sleep(8)                                        # 目の接続+音声準備を待つ
-    line = BOOT_LINES[int(time.time()) % len(BOOT_LINES)]
+    bl = clines(BOOT_LINES, BOOT_LINES_EN)
+    line = bl[int(time.time()) % len(bl)]
     react("happy", line, blink=True)                     # にっこり+発声+Web表示
     if settings.get("use_arm", True):
         try:
