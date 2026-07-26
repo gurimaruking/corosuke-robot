@@ -210,14 +210,27 @@ modular, node-per-stage equivalent of the same graph.**
 
 ## 7. Build / BOM (summary)
 
-RDK X5 8 GB + open-source fan case · 2× GC9A01 + ESP32-S3-N16R8 · UVC USB webcam
-(mic built-in) · **MAX98357A + φ50 8 Ω speaker** (I2S) · 2× SG90 servos (rope-pull arms)
-+ 1S Li-ion servo rail · capacitive touch sensor · GPIO shutdown button ·
-3-D-printed color-split body (OpenSCAD, `hardware/3d_models/korosuke_print/`).
-Wiring/routes: [docs/hardware_block_diagram.md](docs/hardware_block_diagram.md),
-[docs/rdk_x5_40pin_i2s_max98357a.md](docs/rdk_x5_40pin_i2s_max98357a.md),
-[docs/network_setup.md](docs/network_setup.md),
-[docs/power_usb_troubleshooting.md](docs/power_usb_troubleshooting.md) (power/USB brown-out diagnosis).
+| Subsystem | Part | Notes | Ref |
+|---|---|---|---|
+| **Brain** | RDK X5 8 GB + open-source fan case | 10 TOPS BPU (Bayes-e), 8× A55 | [RDK X5](https://developer.d-robotics.cc/en/rdkx5) · [case](https://github.com/gurimaruking/rdk-x5-modular-case) |
+| **Eyes (co-MCU)** | 2× GC9A01 (1.28″ 240×240 round) + ESP32-S3-N16R8 | LovyanGFX, 8 emotions incl. smile/thinking/✕✕ | [firmware/corosuke_eyes/](firmware/corosuke_eyes/) |
+| **Camera + Mic** | UVC USB webcam (Logitech C270) | mic built-in → feeds STT; auto-detected | [C270](https://www.logicool.co.jp/ja-jp/products/webcams/c270-hd-webcam.960-001063.html) |
+| **Audio amp** | MAX98357A (I2S Class-D mono) | **custom out-of-tree driver + DT overlay** | [build guide](docs/rdk_x5_40pin_i2s_max98357a.md) · [firmware/max98357a/](firmware/max98357a/) |
+| **Speaker** | φ50 mm 8 Ω dynamic (WYGD50D-8-03) | on MAX98357A SPK± | [akizuki g109012](https://akizukidenshi.com/catalog/g/g109012/) |
+| **Arms** | 2× SG90 servo (rope-pull bellows) | GPIO4/5, auto-detach to save current | [firmware/corosuke_eyes/](firmware/corosuke_eyes/) |
+| **Touch** | capacitive touch sensor | "petting" reactions | — |
+| **Safe power** | GPIO shutdown button | goodnight voice → ✕✕ eyes → halt | [deploy/](deploy/) |
+| **Servo power** | 1S Li-ion rail | servo current off the main 5 V | — |
+| **Body** | 3-D-printed color-split (OpenSCAD) | eye/nose/chest mounts | [hardware/3d_models/korosuke_print/](hardware/3d_models/korosuke_print/) |
+
+> **Louder-speaker upgrade path** (optional): a φ40 mm **4 Ω / 3 W** full-range
+> ([akizuki DXYD40-22P-4A](https://akizukidenshi.com/catalog/g/g116025/)) in a small
+> sealed baffle roughly doubles clean output; keep the DSP ceiling (§8) in mind.
+
+**Wiring & diagnostics:** [hardware block diagram](docs/hardware_block_diagram.md) ·
+[40-pin I2S / MAX98357A](docs/rdk_x5_40pin_i2s_max98357a.md) ·
+[network / maintenance](docs/network_setup.md) ·
+[power/USB brown-out](docs/power_usb_troubleshooting.md).
 
 ## 8. Known issues, limitations & failure recovery
 
