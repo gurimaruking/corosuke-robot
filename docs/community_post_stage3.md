@@ -9,11 +9,13 @@
 
 🤖✨ **Project Korosuke — Stage 3 (Launch) done!**
 
+🙌 本来は店長が担当する予定でしたが、イベントで大忙しだったので、私が代わりに仕上げさせてもらいました！
+
 コロ助（キテレツ大百科）を **RDK X5** で本物のアニマトロニクスにしました。**100%オンデバイス・クラウド無し**で：
 
-👀 見る（BPU YOLO11-pose ~19.5FPS）→ 👂 聞く（sherpa-onnx STT）→ 🧠 考える（TinySwallow-1.5B on CPU、考え中は目がくるくる）→ 🗣 話す（Open JTalk、「〜ナリ」）→ 😊 笑う → 🙌 手を振る → 🌙 ボタンで安全終了（おやすみ→✕✕の目）
+👀 見る（BPU YOLO11-pose ~19.5FPS）→ 👂 聞く（sherpa-onnx **SenseVoice**・日英）→ 🧠 考える（TinySwallow-1.5B on CPU、考え中は目がくるくる）→ 🗣 話す（Open JTalk / espeak-ng、「〜ナリ」）→ 😊 笑う → 🙌 手を振る → 🌙 ボタンで安全終了（おやすみ→✕✕の目）
 
-🔧 見どころ：スピーカー小型化のために **MAX98357A I2Sアンプ用のカーネルドライバを自作**（vendorカーネルに無い）。BPUでLLMは回せない（S100専用）ことも公式パッケージから検証。
+🔧 見どころ：スピーカー小型化のために **MAX98357A I2Sアンプ用のカーネルドライバを自作**（vendorカーネルに無い）。**日本語↔英語をワンタッチ切替**（STT・LLM・音声・Web UI）。BPUでLLMは回せない（S100専用）ことも公式パッケージから検証。
 
 🎥 デモ： `<YouTube link>`
 💻 リポジトリ： https://github.com/gurimaruking/corosuke-robot
@@ -27,16 +29,18 @@
 
 ### Korosuke, the fully on-device animatronic — Stage 3 launch 🚀
 
+🙌 *Our shop's manager was set to lead this one, but got swamped with an event — so I got to finish it on their behalf!*
+
 I rebuilt **Korosuke (コロ助)** from *Kiteretsu Daihyakka* as a ~46 cm desktop robot whose
 brain is a single **D-Robotics RDK X5**. Everything — vision, speech-to-text, LLM dialogue,
-text-to-speech, expression, gesture, touch and actuation — runs **on-device, no cloud, no
+text-to-speech, expression, gesture and actuation — runs **on-device, no cloud, no
 dev PC at runtime**.
 
 **What it does:** power it on and it wakes up and greets you ("おはようナリ！"), tracks you
 with BPU YOLO11-pose, listens, thinks (the eyes do a "考え中" animation while the on-device
-LLM ponders), talks back in a pitched "…ナリ" voice, smiles, reacts to gestures and to being
-petted, waves its rope-pulled arms, and shuts itself down safely on a button press
-(goodnight voice → ✕✕ "safe-to-unplug" eyes).
+LLM ponders), talks back in a pitched "…ナリ" voice **in Japanese or English**, smiles,
+reacts to gestures, waves its rope-pulled arms, and shuts itself down safely on a button
+press (goodnight voice → ✕✕ "safe-to-unplug" eyes).
 
 **The engineering story I'm proud of:**
 - **BPU does perception, CPU does language.** I verified from D-Robotics' *own* X5 packages
@@ -45,6 +49,8 @@ petted, waves its rope-pulled arms, and shuts itself down safely on a button pre
 - **Custom kernel work to shrink the speaker.** No MAX98357A codec driver ships in the RDK
   kernel, so I built an **out-of-tree ALSA codec driver + device-tree overlay** and a
   playback DSP so a tiny φ50 speaker is loud without clipping.
+- **Bilingual, on the fly.** One switch flips STT, the LLM persona, the voice *and* the web
+  dashboard between **Japanese and English** — all still on-device.
 - **Ships like a product:** systemd auto-start on power-on, a physical safe-shutdown, a
   self-healing audio card, and a tabbed web dashboard to tune everything live.
 
