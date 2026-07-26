@@ -12,10 +12,21 @@ his arms, and shuts himself down safely. Everything runs **100 % on-device on a 
 RDK X5**, with an ESP32-S3 driving the eyes and arms.
 
 > 🏆 **D-Robotics Robotics Dream Keeper Challenge — Stage 3 (Launch)**
-> 🎥 **[Watch the demo (YouTube)](https://youtu.be/NJwj6Iazd20)** — Korosuke in action
 > 📄 [STAGE3.md](STAGE3.md) — showcase & benchmarks · 🧩 [PROPOSAL.md](PROPOSAL.md) · 🗺 [ROADMAP.md](ROADMAP.md)
 
 ![Korosuke revision 0.1 — fully assembled, smiling](docs/photo/20260725_korosuke-robot-revision_0.1.jpg)
+
+## ▶ Watch the demo
+
+<p align="center">
+  <a href="https://youtu.be/NJwj6Iazd20">
+    <img src="https://img.youtube.com/vi/NJwj6Iazd20/maxresdefault.jpg" alt="Watch the Korosuke demo on YouTube" width="640">
+  </a>
+  <br>
+  <a href="https://youtu.be/NJwj6Iazd20">
+    <img src="https://img.shields.io/badge/Watch%20the%20demo-YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white" alt="Watch on YouTube">
+  </a>
+</p>
 
 ---
 
