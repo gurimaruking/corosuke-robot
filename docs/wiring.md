@@ -6,7 +6,7 @@
 ```mermaid
 flowchart TB
   PB(["🔋 モバイルバッテリ / Power bank<br/>5V ≥ 3A"]):::pwr
-  LIPO(["🔋 LiPo（サーボ用）<br/>→ 5V BEC/レギュレータ"]):::pwr
+  LIPO(["🔋 LiPo（サーボ用）"]):::pwr
 
   subgraph RDK["RDK X5 — 頭脳 (Ubuntu, on-device)"]
     P40["40-pin ヘッダ"]
@@ -28,7 +28,7 @@ flowchart TB
 
   EG -->|"SPI: SCK12 MOSI11 DC9 RST8<br/>CS_L10 / CS_R14 · 3V3 · GND"| EYES(["👁 2× GC9A01 丸型LCD"]):::io
   EG -->|"信号: GPIO4(左) / GPIO5(右)"| SRV(["💪 2× SG90 サーボ（腕）"]):::io
-  LIPO -->|"5V（サーボ電源）"| SRV
+  LIPO -->|"LiPo電圧を直結（BECなし）"| SRV
   LIPO -.->|"⚠ 共通GND (必須)"| ESP
 
   classDef pwr fill:#f6b73f,color:#3a2a00,stroke:#c98a12,stroke-width:2px;
@@ -49,13 +49,13 @@ flowchart TB
 | RDK X5 | USB-A | カメラ C270 | USB | 映像 + マイク |
 | ESP32-S3 | 12/11/9/8/10/14 + 3V3/GND | 2× GC9A01 | SCK/MOSI/DC/RST/CS_L/CS_R | 目（SPI共有・CS分離） |
 | ESP32-S3 | **GPIO4**(左) / **GPIO5**(右) | 2× SG90 | 信号 | 腕サーボPWM |
-| LiPo → 5V BEC | +5V | SG90 サーボ | V+ | **サーボ専用電源** |
+| LiPo | 電圧を直結 | SG90 サーボ | V+ | **サーボ専用電源（BEC/レギュレータなし）** |
 | LiPo | GND | ESP32-S3 / RDK | GND | **共通GND（必須）** |
 
 ## 注意 / ポイント
 - **電源2系統**: RDK X5 はモバイルバッテリ（5V/3A以上・良質なUSB-Cケーブル。半差し/細ケーブルはブラウンアウトの原因 → [power_usb_troubleshooting.md](power_usb_troubleshooting.md)）。サーボは**別のLiPo**で駆動（突入電流でRDKを落とさないため）。
 - **共通GND必須**: LiPo(サーボ) と ESP32-S3/RDK の GND を必ず繋ぐ。繋がないとサーボPWMが不安定。
-- **SG90は4.8〜6V**。LiPoが7.4V(2S)等なら BEC/レギュレータで5Vへ。
+- **サーボはLiPo電圧を直結**（5V BEC/レギュレータは入れていない）。SG90の定格(4.8〜6V)に収まるLiPo構成にすること（過電圧に注意）。
 - **ESP32-S3への配線は基本USB1本**（電源+`ttyACM0`データ）。UART直結にする場合は ESP32 RX=GPIO18 / TX=GPIO17（[firmware/corosuke_eyes](../firmware/corosuke_eyes)）。
 - **MAX98357A GAIN**: 未接続=9dB（既定）。詳細 → [rdk_x5_40pin_i2s_max98357a.md](rdk_x5_40pin_i2s_max98357a.md)。
 - 目の詳細ピンは [firmware/corosuke_eyes/src/main.cpp](../firmware/corosuke_eyes/src/main.cpp) 冒頭コメント参照。

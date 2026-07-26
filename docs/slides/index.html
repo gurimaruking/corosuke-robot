@@ -136,10 +136,34 @@ flowchart LR
       language on the CPU</b> is the right split, not a shortfall.</p>
   </section>
 
+  <!-- connections / wiring -->
+  <section class="slide">
+    <div class="eyebrow"><span>Connections · wiring</span><span class="num">02</span></div>
+    <h2 style="margin-bottom:.2em">How it all wires together</h2>
+    <pre class="mermaid">
+flowchart TB
+  PB([🔋 Power bank 5V/3A]):::pwr -->|USB-C| RDK
+  LIPO([🔋 LiPo]):::pwr -->|LiPo direct · no BEC| SRV
+  CAM([📷 Camera C270]):::io -->|USB| RDK
+  BTN([⏻ Shutdown SW]):::io -->|pin18 / pin20| RDK
+  RDK["RDK X5 — 40-pin + USB"]:::core
+  RDK -->|USB · ttyACM0| ESP["ESP32-S3"]:::core
+  RDK -->|"I2S pin12/35/40 · 5V pin2·4 · GND pin6"| AMP["MAX98357A"]:::amp --> SPK([🔊 φ50 speaker]):::io
+  ESP -->|"SPI SCK12 MOSI11 DC9 RST8 CS10/14"| EYES([👁 2× GC9A01 eyes]):::io
+  ESP -->|"GPIO4 / GPIO5"| SRV([💪 2× SG90 arms]):::io
+  LIPO -.->|"common GND ⚠"| ESP
+  classDef pwr fill:#f6b73f,color:#3a2a00,stroke:#c98a12;
+  classDef io fill:#2dd4a7,color:#06231b,stroke:#12a17f;
+  classDef amp fill:#ff5a3c,color:#fff,stroke:#c93b1a;
+  classDef core fill:#1c2233,color:#eef0f6,stroke:#8891a8;
+</pre>
+    <p class="lead" style="margin-top:.25em;font-size:clamp(13px,1.4vw,17px)">Two power rails — power bank (RDK X5) + LiPo (servos, direct), <b>common ground</b>. Detail → docs/wiring.md</p>
+  </section>
+
   <!-- 4 bilingual + eye photo -->
   <section class="slide split">
     <div class="col-t">
-      <div class="eyebrow"><span>The differentiator</span><span class="num">02</span></div>
+      <div class="eyebrow"><span>The differentiator</span><span class="num">03</span></div>
       <h1 style="font-size:clamp(30px,5.4vw,74px)">日本語 / English / <span class="accent">Auto</span></h1>
       <p class="lead">One switch flips the <b>whole robot</b> — speech recognition, the LLM’s persona &amp;
         replies, the voice, <b>and</b> the web dashboard — instantly, on-device.</p>
@@ -165,7 +189,7 @@ flowchart LR
 <div id="bar"></div>
 <div id="brand"><b>◉◉</b>&nbsp; KOROSUKE · RDK X5</div>
 <div id="hud">
-  <span id="count"><b>1</b> / 4</span>
+  <span id="count"><b>1</b> / 5</span>
   <button id="prev" aria-label="Previous slide">‹</button>
   <button id="next" aria-label="Next slide">›</button>
 </div>
