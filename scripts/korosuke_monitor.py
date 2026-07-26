@@ -332,13 +332,27 @@ def _tts_clean(text):
     return _EMOJI_RE.sub("", text or "").strip()
 
 
+_JA_RE = re.compile(r"[぀-ヿ㐀-鿿ｦ-ﾟ]")
+
+
+def _detect_lang(text):
+    """テキストの言語をざっくり判定。日本語文字を含めば ja、無ければ en。"""
+    return "ja" if _JA_RE.search(text or "") else "en"
+
+
+def _eff_lang(setting_key, text=""):
+    """設定(ja/en/auto)から実効言語を決める。auto はテキストから判定。"""
+    v = settings.get(setting_key, "ja")
+    return _detect_lang(text) if v == "auto" else v
+
+
 def _synthesize(text, wav):
-    """textをwavへ合成する。tts_lang=="en"かつespeak-ngがあれば英語音声、
+    """textをwavへ合成する。実効tts言語がenかつespeak-ngがあれば英語音声、
     それ以外(または未インストール)は日本語Open JTalk。戻り値: 成功True。"""
     text = _tts_clean(text)
     if not text:
         return False
-    if settings.get("tts_lang", "ja") == "en" and shutil.which("espeak-ng"):
+    if _eff_lang("tts_lang", text) == "en" and shutil.which("espeak-ng"):
         # 英語(espeak-ng)。コロ助らしい高めの子供っぽいロボ声。
         # 「声の高さ(oj_fm)」「話速(oj_r)」スライダを流用してWebから調整可能に。
         # 既定 fm9/r1.12 → pitch=85(高め) / speed≈145。
@@ -593,7 +607,7 @@ def _event_llm_speak(context):
     _llm["busy"] = True
     _speak_until[0] = time.time() + 30
     try:
-        en = settings["llm_lang"] == "en"
+        en = _eff_lang("llm_lang", context) == "en"
         persona = LLM_PERSONA_EN if en else LLM_PERSONA
         fewshot = LLM_FEWSHOT_EN if en else LLM_FEWSHOT
         r = _llm["model"].create_chat_completion(
@@ -840,13 +854,13 @@ def llm_respond(text):
     _llm["busy"] = True
     _speak_until[0] = time.time() + 30       # 思考中はSTT自己反応を抑止
     with lock:
-        state["speech"] = "Thinking..." if settings["llm_lang"] == "en" else "考え中ナリ…"
+        state["speech"] = "Thinking..." if _eff_lang("llm_lang", text) == "en" else "考え中ナリ…"
     try:
         eyes.send("emo thinking")             # 考え中の目(瞳がくるくる回る)
     except Exception:  # noqa
         pass
     try:
-        en = settings["llm_lang"] == "en"
+        en = _eff_lang("llm_lang", text) == "en"
         persona = LLM_PERSONA_EN if en else LLM_PERSONA
         fewshot = LLM_FEWSHOT_EN if en else LLM_FEWSHOT
         r = _llm["model"].create_chat_completion(
@@ -947,10 +961,11 @@ def audio_loop():
                 if req not in rec["sv_cache"]:      # 未構築の言語だけ1度ロード(以後キャッシュ)
                     mdl = (sorted(glob.glob(sv + "/model*int8.onnx"))
                            or sorted(glob.glob(sv + "/model*.onnx")))[0]
+                    sv_lang = "" if req == "auto" else req   # ""=SenseVoiceの自動言語判定
                     rec["sv_cache"][req] = sherpa_onnx.OfflineRecognizer.from_sense_voice(
                         model=mdl, tokens=sv + "/tokens.txt", num_threads=6,
-                        language=req, use_itn=True)   # language= "ja"/"en" で固定(""=自動判定も可)
-                    print(f"[audio] SenseVoice構築: language={req} ({os.path.basename(sv)})")
+                        language=sv_lang, use_itn=True)   # "ja"/"en"固定 or ""自動
+                    print(f"[audio] SenseVoice構築: language={sv_lang or 'auto'} ({os.path.basename(sv)})")
                 rec["obj"] = rec["sv_cache"][req]     # キャッシュ済みなら瞬時に切替
                 rec["req"] = req
                 rec["lang"] = req
@@ -1212,7 +1227,8 @@ small{color:var(--mut);font-size:.78rem}
     <div class="ctl"><span class="lab">🌐 一括 / All</span>
       <button id="all_ja" onclick="setAllLang('ja')">日本語</button>
       <button id="all_en" onclick="setAllLang('en')">English</button>
-      <small>STT・LLM・TTS・表示をまとめて切替（右上🌐ボタンと同じ）</small></div>
+      <button id="all_auto" onclick="setAllLang('auto')">Auto</button>
+      <small>STT・LLM・TTSをまとめて切替。Auto=話した言語を自動判定</small></div>
     <div class="ctl"><span class="lab">🖥 表示言語 / Display</span>
       <select id="c_uilang" onchange="setUiLang(this.value)">
         <option value="ja" selected>日本語</option>
@@ -1220,17 +1236,20 @@ small{color:var(--mut);font-size:.78rem}
       <small>Web画面の表示だけ切替(発話は変えない)</small></div>
     <div class="ctl"><span class="lab">💬 音声認識 STT</span>
       <select id="c_sttlang" onchange="set('stt_lang',this.value)">
-        <option value="ja" selected>日本語 (ReazonSpeech)</option>
-        <option value="en">English</option></select>
+        <option value="ja" selected>日本語</option>
+        <option value="en">English</option>
+        <option value="auto">Auto（自動判定）</option></select>
       <small id="sttlangnote"></small></div>
     <div class="ctl"><span class="lab">🤖 LLM応答</span>
       <select id="c_llmlang" onchange="set('llm_lang',this.value)">
         <option value="ja" selected>日本語（ナリ口調）</option>
-        <option value="en">English</option></select></div>
+        <option value="en">English</option>
+        <option value="auto">Auto（入力に合わせる）</option></select></div>
     <div class="ctl"><span class="lab">🔊 音声合成 TTS</span>
       <select id="c_ttslang" onchange="set('tts_lang',this.value)">
         <option value="ja" selected>日本語 (Open JTalk)</option>
-        <option value="en">English (espeak-ng)</option></select></div>
+        <option value="en">English (espeak-ng)</option>
+        <option value="auto">Auto（返答に合わせる）</option></select></div>
     <div class="ctl"><small>英語STTは英語sherpaモデル、英語TTSは espeak-ng が必要。未導入時は自動で日本語にフォールバックします。</small></div>
   </div>
 
@@ -1360,18 +1379,21 @@ function applyUiLang(){
   document.documentElement.lang = uiEN ? 'en' : 'ja';
   const b = document.getElementById('langbtn'); if (b) b.textContent = uiEN ? '🌐 日本語' : '🌐 EN';
   const u = document.getElementById('c_uilang'); if (u) u.value = uiEN ? 'en' : 'ja';
-  // 一括ボタンの現在選択をハイライト(右上ボタンと同じ状態を共有)
-  const aj = document.getElementById('all_ja'); if (aj) aj.classList.toggle('on', !uiEN);
-  const ae = document.getElementById('all_en'); if (ae) ae.classList.toggle('on', uiEN);
+  // 一括ボタンの現在選択をハイライト(LLM言語の設定値=代表 に合わせる。ja/en/auto)
+  const cur = (document.getElementById('c_llmlang') || {}).value || (uiEN ? 'en' : 'ja');
+  ['ja', 'en', 'auto'].forEach(v => {
+    const b = document.getElementById('all_' + v); if (b) b.classList.toggle('on', v === cur);
+  });
 }
 // ヘッダの🌐ボタン: UI表示だけでなく、STT/LLM/TTSの発話言語もまとめて切替
 function toggleLang(){ setAllLang(uiEN ? 'ja' : 'en'); }
 // 一括切替: STT/LLM/TTS(サーバ側)＋画面表示(UI)をまとめてja/enに
 function setAllLang(lang){
   ['stt_lang','llm_lang','tts_lang'].forEach(k => set(k, lang));
-  const ids = ['c_sttlang','c_llmlang','c_ttslang'];
-  ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = lang; });
-  uiEN = (lang === 'en'); localStorage.setItem('koro_ui', lang); applyUiLang();
+  ['c_sttlang','c_llmlang','c_ttslang'].forEach(id => { const el = document.getElementById(id); if (el) el.value = lang; });
+  // ja/en は表示言語も合わせる。auto は表示言語を変えない(表示は別途「表示言語」で)
+  if (lang !== 'auto') { uiEN = (lang === 'en'); localStorage.setItem('koro_ui', lang); }
+  applyUiLang();
 }
 
 const es = new EventSource('/events');
@@ -1452,7 +1474,7 @@ class Handler(BaseHTTPRequestHandler):
                     if val in ("duplexaudio", "max98357a"):
                         settings["spk_dev"] = val
                 elif k in ("stt_lang", "llm_lang", "tts_lang"):
-                    if val in ("ja", "en"):
+                    if val in ("ja", "en", "auto"):
                         settings[k] = val
                 elif k in ("react_greet", "react_speech", "use_llm", "use_arm",
                            "event_llm", "dsp"):
@@ -1548,10 +1570,14 @@ class Handler(BaseHTTPRequestHandler):
                     snap["stt_lang_active"] = _sa
                     # 使用中のAI構成をWebに提示
                     snap["llm_model"] = LLM_NAME
-                    snap["llm_persona"] = ("Korosuke (English persona)" if settings["llm_lang"] == "en"
+                    _lp = settings["llm_lang"]
+                    snap["llm_persona"] = ("Auto 自動(JP/EN)" if _lp == "auto"
+                                           else "Korosuke (English persona)" if _lp == "en"
                                            else "コロ助（日本語・ナリ口調）")
                     snap["stt_model"] = state.get("stt_model_name", "sherpa-onnx")
-                    snap["tts_engine"] = ("espeak-ng (English)" if settings["tts_lang"] == "en"
+                    _tl = settings["tts_lang"]
+                    snap["tts_engine"] = ("Auto: Open JTalk / espeak-ng" if _tl == "auto"
+                                          else "espeak-ng (English)" if _tl == "en"
                                           else "Open JTalk (日本語)")
                     self.wfile.write(("data: " + json.dumps(snap, ensure_ascii=False) + "\n\n").encode("utf-8"))
                     self.wfile.flush()
