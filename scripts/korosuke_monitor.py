@@ -56,6 +56,8 @@ settings = {
     "react_greet": True,   # 入退室で挨拶する
     "react_speech": True,  # 話しかけに反応する
     "use_llm": True,       # キーワードに無い発話をローカルLLMで返答
+    "stt_lang": "ja",      # 音声認識の言語: ja=日本語(ReazonSpeech) / en=英語(要英語モデル)
+    "llm_lang": "ja",      # LLM応答の言語: ja=「ナリ」口調 / en=English
     "use_arm": True,       # 挨拶/ジェスチャで腕サーボを自動で動かす(調整中はOFF)
     "event_llm": False,    # 入退室/ジェスチャの台詞: True=LLM生成(多彩,数秒遅延)/False=定型(即時)
     # --- 認識の閾値(Webで調整可) ---
@@ -692,6 +694,18 @@ LLM_FEWSHOT = [
     {"role": "user", "content": "名前を教えて"},
     {"role": "assistant", "content": "ワガハイはコロ助ナリ！よろしくナリ！"},
 ]
+# 英語モード(settings["llm_lang"]=="en")。モデルは同じTinySwallowのまま英語で応答させる。
+LLM_PERSONA_EN = ("You are Korosuke, a cheerful and slightly clumsy little clockwork robot "
+                  "from the anime Kiteretsu. RULES: 1) Refer to yourself as 'I'. "
+                  "2) Speak in simple, upbeat English, only 1-2 short sentences. "
+                  "3) You love croquettes. 4) Be friendly and childlike. "
+                  "Never use Japanese; always answer in English.")
+LLM_FEWSHOT_EN = [
+    {"role": "user", "content": "Hello"},
+    {"role": "assistant", "content": "Hi there! I am Korosuke! Nice to meet you!"},
+    {"role": "user", "content": "What is your name?"},
+    {"role": "assistant", "content": "I am Korosuke, a little clockwork robot! Nice to meet you!"},
+]
 _llm = {"model": None, "ready": False, "busy": False}
 
 
@@ -713,15 +727,18 @@ def llm_respond(text):
     _llm["busy"] = True
     _speak_until[0] = time.time() + 30       # 思考中はSTT自己反応を抑止
     with lock:
-        state["speech"] = "考え中ナリ…"
+        state["speech"] = "Thinking..." if settings["llm_lang"] == "en" else "考え中ナリ…"
     try:
         eyes.send("emo thinking")             # 考え中の目(瞳がくるくる回る)
     except Exception:  # noqa
         pass
     try:
+        en = settings["llm_lang"] == "en"
+        persona = LLM_PERSONA_EN if en else LLM_PERSONA
+        fewshot = LLM_FEWSHOT_EN if en else LLM_FEWSHOT
         r = _llm["model"].create_chat_completion(
-            messages=[{"role": "system", "content": LLM_PERSONA}]
-                     + LLM_FEWSHOT
+            messages=[{"role": "system", "content": persona}]
+                     + fewshot
                      + [{"role": "user", "content": text}],
             max_tokens=64, temperature=0.7, top_p=0.9)
         reply = r["choices"][0]["message"]["content"].strip()
@@ -760,15 +777,26 @@ def react_to_speech(text):
         return
 
 
+# STT言語→モデルディレクトリ(先勝ち)。en用の英語Zipformerが無ければ日本語へフォールバック。
+STT_MODEL_GLOBS = {
+    "ja": ["/home/sunrise/models/sherpa-onnx-zipformer-ja-reazonspeech*"],
+    "en": ["/home/sunrise/models/sherpa-onnx-*en*"],   # 例: sherpa-onnx-zipformer-en-2023-06-26
+}
+
+
+def _stt_model_dir(lang):
+    """指定言語のsherpa transducerモデルdir(tokens.txtを持つ)を返す。無ければNone。"""
+    for pat in STT_MODEL_GLOBS.get(lang, []):
+        for d in sorted(glob.glob(pat)):
+            if os.path.isdir(d) and os.path.exists(d + "/tokens.txt"):
+                return d
+    return None
+
+
 def audio_loop():
     try:
         import sherpa_onnx
-        d = sorted(glob.glob("/home/sunrise/models/sherpa-onnx-zipformer-ja-reazonspeech*"))[0]
-        rec = sherpa_onnx.OfflineRecognizer.from_transducer(
-            encoder=sorted(glob.glob(d + "/encoder*int8.onnx"))[0],
-            decoder=sorted(glob.glob(d + "/decoder*[!8].onnx"))[0],
-            joiner=sorted(glob.glob(d + "/joiner*int8.onnx"))[0],
-            tokens=d + "/tokens.txt", num_threads=6)   # YOLOはBPU中心なのでCPUを多めに
+        # VAD は言語非依存(silero)。一度だけ構築する。
         vcfg = sherpa_onnx.VadModelConfig()
         vcfg.silero_vad.model = "/home/sunrise/models/silero_vad.onnx"
         vcfg.silero_vad.threshold = 0.6            # 高め=雑音/弱い音を無視
@@ -778,19 +806,56 @@ def audio_loop():
         vad = sherpa_onnx.VoiceActivityDetector(vcfg, buffer_size_in_seconds=30)
         win = vcfg.silero_vad.window_size
     except Exception as e:  # noqa
-        print("[audio] sherpa初期化失敗:", e)
+        print("[audio] sherpa/VAD初期化失敗:", e)
         return
 
+    rec = {"obj": None, "lang": None}
+
+    def load_rec():
+        """settings["stt_lang"]に合わせて認識器を(再)ロード。無い言語は日本語へフォールバック。
+        戻り値: 実際にロードした言語 or None(モデル皆無/失敗)。"""
+        want = settings.get("stt_lang", "ja")
+        d = _stt_model_dir(want)
+        if d is None and want != "ja":
+            print(f"[audio] {want} のSTTモデルが無い→日本語にフォールバック")
+            want = "ja"
+            d = _stt_model_dir("ja")
+        if d is None:
+            print("[audio] STTモデルが見つからない(ja/en とも無し)")
+            return None
+        try:
+            rec["obj"] = sherpa_onnx.OfflineRecognizer.from_transducer(
+                encoder=sorted(glob.glob(d + "/encoder*int8.onnx"))[0],
+                decoder=sorted(glob.glob(d + "/decoder*[!8].onnx"))[0],
+                joiner=sorted(glob.glob(d + "/joiner*int8.onnx"))[0],
+                tokens=d + "/tokens.txt", num_threads=6)   # YOLOはBPU中心なのでCPUを多めに
+            rec["lang"] = want
+            with lock:
+                state["stt_lang_active"] = want
+            print(f"[audio] STTモデル ロード: {want} ({os.path.basename(d)})")
+            return want
+        except Exception as e:  # noqa
+            print("[audio] STTモデル ロード失敗:", e)
+            return None
+
     def decode(samples):
-        st = rec.create_stream()
+        st = rec["obj"].create_stream()
         st.accept_waveform(16000, samples)
-        rec.decode_stream(st)
+        rec["obj"].decode_stream(st)
         return st.result.text.strip()
 
     CHUNK = 4800 * 2 * 2
     pending = []
     ratecv_state = None
     while True:
+        # 言語設定に合う認識器が無ければ(再)ロード。ロードできなければ待って再試行。
+        if rec["obj"] is None or rec["lang"] != settings.get("stt_lang", "ja"):
+            if load_rec() is None:
+                time.sleep(3)
+                continue
+            pending.clear()
+            while not vad.empty():
+                vad.pop()
         p = subprocess.Popen(
             ["arecord", "-D", f"plughw:{mic_card()},0", "-f", "S16_LE",
              "-r", "48000", "-c", "2", "-t", "raw"],
@@ -800,6 +865,9 @@ def audio_loop():
                 data = p.stdout.read(CHUNK)
                 if not data:
                     raise IOError("stream ended")
+                # 言語切替を検知したら arecord を畳んで認識器を再ロード
+                if settings.get("stt_lang", "ja") != rec["lang"]:
+                    raise IOError("lang switch")
                 # 自分の発話中は認識しない(スピーカー→マイクの自己エコーを排除)
                 if time.time() < _speak_until[0]:
                     pending.clear()
@@ -963,6 +1031,19 @@ small{color:var(--mut);font-size:.78rem}
       <label><input type="checkbox" id="c_ev" onchange="set('event_llm',this.checked?1:0)"> 入退室/ジェスチャ台詞をLLM生成(OFF=定型・即時)</label></div>
   </div>
 
+  <div class="grp"><h2>🌐 言語 / Language</h2>
+    <div class="ctl"><span class="lab">💬 音声認識 STT</span>
+      <select id="c_sttlang" onchange="set('stt_lang',this.value)">
+        <option value="ja" selected>日本語 (ReazonSpeech)</option>
+        <option value="en">English</option></select>
+      <small id="sttlangnote"></small></div>
+    <div class="ctl"><span class="lab">🤖 LLM応答</span>
+      <select id="c_llmlang" onchange="set('llm_lang',this.value)">
+        <option value="ja" selected>日本語（ナリ口調）</option>
+        <option value="en">English</option></select></div>
+    <div class="ctl"><small>英語STTは英語sherpaモデルが必要。未導入時は自動で日本語にフォールバックします。</small></div>
+  </div>
+
   <div class="grp"><h2>🔍 認識しきい値</h2>
     <div class="ctl"><span class="lab">👤 人物検出</span>
       <input type="range" min="0.1" max="0.9" step="0.05" value="0.40" id="c_ps"
@@ -1050,7 +1131,9 @@ es.onmessage = e => {
   setHTML('eyest', eh);
   const ch = d.cam_ok ? '<span class=ok>稼働' + (d.yolo_ok ? '+YOLO' : '') + '</span>' : '<span class=ng>停止</span>';
   setHTML('camst', ch);
-  setHTML('micst', d.audio_ok ? '<span class=ok>稼働中</span>' : '<span class=ng>停止</span>');
+  const alng = (d.stt_lang_active || 'ja').toUpperCase();
+  setHTML('micst', (d.audio_ok ? '<span class=ok>稼働中</span>' : '<span class=ng>停止</span>') + ' <small>(' + alng + ')</small>');
+  setHTML('sttlangnote', ' 実際: ' + alng);
   setHTML('spkst', d.spk_ok ? '<span class=ok>OK</span>' : '<span class=ng>NG</span>');
   const lh = d.llm_ready ? '<span class=ok>準備OK</span>' : '<span class=ng>読込中</span>';
   setHTML('llmst2', lh);
@@ -1096,6 +1179,9 @@ class Handler(BaseHTTPRequestHandler):
                 elif k == "spk_dev":
                     if val in ("duplexaudio", "max98357a"):
                         settings["spk_dev"] = val
+                elif k in ("stt_lang", "llm_lang"):
+                    if val in ("ja", "en"):
+                        settings[k] = val
                 elif k in ("react_greet", "react_speech", "use_llm", "use_arm",
                            "event_llm", "dsp"):
                     settings[k] = val in ("1", "true", "on")
@@ -1186,6 +1272,7 @@ class Handler(BaseHTTPRequestHandler):
                                  "audio_ok", "yolo_ok", "dets", "gesture", "speech",
                                  "speech_log", "eye_ok", "present", "speaking", "spk_ok")}
                     snap["llm_ready"] = _llm["ready"]
+                    snap["stt_lang_active"] = state.get("stt_lang_active", settings["stt_lang"])
                     self.wfile.write(("data: " + json.dumps(snap, ensure_ascii=False) + "\n\n").encode("utf-8"))
                     self.wfile.flush()
                     time.sleep(0.1)
