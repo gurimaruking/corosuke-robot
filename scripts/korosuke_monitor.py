@@ -906,6 +906,15 @@ def _stt_model_dir(lang):
     return None
 
 
+def _sense_voice_dir():
+    """SenseVoice(多言語1モデル: zh/en/ja/ko/yue)のdirを返す。無ければNone。
+    D-Robotics公式のRDK音声対話でも採用されている高精度・多言語ASR。"""
+    for d in sorted(glob.glob("/home/sunrise/models/sherpa-onnx-sense-voice-*")):
+        if os.path.isdir(d) and os.path.exists(d + "/tokens.txt"):
+            return d
+    return None
+
+
 def audio_loop():
     try:
         import sherpa_onnx
@@ -923,12 +932,35 @@ def audio_loop():
         return
 
     # req=要求言語(切替検知の基準) / lang=実際にロードした言語(フォールバックで異なりうる)
-    rec = {"obj": None, "lang": None, "req": None}
+    # sv_cache=言語別SenseVoice認識器のキャッシュ(切替時の再ロード無し=瞬時)
+    rec = {"obj": None, "lang": None, "req": None, "sv_cache": {}}
 
     def load_rec():
-        """settings["stt_lang"]に合わせて認識器を(再)ロード。無い言語は日本語へフォールバック。
-        戻り値: 実際にロードした言語 or None(モデル皆無/失敗)。"""
+        """settings["stt_lang"]に合わせて認識器を(再)ロード。
+        優先: SenseVoice(多言語1モデル)を languageで指定。無ければ言語別zipformer。
+        戻り値: 実際にロードした言語 or None(失敗)。"""
         req = settings.get("stt_lang", "ja")     # 要求された言語
+        # --- 1) SenseVoice(多言語1モデル)を優先。日英とも同一モデル、languageで固定 ---
+        sv = _sense_voice_dir()
+        if sv:
+            try:
+                if req not in rec["sv_cache"]:      # 未構築の言語だけ1度ロード(以後キャッシュ)
+                    mdl = (sorted(glob.glob(sv + "/model*int8.onnx"))
+                           or sorted(glob.glob(sv + "/model*.onnx")))[0]
+                    rec["sv_cache"][req] = sherpa_onnx.OfflineRecognizer.from_sense_voice(
+                        model=mdl, tokens=sv + "/tokens.txt", num_threads=6,
+                        language=req, use_itn=True)   # language= "ja"/"en" で固定(""=自動判定も可)
+                    print(f"[audio] SenseVoice構築: language={req} ({os.path.basename(sv)})")
+                rec["obj"] = rec["sv_cache"][req]     # キャッシュ済みなら瞬時に切替
+                rec["req"] = req
+                rec["lang"] = req
+                with lock:
+                    state["stt_lang_active"] = req
+                    state["stt_model_name"] = "SenseVoice 多言語 · sherpa-onnx"
+                return req
+            except Exception as e:  # noqa
+                print("[audio] SenseVoiceロード失敗→zipformerにフォールバック:", e)
+        # --- 2) フォールバック: 言語別zipformer(SenseVoice未導入時) ---
         actual = req
         d = _stt_model_dir(actual)
         if d is None and actual != "ja":
@@ -949,6 +981,8 @@ def audio_loop():
             rec["lang"] = actual
             with lock:
                 state["stt_lang_active"] = actual
+                state["stt_model_name"] = ("Zipformer EN · sherpa-onnx" if actual == "en"
+                                           else "ReazonSpeech JA · sherpa-onnx")
             print(f"[audio] STTモデル ロード: req={req} actual={actual} ({os.path.basename(d)})")
             return actual
         except Exception as e:  # noqa
@@ -982,14 +1016,16 @@ def audio_loop():
                 data = p.stdout.read(CHUNK)
                 if not data:
                     raise IOError("stream ended")
-                # 言語切替を検知。実際に使うモデルが変わる時だけ再ロード
-                # (英語モデル未導入でja→ja据え置きなら、reqだけ更新して録音は継続=無音を作らない)
+                # 言語切替を検知。実際に使う認識が変わる時だけ再ロード
                 want = settings.get("stt_lang", "ja")
                 if want != rec["req"]:
+                    if _sense_voice_dir():
+                        raise IOError("lang switch")   # SenseVoiceは言語ごとに再ロード必要
+                    # zipformer時: 英語モデル未導入でja→ja据え置きなら、reqだけ更新し録音継続=無音を作らない
                     new_actual = want if _stt_model_dir(want) else "ja"
                     if new_actual != rec["lang"]:
                         raise IOError("lang switch")   # モデルが変わる→再ロード
-                    rec["req"] = want                  # 同じモデル→reqだけ更新し継続
+                    rec["req"] = want
                     with lock:
                         state["stt_lang_active"] = rec["lang"]
                 # 自分の発話中は認識しない(スピーカー→マイクの自己エコーを排除)
@@ -1514,8 +1550,7 @@ class Handler(BaseHTTPRequestHandler):
                     snap["llm_model"] = LLM_NAME
                     snap["llm_persona"] = ("Korosuke (English persona)" if settings["llm_lang"] == "en"
                                            else "コロ助（日本語・ナリ口調）")
-                    snap["stt_model"] = ("Zipformer EN · sherpa-onnx" if _sa == "en"
-                                         else "ReazonSpeech JA · sherpa-onnx")
+                    snap["stt_model"] = state.get("stt_model_name", "sherpa-onnx")
                     snap["tts_engine"] = ("espeak-ng (English)" if settings["tts_lang"] == "en"
                                           else "Open JTalk (日本語)")
                     self.wfile.write(("data: " + json.dumps(snap, ensure_ascii=False) + "\n\n").encode("utf-8"))
