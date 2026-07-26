@@ -50,9 +50,9 @@ parameter (volume, mic gain, voice pitch, thresholds, reaction toggles, eyes, ar
 | Capability | Implementation | On-device measurement |
 |---|---|---|
 | Vision (person + pose) | BPU YOLO11n-pose (Bayes-e `.bin`) | live camera ~**19.5 FPS** |
-| Speech-to-text (JP) | **sherpa-onnx** ReazonSpeech Zipformer int8 + Silero VAD | **RTF 0.44** (real-time) |
-| **On-device LLM dialogue** | **llama.cpp + TinySwallow-1.5B-Instruct Q5** (CPU) | load 24 s, **1.5–3.3 tok/s**, reply 5–10 s |
-| Text-to-speech (JP) | **Open JTalk** pitched childlike voice (`-fm 9 -a 0.40`) | dynamic, any text, instant |
+| Speech-to-text | **sherpa-onnx SenseVoice** (multilingual JP/EN/…, int8) + Silero VAD | real-time on CPU |
+| **On-device LLM dialogue** | **llama.cpp + TinySwallow-1.5B** *(Qwen2.5-1.5B-based)* Q5 (CPU) | load 24 s, **1.5–3.3 tok/s**, reply 5–10 s |
+| Text-to-speech | **Open JTalk** (JP) / **espeak-ng** (EN), pitched childlike voice | dynamic, any text, instant |
 | **Audio out (miniaturized)** | **MAX98357A** I2S Class-D amp on 40-pin **i2s1** + φ50 8Ω speaker | custom-built card, DSP-tuned |
 | Expression | 2× GC9A01 on ESP32-S3 (LovyanGFX): 8 states incl. smile / pondering / ✕✕ | ≥30 FPS render |
 | Gesture recognition | skeleton (wrist-vs-shoulder): both/one raise + wave | in the pose loop, no extra model |
@@ -221,6 +221,11 @@ friendly) — and lets you talk to `/korosuke/user_text`, drive `/korosuke/eye_c
   (TinySwallow-1.5B), the voice (Open JTalk / espeak-ng) **and** the web dashboard — with
   **no cloud, no API keys**. The dashboard shows the live AI stack in use (LLM / persona /
   STT / TTS) so what's running is always transparent.
+- **Aligned with D-Robotics' own reference voice stack** — the on-device pipeline mirrors
+  D-Robotics' official RDK
+  [voice-interaction guide](https://developer.d-robotics.cc/magicbox_doc/en/algorithm-development/voice-interaction):
+  **SenseVoice** multilingual ASR (sherpa-onnx) + a **Qwen2.5-1.5B-family** LLM — we run the
+  Japanese-tuned **TinySwallow-1.5B** (built on Qwen2.5-1.5B) on llama.cpp/CPU.
 - **Character-faithful & alive**: pitched "ワガハイ…ナリ" voice; hand-tuned **smile** and a
   **"thinking" eye animation** during the LLM's think time so the wait feels intentional;
   a rope-pulled bellows arm matching the 3-D-printed center-bore.
@@ -292,8 +297,8 @@ torque) between moves and on a web "🪫 relax" command — documented safety li
 | Task | Model / tool | Version | Result |
 |---|---|---|---|
 | Person + pose | YOLO11n-pose (Bayes-e `.bin`) | RDK OS 3.x / hbdk | ~**19.5 FPS** |
-| STT (JP) | sherpa-onnx ReazonSpeech Zipformer int8 + Silero VAD | onnxruntime | **RTF 0.44** |
-| LLM (JP) | TinySwallow-1.5B-Instruct Q5_K_M | llama.cpp | load 24 s, **1.5–3.3 tok/s** |
+| STT | sherpa-onnx **SenseVoice** multilingual int8 + Silero VAD | onnxruntime | real-time (CPU) |
+| LLM | TinySwallow-1.5B Q5_K_M *(Qwen2.5-1.5B-based)* | llama.cpp | load 24 s, **1.5–3.3 tok/s** |
 | TTS (JP) | Open JTalk (pitched) | apt | instant |
 | Thermal — full stack, LLM at ~600 % CPU | — | `hrut_somstatus` | CPU/BPU/DDR **≈50–51 °C** (<60 °C ✅) |
 

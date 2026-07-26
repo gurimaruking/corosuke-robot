@@ -31,8 +31,8 @@ lets you tune everything.
 | Subsystem | Implementation | Measured |
 |---|---|---|
 | Vision | BPU YOLO11n-pose (Bayes-e `.bin`) | ~19.5 FPS |
-| Speech-to-text | sherpa-onnx + Silero VAD — **JP** ReazonSpeech / **EN** Zipformer | RTF 0.44 |
-| LLM dialogue | llama.cpp + TinySwallow-1.5B (CPU) — **JP & EN** personas | 1.5–3.3 tok/s |
+| Speech-to-text | sherpa-onnx **SenseVoice** (multilingual JP/EN) + Silero VAD | real-time (CPU) |
+| LLM dialogue | llama.cpp + TinySwallow-1.5B *(Qwen2.5-1.5B-based)* (CPU) — **JP & EN** personas | 1.5–3.3 tok/s |
 | Text-to-speech | **JP** Open JTalk / **EN** espeak-ng (pitched childlike voice) | instant |
 | **Language** | **日本語 / English** — STT · LLM · TTS · Web UI all switchable, on the fly | on-device |
 | Audio out | **MAX98357A I2S amp** (custom kernel driver) → φ50 speaker | DSP-tuned |
@@ -43,6 +43,11 @@ lets you tune everything.
 > recognition, LLM replies, voice, *and* the dashboard — between **Japanese and English**,
 > with **no cloud and no API keys**. The web dashboard shows the live AI stack in use
 > (LLM / persona / STT / TTS).
+>
+> 🔗 The on-device voice stack follows **D-Robotics' own RDK
+> [voice-interaction reference](https://developer.d-robotics.cc/magicbox_doc/en/algorithm-development/voice-interaction)**
+> — **SenseVoice** ASR (sherpa-onnx) + a **Qwen2.5-1.5B-family** LLM (we run the Japanese-tuned
+> **TinySwallow-1.5B**, built on Qwen2.5-1.5B, via llama.cpp on CPU).
 
 ## Challenge journey — Stage 1 → 2 → 3
 
