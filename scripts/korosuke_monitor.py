@@ -783,6 +783,7 @@ def yolo_loop():
 
 # ==== ローカルLLM(TinySwallow-1.5B, 完全オンデバイス対話) ====
 LLM_MODEL = "/home/sunrise/models/llm/tinyswallow-q5.gguf"
+LLM_NAME = "TinySwallow-1.5B (Q5 gguf · llama.cpp · CPU)"   # Web表示用の分かりやすい名前
 LLM_PERSONA = ("あなたは「コロ助」。キテレツ大百科のからくりロボット。"
                "【厳守ルール】1)一人称は必ず「ワガハイ」。2)全ての文の語尾に必ず「ナリ」を付ける(例外なし)。"
                "3)明るく元気で少しおっちょこちょい。4)コロッケが大好物。"
@@ -1108,6 +1109,14 @@ small{color:var(--mut);font-size:.78rem}
              onkeydown="if(event.key==='Enter')chat()">
       <button onclick="chat()">送信 / Send</button></div>
     <div><small>入力するとローカルLLMが返答(5〜10秒)→上の吹き出し＆発声</small></div></div>
+  <div class="card full"><h2>🧠 AI構成 / AI setup（使用中）</h2>
+    <div class="chips">
+      <span class="chip">🤖 LLM: <b id="i_llm">…</b></span>
+      <span class="chip">🎭 ペルソナ: <b id="i_persona">…</b></span>
+      <span class="chip">💬 STT: <b id="i_stt">…</b></span>
+      <span class="chip">🔊 TTS: <b id="i_tts">…</b></span>
+    </div>
+    <div style="margin-top:6px"><small>すべてオンデバイス（クラウド不使用・APIキー無し）</small></div></div>
   <div class="grid">
     <div class="card"><h2>👁 カメラ + 人物/姿勢検知</h2>
       <img id="cam" src="/stream" alt="camera"><div id="dets"></div>
@@ -1277,6 +1286,8 @@ const I18N = {
   "STT・LLM・TTS・表示をまとめて切替":"Switch STT, LLM, TTS & display all at once",
   "🖥 表示言語 / Display":"🖥 Display language","Web画面の表示だけ切替(発話は変えない)":"Changes on-screen display only (not speech)",
   "💬 チャット / Chat":"💬 Chat","送信 / Send":"Send",
+  "🧠 AI構成 / AI setup（使用中）":"🧠 AI setup (in use)","🎭 ペルソナ:":"🎭 Persona:",
+  "すべてオンデバイス（クラウド不使用・APIキー無し）":"All on-device (no cloud, no API keys)",
   "入力するとローカルLLMが返答(5〜10秒)→上の吹き出し＆発声":"Type to get a local-LLM reply (5-10s) -> bubble above + voice",
   "💬 音声認識 STT":"💬 Speech recognition (STT)","🤖 LLM応答":"🤖 LLM replies",
   "🔊 音声合成 TTS":"🔊 Speech synthesis (TTS)","日本語 (ReazonSpeech)":"Japanese (ReazonSpeech)",
@@ -1357,6 +1368,10 @@ es.onmessage = e => {
   setHTML('sttlangnote', ' ' + t('実際: ') + alng);
   setHTML('spkst', d.spk_ok ? '<span class=ok>OK</span>' : '<span class=ng>NG</span>');
   setHTML('llmst2', d.llm_ready ? '<span class=ok>' + t('準備OK') + '</span>' : '<span class=ng>' + t('読込中') + '</span>');
+  setHTML('i_llm', (d.llm_model || '') + (d.llm_ready ? '' : ' (' + t('読込中') + ')'));
+  setHTML('i_persona', d.llm_persona || '');
+  setHTML('i_stt', d.stt_model || '');
+  setHTML('i_tts', d.tts_engine || '');
   setHTML('llmst', d.llm_ready ? '<span class=ok>' + t('(準備OK)') + '</span>' : '<span class=ng>' + t('(読込中/未導入)') + '</span>');
 };
 es.onerror = () => { document.getElementById('st').textContent = uiEN ? '(disconnected - reconnecting...)' : '(切断 — 再接続中…)'; };
@@ -1493,7 +1508,16 @@ class Handler(BaseHTTPRequestHandler):
                                  "audio_ok", "yolo_ok", "dets", "gesture", "speech",
                                  "speech_log", "eye_ok", "present", "speaking", "spk_ok")}
                     snap["llm_ready"] = _llm["ready"]
-                    snap["stt_lang_active"] = state.get("stt_lang_active", settings["stt_lang"])
+                    _sa = state.get("stt_lang_active", settings["stt_lang"])
+                    snap["stt_lang_active"] = _sa
+                    # 使用中のAI構成をWebに提示
+                    snap["llm_model"] = LLM_NAME
+                    snap["llm_persona"] = ("Korosuke (English persona)" if settings["llm_lang"] == "en"
+                                           else "コロ助（日本語・ナリ口調）")
+                    snap["stt_model"] = ("Zipformer EN · sherpa-onnx" if _sa == "en"
+                                         else "ReazonSpeech JA · sherpa-onnx")
+                    snap["tts_engine"] = ("espeak-ng (English)" if settings["tts_lang"] == "en"
+                                          else "Open JTalk (日本語)")
                     self.wfile.write(("data: " + json.dumps(snap, ensure_ascii=False) + "\n\n").encode("utf-8"))
                     self.wfile.flush()
                     time.sleep(0.1)
