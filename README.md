@@ -7,8 +7,8 @@
 [![On-device](https://img.shields.io/badge/AI-100%25%20on--device%20·%20no%20cloud-2da44e.svg)](STAGE3.md)
 
 A ~46 cm open-source animatronic of **Korosuke (コロ助)** from *Kiteretsu Daihyakka* that
-**sees, listens, thinks, talks (in Japanese *or* English), emotes, reacts to gestures &
-touch, and shuts itself down safely — 100 % on-device** on a **D-Robotics RDK X5**, with an
+**sees, listens, thinks, talks (in Japanese *or* English), emotes, reacts to gestures,
+and shuts itself down safely — 100 % on-device** on a **D-Robotics RDK X5**, with an
 ESP32-S3 driving the eyes and arms.
 
 > 🏆 **D-Robotics Robotics Dream Keeper Challenge** — **Stage 3 (Launch)**.
@@ -23,7 +23,7 @@ ESP32-S3 driving the eyes and arms.
 
 Power it on and, unattended: **wakes up & greets you** ("おはようナリ！") → **sees & tracks
 you** (BPU YOLO11-pose) → **talks with you** (on-device STT → LLM → TTS, with a "thinking"
-eye animation while it ponders) → **reacts to gestures & petting** → **waves its arms** →
+eye animation while it ponders) → **reacts to gestures** → **waves its arms** →
 **shuts down safely** on a button press (goodnight voice → ✕✕ "safe-to-unplug" eyes).
 A tabbed **web dashboard** (`http://<board-ip>:8080`) shows the live camera+skeleton and
 lets you tune everything.

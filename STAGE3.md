@@ -8,7 +8,7 @@ Ubuntu 22.04). A fan-made, non-commercial tribute.
 ![Korosuke revision 0.1 — fully assembled, smiling](docs/photo/20260725_korosuke-robot-revision_0.1.jpg)
 
 > **Headline:** Korosuke **wakes up and greets you, sees you and follows you with its eyes, listens,
-> thinks, talks back, smiles, ponders, reacts to gestures and to being petted, waves
+> thinks, talks back, smiles, ponders, reacts to gestures, waves
 > its arms, and shuts itself down safely — 100 % on-device. No cloud. No dev PC at
 > runtime.** Vision, speech-to-text, LLM dialogue, text-to-speech, expression, gesture
 > and actuation all run on a single RDK X5 + an ESP32-S3 eye/arm co-MCU.
@@ -33,10 +33,9 @@ Power it on and, unattended:
    **on-device LLM** (TinySwallow-1.5B) thinks, the eyes show a **"考え中" pondering
    animation**; the reply is spoken via on-device TTS (Open JTalk) in Korosuke's
    "ワガハイ…ナリ" persona, and the eyes break into a smile.
-7. **Likes being petted** — a capacitive touch sensor triggers "なでなで" reactions.
-8. **Misses you** — when you leave frame it droops, says a farewell, then settles back
+7. **Misses you** — when you leave frame it droops, says a farewell, then settles back
    to a calm awake face.
-9. **Sleeps safely** — a physical button runs a graceful shutdown: sleepy eyes →
+8. **Sleeps safely** — a physical button runs a graceful shutdown: sleepy eyes →
    *"おやすみナリ…また会おうナリ！"* → **✕✕ "power-off-OK" eyes** that stay lit after the
    OS halts, so you know when it's safe to cut power.
 
@@ -57,7 +56,6 @@ parameter (volume, mic gain, voice pitch, thresholds, reaction toggles, eyes, ar
 | Expression | 2× GC9A01 on ESP32-S3 (LovyanGFX): 8 states incl. smile / pondering / ✕✕ | ≥30 FPS render |
 | Gesture recognition | skeleton (wrist-vs-shoulder): both/one raise + wave | in the pose loop, no extra model |
 | Arm actuation | 2× SG90 rope-pull bellows arms on ESP32-S3 LEDC PWM | GPIO4/5, auto-detach to save current |
-| Touch reaction | capacitive touch → "petting" responses | ESP32-S3 `EVENT touch` over serial |
 | Safe power | GPIO shutdown button + boot auto-start (systemd) | goodnight voice + ✕✕-eyes signal |
 | Maintenance net | eth0 **static 192.168.0.200** + usb0 gadget lifeline | auto-assigned on boot |
 
@@ -126,7 +124,6 @@ zero cloud. (GitHub renders the Mermaid diagram below.)
 flowchart LR
     CAM([UVC Camera]):::s --> YOLO
     MIC([USB Mic]):::s --> STT
-    TOUCH([Capacitive touch]):::s --> BRAIN
     BTN([Shutdown button · GPIO]):::s --> BRAIN
 
     subgraph RDK["RDK X5 · Ubuntu 22.04 · fully on-device"]
@@ -215,7 +212,7 @@ friendly) — and lets you talk to `/korosuke/user_text`, drive `/korosuke/eye_c
 ## 6. Innovation highlights
 
 - **A complete on-device conversational + expressive robot on a $140-class board** —
-  ASR, a real LLM, TTS, 8-state emotion, gesture, touch and actuation, zero cloud.
+  ASR, a real LLM, TTS, 8-state emotion, gesture and actuation, zero cloud.
 - **Bilingual, on the fly (日本語 / English)** — one switch flips the *whole* robot between
   Japanese and English: speech recognition (sherpa-onnx), the LLM's persona & replies
   (TinySwallow-1.5B), the voice (Open JTalk / espeak-ng) **and** the web dashboard — with
@@ -244,7 +241,6 @@ To avoid duplication, this section lists only the **Stage-3 as-built hardware ch
 | **Speaker miniaturized** | MAX98357A I2S amp + φ50 mm 8 Ω driver (WYGD50D-8-03) | fit the body; needed a **custom out-of-tree kernel driver + DT overlay** — [build](docs/rdk_x5_40pin_i2s_max98357a.md) · [firmware/max98357a/](firmware/max98357a/) · [g109012](https://akizukidenshi.com/catalog/g/g109012/) |
 | **Camera** | UVC USB webcam (Logitech C270), mic built-in | on-device vision + STT; auto-detected on replug |
 | **Safe power** | GPIO shutdown button | graceful halt (goodnight voice → ✕✕ eyes) — [deploy/](deploy/) |
-| **Touch** | capacitive touch sensor | "petting" reactions |
 | Mic | uses the C270's built-in mic (INMP441 in the plan not needed) | one fewer part |
 
 > Louder-speaker upgrade path (optional): a φ40 mm **4 Ω / 3 W** full-range
@@ -271,6 +267,7 @@ To avoid duplication, this section lists only the **Stage-3 as-built hardware ch
 - **2-axis mouth / lip-sync** — no mouth mechanism is fitted; all expression is via the eyes and voice. Lip-sync (proposed as G4) is deferred.
 - **Bipedal "penguin" walking (QDD legs)** — stretch only; the salvaged QDD motors are unreliable, so the MVP is a seated/standing torso.
 - **Back-mounted sword prop** — not built.
+- **Head touch / "petting" reaction** — the firmware has a touch path, but no working touch sensor is fitted in this build.
 
 **Safe shutdown / soft E-STOP:** a GPIO button runs a graceful halt (goodnight voice → ✕✕
 "power-off-OK" eyes that persist after the OS halts); the arm servos **auto-detach** (zero
@@ -310,7 +307,7 @@ torque) between moves and on a web "🪫 relax" command — documented safety li
 
 ```bash
 # On the RDK X5 — everything is one integrated service, auto-starting on boot:
-sudo systemctl status korosuke-monitor   # camera+pose+STT+LLM+TTS+eyes+arms+touch
+sudo systemctl status korosuke-monitor   # camera+pose+STT+LLM+TTS+eyes+arms
 #   → open http://<board-ip>:8080  (Monitor / Settings tabs)
 # Safe shutdown: hold the GPIO button ~1 s (goodnight voice → ✕✕ eyes → halt).
 ```
