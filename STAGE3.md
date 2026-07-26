@@ -7,7 +7,7 @@ Ubuntu 22.04). A fan-made, non-commercial tribute.
 
 ![Korosuke revision 0.1 — fully assembled, smiling](docs/photo/20260725_korosuke-robot-revision_0.1.jpg)
 
-> **Headline:** Korosuke **wakes up and greets you, sees and tracks you, listens,
+> **Headline:** Korosuke **wakes up and greets you, sees you and follows you with its eyes, listens,
 > thinks, talks back, smiles, ponders, reacts to gestures and to being petted, waves
 > its arms, and shuts itself down safely — 100 % on-device. No cloud. No dev PC at
 > runtime.** Vision, speech-to-text, LLM dialogue, text-to-speech, expression, gesture
