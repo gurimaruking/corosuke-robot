@@ -1,0 +1,288 @@
+<meta charset="utf-8">
+<title>USBカメラ回転ビューア (Android → Web)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!--
+  USBカメラ回転ビューア
+  ------------------------------------------------------------------
+  Android端末をUSBウェブカメラ化(Android14+の「USBウェブカメラ」機能 /
+  Camo / DroidCam / Iriun など)してPCに繋ぐと、標準のUVCカメラとして
+  ブラウザから getUserMedia で取得できる。このページはその映像を
+  Canvasに描画し、90度単位で回転(＋左右反転)して表示するだけの単機能ツール。
+
+  使い方:
+    1. AndroidをUSBウェブカメラとしてPCに接続
+    2. Chrome / Edge でこのファイルを直接開く(file:// でOK)
+       ※カメラが出ない/権限で弾かれる場合は localhost 経由で:
+         python -m http.server 8000  → http://localhost:8000/tools/usb_camera_rotate.html
+    3. 「カメラ」でAndroidのUVCデバイスを選び、↺/↻ で回転
+
+  設定(選択カメラ・回転角・反転・ズーム)は localStorage に保存され次回復元される。
+  外部通信・依存ライブラリなし。すべてブラウザ内で完結。
+-->
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #0b0d10; color: #e7ebef;
+    font-family: system-ui, "Segoe UI", "Yu Gothic UI", sans-serif; }
+  body { display: flex; flex-direction: column; overflow: hidden; }
+
+  /* ツールバー */
+  #bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    padding: 8px 10px; background: #14181d; border-bottom: 1px solid #232a31;
+    flex: 0 0 auto; }
+  #bar .grp { display: flex; align-items: center; gap: 6px; }
+  #bar .sep { width: 1px; align-self: stretch; background: #2a323a; margin: 2px 2px; }
+  label.k { font-size: 12px; color: #9aa7b2; }
+  select, button {
+    background: #1e252c; color: #e7ebef; border: 1px solid #313b45;
+    border-radius: 8px; padding: 7px 11px; font-size: 13px; cursor: pointer;
+    line-height: 1; }
+  select { max-width: 40vw; }
+  button:hover { background: #273038; }
+  button:active { background: #313b45; }
+  button.on { background: #2b6cb0; border-color: #3b82c4; }
+  button.icon { min-width: 40px; font-size: 16px; }
+  input[type=range] { width: 120px; accent-color: #3b82c4; cursor: pointer;
+    vertical-align: middle; }
+  #zoomval { font-size: 12px; color: #cfe3ff; font-variant-numeric: tabular-nums;
+    min-width: 40px; text-align: right; }
+  #angle { font-variant-numeric: tabular-nums; min-width: 44px; text-align: center;
+    color: #cfe3ff; }
+  #stat { margin-left: auto; font-size: 12px; color: #7f8b96;
+    font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* 映像領域 */
+  #stage { flex: 1 1 auto; position: relative; display: grid; place-items: center;
+    background: #000; min-height: 0; overflow: hidden; }
+  canvas { max-width: 100%; max-height: 100%; }
+  #msg { position: absolute; padding: 14px 18px; border-radius: 10px;
+    background: rgba(20,24,29,.9); border: 1px solid #313b45; max-width: 80%;
+    text-align: center; line-height: 1.6; font-size: 14px; }
+  #msg.hide { display: none; }
+  #msg b { color: #ffd479; }
+  kbd { background: #232a31; border: 1px solid #3a444e; border-bottom-width: 2px;
+    border-radius: 5px; padding: 1px 6px; font-size: 12px; }
+</style>
+
+<div id="bar">
+  <div class="grp">
+    <label class="k" for="dev">カメラ</label>
+    <select id="dev" title="映像入力デバイス"></select>
+    <button id="refresh" class="icon" title="デバイス一覧を更新">⟳</button>
+  </div>
+  <div class="sep"></div>
+  <div class="grp">
+    <button id="left"  class="icon" title="左90°回転 (←)">↺</button>
+    <span id="angle">0°</span>
+    <button id="right" class="icon" title="右90°回転 (→)">↻</button>
+  </div>
+  <div class="sep"></div>
+  <div class="grp">
+    <label class="k" for="zoom">ズーム</label>
+    <button id="zoomout" class="icon" title="ズームアウト (-)">－</button>
+    <input id="zoom" type="range" min="1" max="5" step="0.1" value="1" title="ズーム倍率">
+    <button id="zoomin" class="icon" title="ズームイン (+)">＋</button>
+    <span id="zoomval">1.0×</span>
+  </div>
+  <div class="sep"></div>
+  <div class="grp">
+    <button id="mirror" title="左右反転 (M)">左右反転</button>
+    <button id="snap"   title="PNG保存 (S)">📷 保存</button>
+    <button id="full"   title="全画面 (F)">⛶ 全画面</button>
+  </div>
+  <span id="stat">—</span>
+</div>
+
+<div id="stage">
+  <canvas id="cv"></canvas>
+  <div id="msg">カメラへのアクセスを許可してください…</div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const devSel = $("dev"), cv = $("cv"), ctx = cv.getContext("2d"),
+        msg = $("msg"), angleEl = $("angle"), stat = $("stat"),
+        video = document.createElement("video");
+  video.muted = true; video.playsInline = true; video.autoplay = true;
+
+  const LS = "usbcam-rotate-v1";
+  const state = Object.assign(
+    { deviceId: "", rotation: 0, mirror: false, zoom: 1 },
+    (() => { try { return JSON.parse(localStorage.getItem(LS)) || {}; }
+             catch { return {}; } })()
+  );
+  const save = () => { try { localStorage.setItem(LS, JSON.stringify(state)); } catch {} };
+
+  let stream = null;
+
+  function showMsg(html) { msg.innerHTML = html; msg.classList.remove("hide"); }
+  function hideMsg() { msg.classList.add("hide"); }
+
+  function applyMirrorBtn() { $("mirror").classList.toggle("on", state.mirror); }
+  function applyAngle() { angleEl.textContent = state.rotation + "°"; }
+
+  // ---- ストリーム取得 ----
+  async function start(deviceId) {
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    const video0 = deviceId
+      ? { deviceId: { exact: deviceId } }
+      : { facingMode: "environment" };
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: Object.assign(video0, {
+          width:  { ideal: 1920 },
+          height: { ideal: 1080 },
+        }),
+        audio: false,
+      });
+    } catch (e) {
+      showMsg(`カメラを開けませんでした: <b>${e.name}</b><br>` +
+        `別のアプリがカメラを使用中でないか、権限を確認してください。`);
+      return;
+    }
+    video.srcObject = stream;
+    await video.play().catch(() => {});
+    const track = stream.getVideoTracks()[0];
+    state.deviceId = track.getSettings().deviceId || deviceId || "";
+    save();
+    hideMsg();
+    await populateDevices();     // 権限取得後はラベルが取れる
+    kick();
+  }
+
+  // ---- デバイス一覧 ----
+  async function populateDevices() {
+    let list = [];
+    try { list = await navigator.mediaDevices.enumerateDevices(); } catch {}
+    const cams = list.filter(d => d.kind === "videoinput");
+    devSel.innerHTML = "";
+    cams.forEach((d, i) => {
+      const o = document.createElement("option");
+      o.value = d.deviceId;
+      o.textContent = d.label || `カメラ ${i + 1}`;
+      devSel.appendChild(o);
+    });
+    if (state.deviceId && cams.some(c => c.deviceId === state.deviceId))
+      devSel.value = state.deviceId;
+  }
+
+  // ---- Canvas描画(回転＋反転) ----
+  function drawFrame() {
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh) return;
+    const r = ((state.rotation % 360) + 360) % 360;
+    const swap = (r === 90 || r === 270);
+    const cw = swap ? vh : vw, ch = swap ? vw : vh;
+    if (cv.width !== cw || cv.height !== ch) { cv.width = cw; cv.height = ch; }
+
+    const z = state.zoom || 1;
+    ctx.save();
+    ctx.translate(cw / 2, ch / 2);
+    ctx.rotate(r * Math.PI / 180);
+    ctx.scale((state.mirror ? -1 : 1) * z, z);   // ズーム(中央基準のデジタル拡大)
+    ctx.drawImage(video, -vw / 2, -vh / 2, vw, vh);
+    ctx.restore();
+  }
+
+  // ---- 描画ループ(新フレームごと)＋FPS/解像度表示 ----
+  let frames = 0, lastT = performance.now(), fps = 0;
+  const hasRVFC = "requestVideoFrameCallback" in HTMLVideoElement.prototype;
+
+  function tick() {
+    drawFrame();
+    frames++;
+    const now = performance.now();
+    if (now - lastT >= 500) {
+      fps = Math.round(frames * 1000 / (now - lastT));
+      frames = 0; lastT = now;
+      stat.textContent = video.videoWidth
+        ? `${video.videoWidth}×${video.videoHeight}  ${fps}fps`
+        : "—";
+    }
+    schedule();
+  }
+  function schedule() {
+    if (hasRVFC) video.requestVideoFrameCallback(tick);
+    else requestAnimationFrame(tick);
+  }
+  let started = false;
+  function kick() { if (!started) { started = true; schedule(); } }
+
+  // ---- 操作 ----
+  function rotate(delta) {
+    state.rotation = (((state.rotation + delta) % 360) + 360) % 360;
+    applyAngle(); save();
+  }
+  function toggleMirror() { state.mirror = !state.mirror; applyMirrorBtn(); save(); }
+
+  function clampZoom(z) { return Math.min(5, Math.max(1, Math.round(z * 10) / 10)); }
+  function applyZoom() {
+    $("zoom").value = state.zoom;
+    $("zoomval").textContent = state.zoom.toFixed(1) + "×";
+  }
+  function setZoom(z) { state.zoom = clampZoom(z); applyZoom(); save(); }
+
+  function snapshot() {
+    if (!cv.width) return;
+    cv.toBlob((b) => {
+      if (!b) return;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(b);
+      const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      a.download = `capture_${ts}.png`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }, "image/png");
+  }
+  function toggleFull() {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen().catch(() => {});
+  }
+
+  // ---- イベント ----
+  $("left").onclick   = () => rotate(-90);
+  $("right").onclick  = () => rotate(90);
+  $("mirror").onclick = toggleMirror;
+  $("snap").onclick   = snapshot;
+  $("full").onclick   = toggleFull;
+  $("refresh").onclick = populateDevices;
+  $("zoomin").onclick  = () => setZoom(state.zoom + 0.2);
+  $("zoomout").onclick = () => setZoom(state.zoom - 0.2);
+  $("zoom").oninput    = () => setZoom(parseFloat($("zoom").value));
+  devSel.onchange = () => start(devSel.value);
+
+  // 映像上でマウスホイール → ズーム
+  $("stage").addEventListener("wheel", (e) => {
+    e.preventDefault();
+    setZoom(state.zoom + (e.deltaY < 0 ? 0.2 : -0.2));
+  }, { passive: false });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT") return;
+    switch (e.key) {
+      case "ArrowLeft":  rotate(-90); break;
+      case "ArrowRight": rotate(90);  break;
+      case "m": case "M": toggleMirror(); break;
+      case "s": case "S": snapshot(); break;
+      case "f": case "F": toggleFull(); break;
+      case "+": case "=": setZoom(state.zoom + 0.2); break;
+      case "-": case "_": setZoom(state.zoom - 0.2); break;
+      case "0": setZoom(1); break;
+      default: return;
+    }
+    e.preventDefault();
+  });
+
+  navigator.mediaDevices?.addEventListener?.("devicechange", populateDevices);
+
+  // ---- 起動 ----
+  applyAngle(); applyMirrorBtn(); applyZoom();
+  if (!navigator.mediaDevices?.getUserMedia) {
+    showMsg("このブラウザは <b>getUserMedia</b> に未対応です。Chrome / Edge をお使いください。");
+  } else {
+    start(state.deviceId);
+  }
+})();
+</script>
