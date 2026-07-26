@@ -267,6 +267,7 @@ To avoid duplication, this section lists only the **Stage-3 as-built hardware ch
 - **2-axis mouth / lip-sync** — no mouth mechanism is fitted; all expression is via the eyes and voice. Lip-sync (proposed as G4) is deferred.
 - **Bipedal "penguin" walking (QDD legs)** — stretch only; the salvaged QDD motors are unreliable, so the MVP is a seated/standing torso.
 - **Back-mounted sword prop** — not built.
+- **Neck servo (head turn)** — face tracking is **eyes-only**; no neck actuator is fitted.
 - **Head touch / "petting" reaction** — the firmware has a touch path, but no working touch sensor is fitted in this build.
 
 **Safe shutdown / soft E-STOP:** a GPIO button runs a graceful halt (goodnight voice → ✕✕

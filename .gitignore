@@ -60,8 +60,12 @@ Thumbs.db
 # ギーク君モデル(ローカル専用・リポジトリ非公開)
 hardware/3d_models/geek_print/
 
-# 提出用メディア(写真/動画): サイズ大＋プライバシー配慮でリポジトリ非公開。デモはYouTube等で共有
-docs/photo/
+# 提出用メディア: 画像はコミット、動画(サイズ大)はYouTubeで共有するため非公開
+docs/photo/*
+!docs/photo/*.jpg
+!docs/photo/*.jpeg
+!docs/photo/*.png
+!docs/photo/*.webp
 
 # =============================================================================
 # 音声キャッシュ
