@@ -287,7 +287,7 @@ torque) between moves and on a web "🪫 relax" command — documented safety li
 | Interface spec / calibration | [docs/rdk_x5_40pin_i2s_max98357a.md](docs/rdk_x5_40pin_i2s_max98357a.md), [docs/TESTING.md](docs/TESTING.md) |
 | Known issues / failure recovery | §8 + docs/ |
 | Reproducible build / Quick Start | §10 + repo `README.md` |
-| **Demo video 3–7 min (YouTube)** | ✅ [youtu.be/NJwj6Iazd20](https://youtu.be/NJwj6Iazd20) |
+| **Demo video 3–7 min (YouTube)** | ✅ [youtu.be/YLB5ZIfMwXY](https://youtu.be/YLB5ZIfMwXY) |
 | **LICENSE · community post · showcase PR** | ⚠️ **TODO** before final submission |
 
 **Benchmark (measured on the board):**

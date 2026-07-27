@@ -44,7 +44,7 @@ Sees · Listens · Thinks · Talks (JP / EN) · Emotes — **100 % on-device, no
 
 - **BPU** → YOLO11n-pose (person + skeleton) **~19.5 FPS**
 - **CPU (8× A55)** → STT · LLM · TTS, all concurrent
-- **ESP32-S3** → 2× round eye displays + rope-pull arms + touch, over UART
+- **ESP32-S3** → 2× round eye displays + rope-pull arms, over UART
 
 > The BPU *cannot* accelerate LLM/ASR on the X5 (that's S100-class) — so
 > **perception on the BPU, language on the CPU** is the correct split, not a shortfall.
@@ -77,7 +77,6 @@ the voice, **and** the web dashboard — instantly, **on-device**.
 
 - **Eyes**: 2× GC9A01 round LCDs, **8 emotions** — smile, "thinking" (during LLM think-time), ✕✕ shutdown
 - **Arms**: rope-pull bellows arms that wave / cheer, auto-detach for safety
-- **Touch**: pet the head → happy reaction
 - Character-faithful pitched "…ナリ" voice
 
 ---
@@ -108,6 +107,7 @@ the voice, **and** the web dashboard — instantly, **on-device**.
 - ❌ Neck servo (face tracking is eyes-only)
 - ✴️ Bipedal "penguin" walking (salvaged QDD motors unreliable — decoupled stretch)
 - ❌ Back-mounted sword prop
+- ❌ Head touch / petting reaction (no working touch sensor fitted)
 
 *We show what actually ships — nothing faked.*
 
@@ -118,7 +118,7 @@ the voice, **and** the web dashboard — instantly, **on-device**.
 
 **Wake & greet → see & follow → talk (JP↔EN) → gesture → safe shutdown**
 
-🎥 **https://youtu.be/NJwj6Iazd20**
+🎥 **https://youtu.be/YLB5ZIfMwXY**
 
 🔗 github.com/gurimaruking/corosuke-robot · STAGE3.md
 

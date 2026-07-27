@@ -30,8 +30,8 @@
 - **EN:** The highlight is Japanese / English / Auto switching. One button flips recognition, replies, voice, and the dashboard together. In Auto, Korosuke detects the language you speak and answers in it.
 
 ### 7. 表現 / Expressive
-- **JA:** 目は8種類の表情。考えている間は「考え中」の目になります。腕は手を振ったりバンザイしたり、頭を撫でると喜びます。声は高めの「〜ナリ」口調です。
-- **EN:** The eyes have eight emotions, including a "thinking" look while the LLM works. The arms wave and cheer, and petting the head makes Korosuke happy.
+- **JA:** 目は8種類の表情。考えている間は「考え中」の目になります。腕は手を振ったりバンザイしたりします。声は高めの「〜ナリ」口調です。
+- **EN:** The eyes have eight emotions, including a "thinking" look while the LLM works. The arms wave and cheer, and Korosuke speaks in his high-pitched "…nari" voice.
 
 ### 8. カスタムHW / Custom hardware
 - **JA:** 小さな体に音を入れるため、ベンダーカーネルに無かったI2Sアンプのドライバとデバイスツリーを自作しました。電源を入れると挨拶し、ボタンで安全に終了、電源を抜いてよい合図まで出します。
