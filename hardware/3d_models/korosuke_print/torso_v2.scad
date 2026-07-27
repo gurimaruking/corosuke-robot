@@ -149,19 +149,26 @@ module deck_boss(a){          // デッキ受け柱(z=0から全高→上向き�
 }
 
 module cam_pocket_bosses(){   // 胸カメラ基板ボス(M2 x4, 10°上向き)
-  translate([0, -r_in(CAM_Z)+2, CAM_Z]) rotate([90+CAM_TILT,0,0])
-    for(sx=[-1,1], sz=[-1,1]) translate([sx*CAM_PITCH/2, sz*CAM_PITCH/2, -2])
+  // rotate([-90-CAM_TILT]) で局所+Z=胴内側。ボスは内壁から内側へ生える
+  translate([0, -r_in(CAM_Z)+2, CAM_Z]) rotate([-90-CAM_TILT,0,0])
+    for(sx=[-1,1], sz=[-1,1]) translate([sx*CAM_PITCH/2, sz*CAM_PITCH/2, -2.4])
       difference(){
-        cylinder(d=5.5, h=CAM_BOSS_H+2);
-        translate([0,0,2]) cylinder(d=1.7, h=CAM_BOSS_H+1);         // M2セルフタップ
+        cylinder(d=5.5, h=CAM_BOSS_H+2.4);
+        translate([0,0,2.4]) cylinder(d=1.7, h=CAM_BOSS_H+1);       // M2セルフタップ
       }
 }
 
-module spk_seat(){            // φ50スピーカー座(グリル裏, リング+結束穴)
-  translate([0, -r_in(SPK_Z)+1, SPK_Z]) rotate([90,0,0]) difference(){
-    cylinder(d=58, h=5);
-    translate([0,0,-1]) cylinder(d=50.6, h=7);                      // スピーカー落とし込み
-    for(s=[-1,1]) translate([s*27,0,2.5]) rotate([90,0,0]) cylinder(d=3.2, h=12, center=true); // 結束バンド
+module spk_seat(){            // φ50スピーカー座(グリル裏・曲面壁にトリムして全周融着)
+  difference(){
+    intersection(){
+      translate([0,-80,SPK_Z]) rotate([-90,0,0]) cylinder(d=58, h=10);       // リング素体
+      cylinder(h=JH, d1=JBOT_D-2*WALL+2.6, d2=JTOP_D-2*WALL+2.6);            // 内面+1.3mm埋め込みでクリップ
+    }
+    translate([0,-80,SPK_Z]) rotate([-90,0,0]){
+      translate([0,0,-1]) cylinder(d=44, h=14);                              // 音抜き(→グリルへ)
+      translate([0,0,6.5]) cylinder(d=50.6, h=6);                            // スピーカー落とし込み(内側から)
+      for(s=[-1,1]) translate([s*27,0,7]) rotate([90,0,0]) cylinder(d=3.2, h=12, center=true); // 結束バンド
+    }
   }
 }
 
@@ -185,10 +192,10 @@ module jacket_shell_v2(){
     for(s=[-1,1]) translate([s*(JTOP_D/2-2), 0, ARM_HOLE_Z])
       rotate([0,90,0]) cylinder(d=ARM_OUT_D+2, h=20, center=true);   // 腕穴
     // ---- v2 追加開口 ----
-    // 胸カメラ: レンズ窓(10°上向き, 内側すり鉢=広角ケラレ防止) + マイクグリル3穴
-    translate([0, -r_in(CAM_Z)+2, CAM_Z]) rotate([90+CAM_TILT,0,0]){
-      translate([0,0,-WALL-6]) cylinder(d=CAM_LENS_D, h=WALL+10);
-      translate([0,0,-1.2]) cylinder(d1=CAM_LENS_D, d2=CAM_LENS_D+9, h=6); // すり鉢
+    // 胸カメラ: レンズ窓(10°上向き, 外側すり鉢=広角ケラレ防止) + マイクグリル3穴
+    translate([0, -r_in(CAM_Z)+2, CAM_Z]) rotate([-90-CAM_TILT,0,0]){
+      translate([0,0,-WALL-6]) cylinder(d=CAM_LENS_D, h=WALL+10);           // 貫通ボア
+      translate([0,0,-8]) cylinder(d1=CAM_LENS_D+14.7, d2=CAM_LENS_D, h=6.2); // 外広がりすり鉢(曲面全域をカバー)
     }
     for(i=[-1:1]) translate([20, -JBOT_D/2+2, CAM_Z-3+i*5])
       rotate([90,0,0]) cylinder(d=2.2, h=WALL+8);                    // マイク穴
@@ -368,6 +375,7 @@ module ghosts(){
   %translate([-83/2, -6-55.5/2, DECK_Z]) cube([83, 55.5, 10]);                      // ブレッドボード
   for(s=[-1,1]) %translate([s*ROPE_X-6, -12, DECK_Z-DECK_T-32]) cube([12, 24, 28]); // SG90ゾーン
 }
+CUT = false;   // true にすると断面表示(内部レイアウト確認用)。既定は全体表示
 module assembly_v2(){
   difference(){
     union(){
@@ -377,8 +385,8 @@ module assembly_v2(){
       for(s=[-1,1]) color("#607d8b") translate([s*ROPE_X, 0, DECK_Z-DECK_T]) rotate([0,0,s==1?0:180]) servo_bracket();
       color("#f7dc6f") translate([0,0,JH-2]) top_lid();
     }
-    // 断面カット(プレビューを見やすく)
-    if($preview) translate([-200,-400,-10]) cube([400,400,400]);
+    // 断面カット(CUT=true のときだけ)
+    if(CUT) translate([-200,-400,-10]) cube([400,400,400]);
   }
   ghosts();
 }
