@@ -1,8 +1,9 @@
 # コロ助 印刷ガイド(色別プレート)
 
 > **🆕 胴体v2あり**(2026-07-27): SG90ネジ止め・中段デッキ(ESP32+ブレッドボード)・天面開口リッド・
-> 胸カメラポケット・フットベース(排線溝付き)。→ [torso_v2.scad](torso_v2.scad) /
-> 設計解説 [docs/torso_v2_design.md](../../../docs/torso_v2_design.md)。
+> 胸カメラポケット・フットベース(排線溝付き)。**印刷データ一式 → [v2/](v2/)**
+> ([印刷ガイド](v2/PRINT_GUIDE_V2.md) / [torso_v2.scad](torso_v2.scad) /
+> 設計解説 [docs/torso_v2_design.md](../../../docs/torso_v2_design.md))。
 > 以下の胴パーツ(jacket_shell/bottom_plate)はv1。頭/腕/脚はv1・v2共通。
 
 STLは `stl/<色>/` に配置。ファイル名の `_xN` = **スライサでN個に複製**して印刷。

@@ -23,13 +23,13 @@
 
 | SHOW | パーツ | 色 | 個数 | STL |
 |---|---|---|---|---|
-| 1 | jacket_shell_v2 | 🟠橙 | 1 | `stl/orange/jacket_shell_v2_x1.stl` |
-| 2 | bottom_plate_v2 | 🟠橙 | 1 | `stl/orange/bottom_plate_v2_x1.stl` |
-| 3 | mid_deck | ⚪灰 | 1 | `stl/gray/mid_deck_x1.stl` |
-| 4 | servo_bracket | ⚪灰 | **2**（左右共通） | `stl/gray/servo_bracket_x2.stl` |
-| 5 | top_lid | 🟠橙 | 1 | `stl/orange/top_lid_x1.stl` |
-| 6 | cam_bezel | 🔴赤 | 1 | `stl/red/cam_bezel_x1.stl` |
-| 7 | foot_base_v2 | ⚪灰 | 1 | `stl/gray/foot_base_v2_x1.stl` |
+| 1 | jacket_shell_v2 | 🟠橙 | 1 | `v2/orange/jacket_shell_v2_x1.stl` |
+| 2 | bottom_plate_v2 | 🟠橙 | 1 | `v2/orange/bottom_plate_v2_x1.stl` |
+| 3 | mid_deck | ⚪灰 | 1 | `v2/gray/mid_deck_x1.stl` |
+| 4 | servo_bracket | ⚪灰 | **2**（左右共通） | `v2/gray/servo_bracket_x2.stl` |
+| 5 | top_lid | 🟠橙 | 1 | `v2/orange/top_lid_x1.stl` |
+| 6 | cam_bezel | 🔴赤 | 1 | `v2/red/cam_bezel_x1.stl` |
+| 7 | foot_base_v2 | ⚪灰 | 1 | `v2/gray/foot_base_v2_x1.stl` |
 
 すべて平置き・サポート不要（shell は v1 同様そのまま上向き）。
 

@@ -130,18 +130,20 @@ module pb_bay(){              // バッテリー縦置きレール(背面, 上�
   }
 }
 
-module deck_boss(a){          // デッキ受けボス(壁からリブで内側へ)
+module deck_boss(a){          // デッキ受け柱(z=0から全高→上向き印刷でサポート不要)
   rotate([0,0,a]){
-    // 支柱: 上面 DECK_Z-DECK_T, M3下穴
-    translate([70,0,DECK_Z-DECK_T-16]) difference(){
-      cylinder(d=10, h=16);
-      translate([0,0,16-9]) cylinder(d=2.8, h=10);
+    // 柱: 底から立て、上面=デッキ下面。M3下穴。底板側は同位置にノッチあり
+    translate([70,0,0]) difference(){
+      cylinder(d=10, h=DECK_Z-DECK_T);
+      translate([0,0,DECK_Z-DECK_T-9]) cylinder(d=2.8, h=10);
     }
-    // 壁への連結リブ
-    translate([70,-3,DECK_Z-DECK_T-16]) intersection(){
-      cube([14,6,16]);
-      // はみ出しはシェル内面まで(外へは出さない)
-      rotate([0,0,-a]) translate([0,0,-200]) cylinder(h=400, r=r_in(DECK_Z)+2);
+    // 壁への連結リブ(全高。外へのはみ出しはシェル外形でクリップ)
+    intersection(){
+      translate([72,-3,0]) cube([9, 6, DECK_Z-DECK_T]);
+      rotate([0,0,-a]) difference(){
+        cylinder(h=JH, d1=JBOT_D-1, d2=JTOP_D-1);
+        translate([0,0,-1]) cylinder(h=JH+2, d=20);  // 中心側はどうせ届かないがCGAL安定用
+      }
     }
   }
 }
@@ -219,6 +221,11 @@ module bottom_plate_v2(){
     for(i=[0:5]) rotate([0,0,i*60]) translate([58,0,-1]) cylinder(d=8, h=WALL+2);
     // フットベース固定用M3 x4(タップ止め or 貫通。両面テープ運用なら未使用でOK)
     for(a=[30,150,210,330]) rotate([0,0,a]) translate([66,0,-1]) cylinder(d=3.2, h=WALL+2);
+    // デッキ柱ノッチ x4(シェル側の全高柱+リブを避ける)
+    for(a=[45,135,225,315]) rotate([0,0,a]){
+      translate([70,0,-1]) cylinder(d=11.5, h=WALL+2);
+      translate([69,-3.6,-1]) cube([9, 7.2, WALL+2]);
+    }
   }
 }
 
@@ -382,7 +389,7 @@ if(SHOW==0)      assembly_v2();
 else if(SHOW==1) jacket_shell_v2();
 else if(SHOW==2) bottom_plate_v2();
 else if(SHOW==3) translate([0,0,DECK_T]) mid_deck();
-else if(SHOW==4) servo_bracket();          // x2印刷(左右共通・片方は180°回して使う)
+else if(SHOW==4) translate([0,0,17]) rotate([90,0,0]) servo_bracket();  // x2印刷(左右共通)・垂直板をベッドに寝かせた印刷向き
 else if(SHOW==5) top_lid();
 else if(SHOW==6) rotate([180,0,0]) translate([0,0,-2.5]) cam_bezel();
 else if(SHOW==7) foot_base_v2();
