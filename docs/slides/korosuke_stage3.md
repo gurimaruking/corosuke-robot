@@ -118,7 +118,7 @@ the voice, **and** the web dashboard — instantly, **on-device**.
 
 **Wake & greet → see & follow → talk (JP↔EN) → gesture → safe shutdown**
 
-🎥 **https://youtu.be/YLB5ZIfMwXY**
+🎥 **https://youtu.be/NJwj6Iazd20**
 
 🔗 github.com/gurimaruking/corosuke-robot · STAGE3.md
 

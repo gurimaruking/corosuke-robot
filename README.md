@@ -19,11 +19,11 @@ RDK X5**, with an ESP32-S3 driving the eyes and arms.
 ## ▶ Watch the demo
 
 <p align="center">
-  <a href="https://youtu.be/YLB5ZIfMwXY">
-    <img src="https://img.youtube.com/vi/YLB5ZIfMwXY/maxresdefault.jpg" alt="Watch the Korosuke demo on YouTube" width="640">
+  <a href="https://youtu.be/NJwj6Iazd20">
+    <img src="https://img.youtube.com/vi/NJwj6Iazd20/maxresdefault.jpg" alt="Watch the Korosuke demo on YouTube" width="640">
   </a>
   <br>
-  <a href="https://youtu.be/YLB5ZIfMwXY">
+  <a href="https://youtu.be/NJwj6Iazd20">
     <img src="https://img.shields.io/badge/Watch%20the%20demo-YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white" alt="Watch on YouTube">
   </a>
 </p>
