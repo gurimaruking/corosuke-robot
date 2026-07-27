@@ -8,7 +8,6 @@
 - **Roadmap:** https://github.com/gurimaruking/corosuke-robot/blob/main/ROADMAP.md
 - **Demo video (3–7 min):** https://youtu.be/NJwj6Iazd20
 - **Community post (Stage 2):** https://discord.com/channels/1300358874280230994/1508433443648700516/1523261786034540704
-- **Community post (Stage 3):** `<link — TBA>`
 
 ## Summary
 
@@ -54,7 +53,7 @@ Progress already banked toward Stage 3: the full body has been **redesigned for 
 
 Stage 3 delivered the working, packaged robot — a ~46 cm Korosuke that **wakes up and
 greets you, sees and tracks you, listens, thinks, talks back, smiles, ponders, reacts to
-gestures and to being petted, waves its arms, and shuts itself down safely — 100 %
+gestures, waves its arms, and shuts itself down safely — 100 %
 on-device, no cloud, no dev PC at runtime.** Full showcase (benchmarks, Mermaid
 architecture, known-issues / failure-recovery, requirement-coverage table):
 **[STAGE3.md](https://github.com/gurimaruking/corosuke-robot/blob/main/STAGE3.md)**.
