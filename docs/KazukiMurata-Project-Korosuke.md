@@ -1,6 +1,6 @@
 # Korosuke (コロ助) — Animatronic AI Robot
 
-- **Participant:** Kazuki Murata
+- **Participant:** Kazuki Murata — GitHub: [@gurimaruking](https://github.com/gurimaruking) (uecken)
 - **Stage completed:** 3 (Launch)
 - **Repository:** https://github.com/gurimaruking/corosuke-robot
 - **Stage 3 showcase:** https://github.com/gurimaruking/corosuke-robot/blob/main/STAGE3.md
