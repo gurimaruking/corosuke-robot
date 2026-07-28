@@ -42,6 +42,7 @@ LEG_D = 36; LEG_SPACING = 78;
 // ---- RDK X5 モジュラーケース実測 ----
 CASE_W = 91.4; CASE_D = 62.4; CASE_H = 27.1;
 CASE_CLR = 1.0;
+CASE_VCLR = 5;   // 上下の余裕(横からジャンパ線が出るため。底上げ5mm+上も開放)
 
 // ---- モバイルバッテリー(縦置き) — 手持ちに合わせて変更可 ----
 PB_W = 62;               // 幅(X) — Anker PowerCore 10000級 + 遊び
@@ -107,10 +108,12 @@ module rdk_bay(){             // RDK X5 縦置きレール(v1同等, z0-100)
   intersection(){
     cylinder(h=JH, d1=JBOT_D-1, d2=JTOP_D-1);
     union(){
-      for(s=[-1,1]) translate([s*(CASE_D/2+CASE_CLR+WALL/2)-WALL/2, -72, 0])
-        cube([WALL, 72+CASE_H/2+CASE_CLR+WALL, 100]);
+      for(s=[-1,1]) translate([s*(CASE_D/2+CASE_CLR+WALL/2)-WALL/2, -72, CASE_VCLR+3])
+        cube([WALL, 72+CASE_H/2+CASE_CLR+WALL, 80]);               // 横レール(z8-88=上下に余裕)
       translate([-CASE_D/2-CASE_CLR-WALL, -CASE_H/2-CASE_CLR-WALL, 0])
-        cube([CASE_D+2*CASE_CLR+2*WALL, WALL, 100]);               // 前ストッパ
+        cube([CASE_D+2*CASE_CLR+2*WALL, WALL, 95]);                // 前ストッパ
+      // 底上げ標準オフ(側面・USB窓を避け x=±29.5) — 横出しジャンパ線用に5mm浮かせる
+      for(sx=[-1,1],sy=[-1,1]) translate([sx*29.5, sy*8, 0]) cylinder(d=6, h=CASE_VCLR);
     }
   }
 }
@@ -158,33 +161,34 @@ module cam_pocket_bosses(){   // 胸カメラ基板ボス(M2 x4, 10°上向き)
       }
 }
 
-// ---- SG90コの字タワー(v2.1: ホーン=腕穴位置。実機レイアウト2026-07-28準拠) ----
-// 要件: ロープは腕(蛇腹)の中心軸に沿って出てくる → ホーンは腕穴のすぐ内側に必要。
-// 配置(右側): 軸(x=+68, z=112)・軸方向=前後(Y)。ホーン真上(静止)で先端=(68, z127)
-//   = 腕穴中心高さ。ホーンは「真上→内側」だけで使う(外側へ回すと壁と干渉)。
-// ★軸側の端を【外側=腕穴側】に向けて挿入(左右で逆)。本体は内側へ伸び壁と干渉しない。
-// 取付: 上からコの字スロットへ落とし込み+内側タブをM2x1(外側タブは腕穴上のため無し。
-//   コの字が本体を拘束するので1本で十分)。
-SGT_TOP  = 118;     // タワー天面(=サーボ本体上面)
-SGT_SHAFT_X = 68;   // 軸X(右側)
-SGT_SHAFT_Z = 112;  // 軸Z → ホーン(15mm)真上で z=127=腕穴中心
+// ---- SG90 十字ホーン対応タワー(v2.2 2026-07-28) ----
+// SG90機構: 軸は本体端から5.8mm寄り(中央でない)。十字ホーンは軸まわり半径≈16mmで
+//   円盤状に掃引する → 掃引円が壁/デッキ/腕穴縁に当たらぬよう配置するのが要点。
+// ★ホーン面をタワー背面より後ろ(y≈3)に置く=十字はタワーの後ろで回り、タワー自身と不干渉。
+// 軸(x=±58, z=126)。掃引円(半径16): 外壁内面(≈78.5)と約4.5mm / デッキ上端(105)と約5mm クリア。
+//   → ホーンのアーム1本を「上〜内側」で使い、腕穴(x≈78, z127)へロープを引く(外側へは回さない)。
+// 支持: シェル側壁に融着した壁沿いブロック(deck上 z106-136) + bore下ペデスタルで支える
+//   (床/脚ボス/底板には触れない=脚と非干渉)。
+// 取付: 本体を上からポケットへ落とし込み → 内側タブをM2x1。★軸端を外=腕穴側に向ける(左右で逆)。
+SGT_SX = 58; SGT_SZ = 126;
 module servo_tower_right(){
-  X0=44; X1=70; Y0=-13; Y1=13;
-  BODY_X0 = SGT_SHAFT_X + 5.8 - 23.1;   // 本体-X端(軸は+X端から5.8) = 50.7
+  SX=SGT_SX; SZ=SGT_SZ; cx=SX-5.55;    // 本体中心X=52.45
   difference(){
-    union(){
-      translate([X0,Y0,0]) cube([X1-X0, Y1-Y0, SGT_TOP]);
-      // 壁への補強リブ(腕穴カット(z>109, x>70.5)より下に留める)
-      intersection(){
-        translate([X1-1, -3, 0]) cube([12, 6, 105]);
-        cylinder(h=JH, d1=JBOT_D-1, d2=JTOP_D-1);
+    intersection(){
+      union(){
+        translate([34,-25,106]) cube([44,26,30]);   // cradleブロック(x34→壁でクリップ, z106-136)
+        translate([50,-15,90])  cube([28,16,30]);    // bore下ペデスタル(壁へ融着し支持)
       }
+      cylinder(h=JH, d1=JBOT_D-1, d2=JTOP_D-1);
     }
-    translate([X0+5, Y0+4, -1]) cube([X1-X0-10, Y1-Y0-8, 100]);   // 肉抜き(天井はブリッジ)
-    // コの字スロット(上開放・+X端も開放=本体が4mm外へ出る・前面はフランジ/ホーン逃げ)
-    translate([BODY_X0-0.3, Y0-2.6, SGT_SHAFT_Z-SG_W/2-0.35]) cube([X1-BODY_X0+2, 19.4, SGT_TOP]);
-    // フランジ取付M2下穴(内側タブ: 軸x68 → 遠タブ穴 x=68-19.85=48.15, z=軸高さ)
-    translate([SGT_SHAFT_X-19.85, Y0-4, SGT_SHAFT_Z]) rotate([-90,0,0]) cylinder(d=SG_SCREW_D, h=9);
+    // 本体ポケット(上・背面開放。前後は壁で挟む) X41.1-63.8 / Z119.95-132.05 / Y-21.5..
+    translate([cx-11.35-0.5, -22, SZ-6.05-0.3]) cube([22.7+1, 42, 40]);
+    // 腕穴boreを再度くり抜く(タワーがロープ出口/腕穴を塞がぬよう)
+    translate([JTOP_D/2-2, 0, ARM_HOLE_Z]) rotate([0,90,0]) cylinder(d=ARM_OUT_D+2, h=26, center=true);
+    // 内側タブM2下穴(軸方向Y, x=cx-14.3=38.15 …掃引円(左端42)の外)
+    translate([cx-14.3, -1, SZ]) rotate([-90,0,0]) cylinder(d=SG_SCREW_D, h=10);
+    // 軽量化(前面窓)
+    translate([37,-23,108]) cube([10,22,22]);
   }
 }
 module servo_tower(s){ if(s==1) servo_tower_right(); else mirror([1,0,0]) servo_tower_right(); }
@@ -265,14 +269,7 @@ module bottom_plate_v2(){
       translate([70,0,-1]) cylinder(d=11.5, h=WALL+2);
       translate([69,-3.6,-1]) cube([9, 7.2, WALL+2]);
     }
-    // サーボタワー壁の逃げ(左右: 足元のみ。タワー内側の床は残す)
-    for(s=[-1,1]) mirror([s==1?0:1,0,0]){
-      translate([43, -14,  -1]) cube([28.5, 5.5, WALL+2]);   // 前壁足元(脚ボスに少し掛かるが許容)
-      translate([43,  8.5, -1]) cube([28.5, 5.5, WALL+2]);   // 後壁足元
-      translate([43, -14,  -1]) cube([7, 28, WALL+2]);       // 内壁足元
-      translate([63.5,-10, -1]) cube([8, 20, WALL+2]);       // 外壁足元
-      translate([68, -3.5, -1]) cube([8, 7, WALL+2]);        // 壁リブ足元
-    }
+    // (v2.2: サーボタワーは壁沿いで底まで来ないため底板の逃げ不要)
   }
 }
 
@@ -332,8 +329,8 @@ module mid_deck(){
     }
     // 4隅 M3通し穴(deck_boss位置 r=70, 45°刻み)
     for(a=[45,135,225,315]) rotate([0,0,a]) translate([70,0,-1]) cylinder(d=3.4, h=DECK_T+2);
-    // サーボタワー逃げ(左右) — 旧デッキ吊りのロープ穴/M3は廃止
-    for(s=[-1,1]) mirror([s==1?0:1,0,0]) translate([42, -16.5, -1]) cube([35, 33, DECK_T+2]);
+    // サーボタワーのbore下ペデスタル逃げ(左右)
+    for(s=[-1,1]) mirror([s==1?0:1,0,0]) translate([48, -16, -1]) cube([28, 18, DECK_T+2]);
     // 背面ケーブル落とし(ESP32のUSB→RDKへ / サーボ線)
     translate([-16, 40, -1]) cube([32, 14, DECK_T+2]);
     // 結束バンドスロット(LiPo/アンプ基板等の固定用)
@@ -427,10 +424,14 @@ module ghosts(){
   // ※ブレッドボード+ESP32-S3は頭部に移設(2026-07-28)→胴体モックアップから削除
   G() color("#4caf50",0.6) translate([-CASE_D/2, -CASE_H/2, WALL]) cube([CASE_D, CASE_H, CASE_W]); // RDK X5ケース
   G() color("#455a64",0.6) translate([-PB_W/2, PB_Y0+0.8, WALL]) cube([PB_W, PB_T, PB_H]);         // モバイルバッテリー
-  // SG90本体+ホーン(コの字タワー内・軸(±68,112)・ホーン真上で先端=腕穴中心z127)
-  for(s=[-1,1]) G() color("#1976d2",0.7) mirror([s==1?0:1,0,0]){
-    translate([50.7, -13, 105.95]) cube([23.1, 15.9, 12.1]);   // 本体
-    translate([66.5, -16.3, 112]) cube([3, 2.6, 15]);          // ホーン(真上=静止位置)
+  // SG90本体+十字ホーン(軸±58,z126・ホーン面y3・掃引半径16)
+  for(s=[-1,1]) G() mirror([s==1?0:1,0,0]){
+    color("#1976d2",0.7) translate([41.1,-21.5,119.95]) cube([22.7,22.5,12.1]);   // 本体
+    color("#1565c0",0.9){                                       // 十字ホーン(4アーム r14)
+      translate([58-14, 3, 126-1.5]) cube([28, 2.5, 3]);        // 横アーム
+      translate([58-1.5, 3, 126-14]) cube([3, 2.5, 28]);        // 縦アーム
+    }
+    color("#f5f5f0",0.9) translate([58,5.5,126]) rotate([90,0,0]) cylinder(d=8,h=2.5); // ハブ
   }
 }
 CUT = true;    // true=断面表示 / false=全体表示
