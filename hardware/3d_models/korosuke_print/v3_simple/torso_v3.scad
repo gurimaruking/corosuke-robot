@@ -12,7 +12,7 @@
  *   0 プレビュー(部品ゴースト付き, -D CUT=true で断面)
  *   1 shell_v3     (胴シェル+サーボ台一体)
  *   2 bottom_v3    (底板: ケーブル窓+脚ボス+支柱ノッチ)
- *   3 lid_v3       (天面リッド: 首穴)
+ *   (3 lid は廃止)
  *   ※サーボ台はシェル一体なので別パーツなし
  *
  * Author: Kazuki Murata / Robostadion   License: CC BY 4.0 (design)
@@ -140,46 +140,31 @@ module cam_mount(){
 //   脚ボス＋サーボ支柱ノッチ＋通気。裾に圧入。
 // =============================================================================
 LEG_D=36; LEG_SP=78;
-// Base v3: 「胴体を載せるだけ」の台(臓物は全てShell側)。
-//   φ158フランジ(胴裾が載る) + 裾内側に嵌る位置決めリム + 脚ボス + 大穴(配線)。
+// Base v3: Shellを載せる丸板。中心に大きな円(ケーブル出し) + 脚をのせる場所。
+//   丸板(φ158, 胴裾が載る) + 位置決めリム(裾内側) + 中心の大穴 + それを跨ぐ脚バー(脚ボス)。
+BASE_HOLE_D=90;                                   // 中心の大きな円
 module bottom_v3(){
-  Rin = JBOT_D/2-WALL-0.4;                       // 裾内側に嵌るリム半径
+  Rin = JBOT_D/2-WALL-0.4;
   difference(){
     union(){
-      cylinder(d=JBOT_D, h=WALL);                              // フランジ(胴裾が載る φ158)
+      cylinder(d=JBOT_D, h=WALL);                              // 丸板(胴裾が載る φ158)
       translate([0,0,WALL-0.1]) difference(){                  // 位置決めリム(裾内側へ立つ)
         cylinder(d=2*Rin, h=6); translate([0,0,-1]) cylinder(d=2*Rin-2*3, h=8);
       }
-      translate([-Rin, -10, 0]) cube([2*Rin, 20, WALL]);       // 脚を渡す左右バー
-      for(s=[-1,1]) translate([s*LEG_SP/2,0,WALL-0.1]) cylinder(d=LEG_D-2*WALL-1, h=8);  // 脚ボス
+      translate([-JBOT_D/2, -11, 0]) cube([JBOT_D, 22, WALL]); // 脚バー(中心穴を跨ぎ脚をのせる)
+      for(s=[-1,1]) translate([s*LEG_SP/2,0,WALL-0.1]) cylinder(d=LEG_D-2*WALL-1, h=8);  // 脚ボス(=足をのせる場所)
     }
-    for(s=[-1,1]) translate([s*LEG_SP/2,0,-1]) cylinder(d=2.8, h=WALL+12);  // 脚固定ネジ下穴
-    translate([-26,-10,-1]) cube([52,20,WALL+2]);                          // バー中央=ケーブル大穴
-    // フランジ前後の大穴(配線・軽量化。リム/バーは残す)
-    for(a=[0,180]) rotate([0,0,a]) translate([0,12,-1]) intersection(){
-      cylinder(r=Rin-4, h=WALL+2); translate([-Rin,0,0]) cube([2*Rin, Rin, WALL+2]);
+    // 中心の大きな円(ケーブル出し) — 脚バー(y[-11,11])は残す
+    difference(){
+      translate([0,0,-1]) cylinder(d=BASE_HOLE_D, h=WALL+2);
+      translate([-JBOT_D/2, -11, -2]) cube([JBOT_D, 22, WALL+4]);
     }
+    for(s=[-1,1]) translate([s*LEG_SP/2,0,-1]) cylinder(d=2.8, h=WALL+12);  // 脚固定ネジ下穴(M3タップ)
+    translate([-26,-11,-1]) cube([52,22,WALL+2]);                          // バー中央にもケーブル穴
   }
 }
 
-// =============================================================================
-// 頭側プレート(天面リッド) v3: 開口に落とし込み + 首穴 + USBケーブル穴。
-//   RDK/ESP32等のUSBケーブルを頭側へ出せるよう穴を追加。
-// =============================================================================
-module lid_v3(){
-  difference(){
-    union(){
-      cylinder(d=TOP_OPEN_D+2*WALL-1.2, h=2);        // 落とし込み段(胴の天面リングに嵌る)
-      translate([0,0,2]) cylinder(d=TOP_OPEN_D-1, h=2);
-    }
-    translate([0,0,-1]) cylinder(d=NECK_D, h=6);                               // 中心穴(首/太ケーブル)
-    // ケーブル穴を複数:外リングφ8×8 + 中リングφ6×6 で各所からケーブルを出せる
-    for(a=[0:45:359]) rotate([0,0,a]) translate([TOP_OPEN_D/2-13,0,-1]) cylinder(d=8, h=6);
-    for(a=[30:60:359]) rotate([0,0,a]) translate([NECK_D/2+12,0,-1]) cylinder(d=6, h=6);
-    translate([-9, -TOP_OPEN_D/2+11, -1]) cube([18,7,6]);                      // 平ケーブル用スロット
-    for(s=[-1,1]) translate([s*(TOP_OPEN_D/2-6),0,-1]) cylinder(d=12,h=1.6);   // 指掛かり(裏)
-  }
-}
+// (Lidは廃止 — 天面は開口のまま。頭/首は襟リングで受ける)
 
 // =============================================================================
 // プレビュー(部品ゴースト)
@@ -198,7 +183,7 @@ module ghosts(){
 }
 module preview(){
   difference(){
-    union(){ color("#ef8f1f") shell_v3(); color("#d97706") bottom_v3(); color("#f7dc6f") translate([0,0,JH-2]) lid_v3(); }
+    union(){ color("#ef8f1f") shell_v3(); color("#d97706") bottom_v3(); }
     if(CUT) translate([-200,-400,-10]) cube([400,400,400]);
   }
   ghosts();
@@ -209,5 +194,5 @@ SHOW=0;
 if(SHOW==0)      preview();
 else if(SHOW==1) shell_v3();
 else if(SHOW==2) bottom_v3();
-else if(SHOW==3) lid_v3();
+// (SHOW==3 lid は廃止)
 else if(SHOW==10) { %shell_v3(); ghosts(); }   // FreeCAD確認: 部品配置(MOCKUP不要で見るなら preview)

@@ -54,7 +54,6 @@ def build():
     # シェル/底/蓋(サーボ台融着済み)= 印刷STLをメッシュで参照
     mesh(doc, "Shell",  "stl/shell_v3.stl",  (0.94, 0.56, 0.12))
     mesh(doc, "Bottom", "stl/bottom_v3.stl", (0.85, 0.46, 0.02))
-    mesh(doc, "Lid",    "stl/lid_v3.stl",    (0.97, 0.86, 0.44))
     # 搭載部品(編集可能ソリッド)
     add(doc, "RDK_X5_case", Part.makeBox(62.4, 27.1, 91.4, Vector(-31.2, -13.55, 8)), (0.30, 0.69, 0.31))
     add(doc, "Battery",     Part.makeBox(62, 24, 95, Vector(-31, 20, 3)), (0.27, 0.35, 0.39))
