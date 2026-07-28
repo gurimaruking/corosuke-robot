@@ -80,7 +80,8 @@ CAM_BOSS_H = 7;          // 基板浮かせ量(裏面部品逃げ)
 // ---- スピーカー(φ50) ----
 SPK_Z = 35;              // v1グリル(z26-44)の中心
 
-$fn = $preview ? 48 : 96;
+FN = 96;                  // 印刷STL=96。FreeCADプレビューは -D FN=28 等で高速化
+$fn = $preview ? 48 : FN;
 
 // 内半径ヘルパ(テーパー)
 function r_out(z) = (JBOT_D + (JTOP_D-JBOT_D)*z/JH)/2;
@@ -460,3 +461,4 @@ else if(SHOW==5) top_lid();
 else if(SHOW==6) rotate([180,0,0]) translate([0,0,-2.5]) cam_bezel();
 else if(SHOW==7) foot_base_v2();
 else if(SHOW==8) ghosts();   // 搭載部品モックアップのみ(要 -D MOCKUP=true。FreeCADへ別インポート用)
+else if(SHOW==9) difference(){ jacket_shell_v2(); translate([-200,-400,-10]) cube([400,400,400]); } // FreeCAD確認用・断面シェル(STL)
