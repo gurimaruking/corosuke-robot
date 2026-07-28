@@ -124,28 +124,24 @@ module cam_mount(){
 //   脚ボス＋サーボ支柱ノッチ＋通気。裾に圧入。
 // =============================================================================
 LEG_D=36; LEG_SP=78;
+// Base v3: 「大きな穴」の開いた台。Shellの裾(空洞)に嵌める外リング + 脚を渡す左右バー
+//   + 前後の大穴(ケーブル・上からの出し入れ)。RDK/電池は緩い前ストッパ+両面テープで固定。
+BASE_RIM=13;
 module bottom_v3(){
-  GH=45;                                       // 位置決めガイド高さ
-  YSOLID=22;                                   // これより後ろ(y>22)は半円オープン
+  Rout = JBOT_D/2-WALL-0.3;                     // 裾内径に圧入
+  Rin  = Rout-BASE_RIM;                          // 大穴半径(リム幅BASE_RIM)
   difference(){
     union(){
-      // 前側だけ残す(後ろ側は半円オープン=上から出し入れ・ケーブル下出し)
-      intersection(){
-        cylinder(d=JBOT_D-2*WALL-0.6, h=WALL);
-        translate([-100,-200,0]) cube([200, 200+YSOLID, WALL]);
+      difference(){                              // 外リング(裾に嵌る)
+        cylinder(d=2*Rout, h=WALL);
+        translate([0,0,-1]) cylinder(d=2*Rin, h=WALL+2);
       }
-      // 脚固定位置(LEG_SP=78, y=0): 脚の内筒φ30に差すボス。前後が半円境界上=前側solidに載る
-      for(s=[-1,1]) translate([s*LEG_SP/2,0,WALL-0.1]) cylinder(d=LEG_D-2*WALL-1, h=8);   // 脚ボス
-      // RDK X5 位置決めガイド(前+側面・緩め5mm・後ろは開けて両面テープ)
-      translate([-CASE_D/2-CASE_CLR_XY-2, -CASE_H/2-CASE_CLR_XY-2, WALL-0.1]) cube([CASE_D+2*CASE_CLR_XY+4, 2, GH]); // 前壁
-      for(s=[-1,1]) translate([s*(CASE_D/2+CASE_CLR_XY)-(s<0?2:0), -CASE_H/2-CASE_CLR_XY-2, WALL-0.1]) cube([2, CASE_H+2*CASE_CLR_XY+4, GH]); // 側壁
-      // バッテリー 前+側面ガイド(緩め)
-      translate([-PB_W/2-CASE_CLR_XY-2, 20-CASE_CLR_XY-2, WALL-0.1]) cube([PB_W+2*CASE_CLR_XY+4, 2, 40]);            // 前壁
-      for(s=[-1,1]) translate([s*(PB_W/2+CASE_CLR_XY)-(s<0?2:0), 20-CASE_CLR_XY-2, WALL-0.1]) cube([2, YSOLID-(20-CASE_CLR_XY-2), 40]); // 側壁(短)
+      translate([-Rout, -10, 0]) cube([2*Rout, 20, WALL]);   // 左右バー(脚を両側リムへ渡す)
+      for(s=[-1,1]) translate([s*LEG_SP/2,0,WALL-0.1]) cylinder(d=LEG_D-2*WALL-1, h=8);  // 脚ボス
+      translate([-CASE_D/2-CASE_CLR_XY, -10, 0]) cube([CASE_D+2*CASE_CLR_XY, 3, 35]);    // RDK前ストッパ(緩め・バー前縁)
     }
-    translate([-30,-14,-1]) cube([60,28,WALL+2]);          // RDK下ケーブル窓
-    for(i=[0:2]) rotate([0,0,60+i*60]) translate([JBOT_D/2-8,0,-1]) cylinder(d=5, h=WALL+2); // 前縁通気
     for(s=[-1,1]) translate([s*LEG_SP/2,0,-1]) cylinder(d=2.8, h=WALL+12);  // 脚固定ネジ下穴(M3タップ)
+    translate([-26,-10,-1]) cube([52,20,WALL+2]);                          // バー中央=ケーブル大穴
   }
 }
 
