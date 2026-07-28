@@ -175,27 +175,25 @@ module cam_pocket_bosses(){   // 胸カメラ基板ボス(M2 x4, 10°上向き)
 //   (床/脚ボス/底板には触れない=脚と非干渉)。
 // 取付: 本体を上からポケットへ落とし込み → 内側タブをM2x1。★軸端を外=腕穴側に向ける(左右で逆)。
 SGT_SX = 58; SGT_SZ = 126;
-module servo_tower_right(){
-  SX=SGT_SX; SZ=SGT_SZ; cx=SX-5.55;    // 本体中心X=52.45
+// X範囲[xa,xb]指定の箱(符号反転OK=mirror不要でFreeCAD CSGが壊れない)
+module xbox(xa,xb,y,dy,z,dz){ translate([min(xa,xb),y,z]) cube([abs(xb-xa),dy,dz]); }
+module servo_tower_at(sg){    // sg=+1右 / -1左 (mirror不使用)
+  SX=SGT_SX*sg; SZ=SGT_SZ; cx=(SGT_SX-5.55)*sg;   // 軸X / 本体中心X
   difference(){
     intersection(){
       union(){
-        translate([34,-25,106]) cube([44,26,30]);   // cradleブロック(x34→壁でクリップ, z106-136)
-        translate([50,-15,90])  cube([28,16,30]);    // bore下ペデスタル(壁へ融着し支持)
+        xbox(sg*34, sg*78, -25, 26, 106, 30);   // cradleブロック(→壁でクリップ, z106-136)
+        xbox(sg*50, sg*78, -15, 16, 90, 30);     // bore下ペデスタル(壁へ融着し支持)
       }
       cylinder(h=JH, d1=JBOT_D-1, d2=JTOP_D-1);
     }
-    // 本体ポケット(上・背面開放。前後は壁で挟む) X41.1-63.8 / Z119.95-132.05 / Y-21.5..
-    translate([cx-11.35-0.5, -22, SZ-6.05-0.3]) cube([22.7+1, 42, 40]);
-    // 腕穴boreを再度くり抜く(タワーがロープ出口/腕穴を塞がぬよう)
-    translate([JTOP_D/2-2, 0, ARM_HOLE_Z]) rotate([0,90,0]) cylinder(d=ARM_OUT_D+2, h=26, center=true);
-    // 内側タブM2下穴(軸方向Y, x=cx-14.3=38.15 …掃引円(左端42)の外)
-    translate([cx-14.3, -1, SZ]) rotate([-90,0,0]) cylinder(d=SG_SCREW_D, h=10);
-    // 軽量化(前面窓)
-    translate([37,-23,108]) cube([10,22,22]);
+    xbox(cx-11.85, cx+11.85, -22, 42, SZ-6.35, 40);   // 本体ポケット(上・背面開放)
+    translate([sg*(JTOP_D/2-2), 0, ARM_HOLE_Z]) rotate([0,90,0]) cylinder(d=ARM_OUT_D+2, h=26, center=true); // 腕穴bore再くり抜き
+    translate([cx-sg*14.3, -1, SZ]) rotate([-90,0,0]) cylinder(d=SG_SCREW_D, h=10);  // 内側タブM2(掃引円外)
+    xbox(sg*37, sg*47, -23, 22, 108, 22);        // 軽量化(前面窓)
   }
 }
-module servo_tower(s){ if(s==1) servo_tower_right(); else mirror([1,0,0]) servo_tower_right(); }
+module servo_tower(s){ servo_tower_at(s); }
 
 module spk_seat(){            // φ50スピーカー座(グリル裏・曲面壁にトリムして全周融着)
   difference(){
@@ -339,8 +337,8 @@ module mid_deck(){
     }
     // 4隅 M3通し穴(deck_boss位置 r=70, 45°刻み)
     for(a=[45,135,225,315]) rotate([0,0,a]) translate([70,0,-1]) cylinder(d=3.4, h=DECK_T+2);
-    // サーボタワーのbore下ペデスタル逃げ(左右)
-    for(s=[-1,1]) mirror([s==1?0:1,0,0]) translate([48, -16, -1]) cube([28, 18, DECK_T+2]);
+    // サーボタワーのbore下ペデスタル逃げ(左右, mirror不使用)
+    for(s=[-1,1]) xbox(s*48, s*76, -16, 18, -1, DECK_T+2);
     // 背面ケーブル落とし(ESP32のUSB→RDKへ / サーボ線)
     translate([-16, 40, -1]) cube([32, 14, DECK_T+2]);
     // 結束バンドスロット(LiPo/アンプ基板等の固定用)
@@ -437,14 +435,14 @@ module ghosts(){
   // ※ブレッドボード+ESP32-S3は頭部に移設(2026-07-28)→胴体モックアップから削除
   G() color("#4caf50",0.6) translate([-CASE_D/2, -CASE_H/2, WALL]) cube([CASE_D, CASE_H, CASE_W]); // RDK X5ケース
   G() color("#455a64",0.6) translate([-PB_W/2, PB_Y0+0.8, WALL]) cube([PB_W, PB_T, PB_H]);         // モバイルバッテリー
-  // SG90本体+十字ホーン(軸±58,z126・ホーン面y3・掃引半径16)
-  for(s=[-1,1]) G() mirror([s==1?0:1,0,0]){
-    color("#1976d2",0.7) translate([41.1,-21.5,119.95]) cube([22.7,22.5,12.1]);   // 本体
+  // SG90本体+十字ホーン(軸±58,z126・ホーン面y3・掃引半径16, mirror不使用)
+  for(sg=[-1,1]) G(){
+    color("#1976d2",0.7) xbox(sg*41.1, sg*63.8, -21.5, 22.5, 119.95, 12.1);       // 本体
     color("#1565c0",0.9){                                       // 十字ホーン(4アーム r14)
-      translate([58-14, 3, 126-1.5]) cube([28, 2.5, 3]);        // 横アーム
-      translate([58-1.5, 3, 126-14]) cube([3, 2.5, 28]);        // 縦アーム
+      xbox(sg*44, sg*72, 3, 2.5, 124.5, 3);                     // 横アーム
+      xbox(sg*56.5, sg*59.5, 3, 2.5, 112, 28);                  // 縦アーム
     }
-    color("#f5f5f0",0.9) translate([58,5.5,126]) rotate([90,0,0]) cylinder(d=8,h=2.5); // ハブ
+    color("#f5f5f0",0.9) translate([sg*58,5.5,126]) rotate([90,0,0]) cylinder(d=8,h=2.5); // ハブ
   }
 }
 CUT = true;    // true=断面表示 / false=全体表示
