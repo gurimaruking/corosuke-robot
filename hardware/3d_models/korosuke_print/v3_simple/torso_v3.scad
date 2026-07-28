@@ -51,16 +51,22 @@ module xbox(xa,xb,y,dy,z,dz){ translate([min(xa,xb),y,z]) cube([abs(xb-xa),dy,dz
 //   円錐との交差不要。十字ホーンは軸(±58,127)の後ろ(y≈3)で回りクレードルと不干渉。
 //   支柱は脚ボス(x±39)の前(y[-26,-15])に立て脚と干渉しない。
 // =============================================================================
+// 実物SG90(13.64幅 x 22.7長 x 22.5高, 軸は端から5.8)。台は壁に融着=浮かない。
+//   ※intersection(cone)を使うがFreeCADは.FCStd/STLで見るので問題なし。印刷もOK。
+SG_BW=13.64; SG_BL=22.7;
 module servo_mount(sg){
   cx=(SG_SX-5.55)*sg;                       // 本体中心X
-  union(){
-    xbox(sg*40, sg*66, -26, 11, 0, 108);    // 支柱(脚の前・床から)
-    difference(){
-      xbox(sg*34, sg*68, -25, 26, 108, 26); // クレードルブロック(z108-134)
-      xbox(cx-11.85, cx+11.85, -22, 42, SG_SZ-6.35, 40);                    // 本体ポケット(上/背面開放)
-      translate([cx-sg*14.3, -1, SG_SZ]) rotate([-90,0,0]) cylinder(d=SG_SCREW, h=10);  // 内側タブM2
-      xbox(sg*37, sg*47, -23, 22, 110, 20); // 軽量化窓
+  difference(){
+    intersection(){                         // 壁に融着(浮き防止)
+      union(){
+        xbox(sg*34, sg*70, -25, 26, 106, 28);   // クレードル(z106-134)
+        xbox(sg*50, sg*80, -14, 15, 88, 42);     // 壁下ペデスタル(z88-130, 壁へ)
+      }
+      cylinder(h=JH, d1=JBOT_D, d2=JTOP_D); // 外壁でクリップ
     }
+    xbox(cx-SG_BW/2-0.5, cx+SG_BW/2+0.5, -22, 42, SG_SZ-11.6, 44);          // 本体ポケット(幅13.64+遊び)
+    translate([sg*JTOP_D/2,0,ARM_Z]) rotate([0,90,0]) cylinder(d=ARM_D,h=30,center=true); // 腕穴再くり抜き
+    translate([cx-sg*14.3, -1, SG_SZ]) rotate([-90,0,0]) cylinder(d=SG_SCREW, h=12);       // 内側タブM2
   }
 }
 
@@ -95,24 +101,34 @@ module shell_v3(){
 }
 
 // =============================================================================
-// 底板 v3: 裾に圧入。ケーブル窓 + 脚ボス + サーボ支柱ノッチ + 通気。
+// 足側プレート(底板) v3: 上から出し入れしやすい「開放トレイ」。
+//   大きな中央開口(RDK/バッテリーを裾から差し込み・ケーブルを下へ)＋外周に載せ代の縁。
+//   脚ボス＋サーボ支柱ノッチ＋通気。裾に圧入。
 // =============================================================================
 LEG_D=36; LEG_SP=78;
 module bottom_v3(){
+  RIM = 12;                                  // 外周の載せ代幅(内側は大きく開ける)
+  OPEN_R = JBOT_D/2-WALL-RIM;                // 中央開口半径
   difference(){
     union(){
       cylinder(d=JBOT_D-2*WALL-0.6, h=WALL);
       for(s=[-1,1]) translate([s*LEG_SP/2,0,WALL-0.1]) cylinder(d=LEG_D-2*WALL-1, h=6);  // 脚ボス
+      // 中央開口を跨ぐ十字ブラケット(部品の落下防止＋剛性。上からは指が入る)
+      translate([-OPEN_R,-6,0]) cube([2*OPEN_R,12,WALL]);
     }
-    translate([-30,-14,-1]) cube([60,28,WALL+2]);                    // RDK下ケーブル窓
-    translate([-25,20,-1]) cube([50,26,WALL+2]);                     // バッテリー下窓
-    for(sg=[-1,1]) xbox(sg*38, sg*68, -27, 13, -1, WALL+2);          // サーボ支柱ノッチ
-    for(i=[0:5]) rotate([0,0,i*60]) translate([56,0,-1]) cylinder(d=8, h=WALL+2);        // 通気
+    // 大きな中央開口(上から出し入れ＆ケーブル下出し) — 前後に橋を残す
+    for(a=[0,180]) rotate([0,0,a]) translate([12,0,-1]) intersection(){
+      cylinder(r=OPEN_R, h=WALL+2);
+      translate([0,-OPEN_R,0]) cube([OPEN_R+20, 2*OPEN_R, WALL+2]);
+    }
+    for(sg=[-1,1]) xbox(sg*(OPEN_R-6), sg*80, -27, 13, -1, WALL+2);  // サーボ支柱ノッチ(縁側)
+    for(i=[0:7]) rotate([0,0,i*45]) translate([JBOT_D/2-8,0,-1]) cylinder(d=5, h=WALL+2); // 縁の通気/結束
   }
 }
 
 // =============================================================================
-// 天面リッド v3: 開口に落とし込み + 首穴。
+// 頭側プレート(天面リッド) v3: 開口に落とし込み + 首穴 + USBケーブル穴。
+//   RDK/ESP32等のUSBケーブルを頭側へ出せるよう穴を追加。
 // =============================================================================
 module lid_v3(){
   difference(){
@@ -120,7 +136,9 @@ module lid_v3(){
       cylinder(d=TOP_OPEN_D+2*WALL-1.2, h=2);
       translate([0,0,2]) cylinder(d=TOP_OPEN_D-1, h=2);
     }
-    translate([0,0,-1]) cylinder(d=NECK_D, h=6);
+    translate([0,0,-1]) cylinder(d=NECK_D, h=6);                               // 首穴
+    for(a=[35,90,145]) rotate([0,0,a]) translate([TOP_OPEN_D/2-18,0,-1]) cylinder(d=9, h=6); // USBケーブル穴×3
+    translate([-9, -TOP_OPEN_D/2+10, -1]) cube([18,7,6]);                      // 平ケーブル用スロット
     for(s=[-1,1]) translate([s*(TOP_OPEN_D/2-6),0,-1]) cylinder(d=12,h=1.6);   // 指掛かり
   }
 }
