@@ -56,6 +56,7 @@ Thumbs.db
 !hardware/3d_models/export/3mf/*.3mf
 !hardware/3d_models/korosuke_print/stl/**/*.stl
 !hardware/3d_models/korosuke_print/v2/**/*.stl
+!hardware/3d_models/korosuke_print/v3_simple/**/*.stl
 !hardware/3d_models/stereo_cam/**/*.stl
 
 # ギーク君モデル(ローカル専用・リポジトリ非公開)
