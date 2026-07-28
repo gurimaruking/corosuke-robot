@@ -44,7 +44,7 @@ CAM_WIN=9;                       // レンズ窓(ツイストレンズ径+遊び
 CASE_CLR_XY=5;
 
 // ---- SG90 (十字ホーン: 軸まわり半径≈16で掃引) ----
-SG_SX=58; SG_SZ=127;             // 軸(x=±58, z=127=腕穴高さ)。掃引円は壁/床とクリア
+SG_SX=56; SG_SZ=127;             // 軸(x=±56, z=127)。実物ホーン半径18でも内壁と≈4mmクリア(freecadcmd検証済)
 SG_SCREW=2.2;
 
 function rin(z)=(JBOT_D+(JTOP_D-JBOT_D)*z/JH)/2-WALL;   // 内半径(テーパー)
@@ -60,18 +60,21 @@ module xbox(xa,xb,y,dy,z,dz){ translate([min(xa,xb),y,z]) cube([abs(xb-xa),dy,dz
 //   ※intersection(cone)を使うがFreeCADは.FCStd/STLで見るので問題なし。印刷もOK。
 SG_BW=13.64; SG_BL=22.7;
 module servo_mount(sg){
-  cx=(SG_SX-5.55)*sg;                       // 本体中心X
+  cx=SG_SX*sg;                              // 軸=本体中心X
   difference(){
     intersection(){                         // 壁に融着(浮き防止)
       union(){
-        xbox(sg*37, sg*70, -25, 26, 106, 28);   // クレードル(z106-134, 内端x37=RDKと5mm隙間)
-        xbox(sg*50, sg*80, -14, 15, 88, 42);     // 壁下ペデスタル(z88-130, 壁へ)
+        xbox(sg*40, sg*72, -28, 30, 108, 34);   // クレードル(z108-142, y[-28,2], 内端x40=RDKと5mm+)
+        xbox(sg*52, sg*80, -14, 15, 88, 42);     // 壁下ペデスタル(z88-130, 壁へ)
       }
       cylinder(h=JH, d1=JBOT_D, d2=JTOP_D); // 外壁でクリップ
     }
-    xbox(cx-SG_BW/2-0.5, cx+SG_BW/2+0.5, -22, 42, SG_SZ-11.6, 44);          // 本体ポケット(幅13.64+遊び)
+    // 本体ポケット(前・上開放。実寸13.64幅・本体は前(-Y)へ。z110-150で本体全高を収容=床と非干渉)
+    //   ※SG90タブはホーン側でネジ止め不可 → ポケット捕捉+リッドで上から押さえる方式
+    xbox(cx-SG_BW/2-0.6, cx+SG_BW/2+0.6, -29, 33, 110, 40);
+    // ★十字ホーン旋回クリア(軸まわり半径19.5をy≧-2で除去=ホーンがクレードルに当たらない)
+    translate([cx, 10, SG_SZ]) rotate([90,0,0]) cylinder(d=39, h=12);
     translate([sg*JTOP_D/2,0,ARM_Z]) rotate([0,90,0]) cylinder(d=ARM_D,h=30,center=true); // 腕穴再くり抜き
-    translate([cx-sg*14.3, -1, SG_SZ]) rotate([-90,0,0]) cylinder(d=SG_SCREW, h=12);       // 内側タブM2
   }
 }
 
@@ -176,8 +179,8 @@ module ghosts(){
   part("#e0e0e0") translate([0,-rin(SPK_Z)+1,SPK_Z]) rotate([90,0,0]) cylinder(d=SPK_D,h=SPK_T);// speaker
   part("#333333") translate([-CAM_BW/2, -rin(CAM_Z), CAM_Z-CAM_BH/2]) cube([CAM_BW,CAM_BT,CAM_BH]); // camera基板
   for(sg=[-1,1]){
-    part("#1976d2") xbox(sg*41.1,sg*63.8,-21.5,22.5,120.95,12.1);        // SG90本体
-    part("#1565c0"){ xbox(sg*44,sg*72,3,2.5,125.5,3); xbox(sg*56.5,sg*59.5,3,2.5,113,28); } // 十字ホーン
+    part("#1976d2") xbox(sg*49.2, sg*62.8, -25, 30.4, 110.8, 32.4);      // SG90本体(実寸)
+    part("#1565c0") translate([sg*SG_SX,3,SG_SZ]) rotate([90,0,0]) cylinder(d=37,h=4); // 十字ホーン旋回envelope(半径18)
   }
 }
 module preview(){

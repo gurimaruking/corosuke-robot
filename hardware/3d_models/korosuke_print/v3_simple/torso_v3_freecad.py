@@ -39,7 +39,8 @@ def mesh(doc, name, stl, rgb):
         o.ViewObject.ShapeColor = rgb
     return o
 
-X_ROT = 90   # SG90/ホーンの向き。90=軸を前(-Y)向き / -90=後ろ(+Y)向き。逆にしたい時は符号を変える。
+X_ROT = -90  # SG90/ホーンの向き。-90=本体を前(-Y)へ(電池と非干渉)。逆にしたい時は符号を変える。
+SG_SX = 56   # 軸X。ホーン半径18が内壁(≈78.7)とクリアするよう56以内に
 def imp_step(doc, path, name, target_center, rgb, xrot=X_ROT):
     """STEPを読み、軸(model+Z)を胴のY向きに回し、bbox中心を target_center に合わせる。"""
     sh = Part.Shape(); sh.read(path)
@@ -59,13 +60,19 @@ def build():
     add(doc, "Battery",     Part.makeBox(62, 24, 95, Vector(-31, 20, 3)), (0.27, 0.35, 0.39))
     add(doc, "Speaker_phi50", Part.makeCylinder(25, 18.5, Vector(0, -76.7, 35), Vector(0, 1, 0)), (0.86, 0.86, 0.86))
     add(doc, "Camera_HBV_W202012HD", Part.makeBox(30, 14, 25, Vector(-15, -78.5, 105.5)), (0.15, 0.15, 0.15))  # 30x25x14 前面上
-    # 実物SG90 + 十字ホーン(左右)。X_ROT で軸の前後向きを反転可。ホーン面は軸側。
-    hy = 5 if X_ROT < 0 else -5
+    # 実物SG90 + 十字ホーン(左右)。本体は前(-Y)、ホーンは軸の後ろ(y3)でX-Z面を回る。
+    sgs = []
     for s in (-1, 1):
         tag = "R" if s > 0 else "L"
-        imp_step(doc, SG90_STEP, "SG90_%s" % tag, (52.5*s, -8, 126), (0.10, 0.46, 0.82))
-        imp_step(doc, HORN_STEP, "CrossHorn_%s" % tag, (58*s, hy, 127), (0.85, 0.85, 0.88))
+        sgs.append(imp_step(doc, SG90_STEP, "SG90_%s" % tag, (SG_SX*s, -10, 127), (0.10, 0.46, 0.82)))
+        sgs.append(imp_step(doc, HORN_STEP, "CrossHorn_%s" % tag, (SG_SX*s, 3, 127), (0.85, 0.85, 0.88)))
     doc.recompute()
+    # --- 検証: 内壁コーンより外に出ていないか(壁貫通=干渉) ---
+    cavity = Part.makeCone(158/2-3, 165/2-3, 165)      # 内壁(テーパー)
+    for o in sgs:
+        poke = o.Shape.cut(cavity)
+        vol = poke.Volume/1000 if poke.Solids else 0
+        App.Console.PrintMessage("CHECK %-13s 壁外はみ出し=%.2f cm3  (0=完全に胴内)\n" % (o.Name, vol))
     return doc
 
 doc = build()
