@@ -458,3 +458,4 @@ else if(SHOW==4) translate([0,0,17]) rotate([90,0,0]) servo_bracket();  // x2印
 else if(SHOW==5) top_lid();
 else if(SHOW==6) rotate([180,0,0]) translate([0,0,-2.5]) cam_bezel();
 else if(SHOW==7) foot_base_v2();
+else if(SHOW==8) ghosts();   // 搭載部品モックアップのみ(要 -D MOCKUP=true。FreeCADへ別インポート用)
