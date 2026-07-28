@@ -131,7 +131,8 @@ module bottom_v3(){
         cylinder(d=JBOT_D-2*WALL-0.6, h=WALL);
         translate([-100,-200,0]) cube([200, 200+YSOLID, WALL]);
       }
-      for(s=[-1,1]) translate([s*LEG_SP/2,0,WALL-0.1]) cylinder(d=LEG_D-2*WALL-1, h=6);   // 脚ボス
+      // 脚固定位置(LEG_SP=78, y=0): 脚の内筒φ30に差すボス。前後が半円境界上=前側solidに載る
+      for(s=[-1,1]) translate([s*LEG_SP/2,0,WALL-0.1]) cylinder(d=LEG_D-2*WALL-1, h=8);   // 脚ボス
       // RDK X5 位置決めガイド(前+側面・緩め5mm・後ろは開けて両面テープ)
       translate([-CASE_D/2-CASE_CLR_XY-2, -CASE_H/2-CASE_CLR_XY-2, WALL-0.1]) cube([CASE_D+2*CASE_CLR_XY+4, 2, GH]); // 前壁
       for(s=[-1,1]) translate([s*(CASE_D/2+CASE_CLR_XY)-(s<0?2:0), -CASE_H/2-CASE_CLR_XY-2, WALL-0.1]) cube([2, CASE_H+2*CASE_CLR_XY+4, GH]); // 側壁
@@ -141,6 +142,7 @@ module bottom_v3(){
     }
     translate([-30,-14,-1]) cube([60,28,WALL+2]);          // RDK下ケーブル窓
     for(i=[0:2]) rotate([0,0,60+i*60]) translate([JBOT_D/2-8,0,-1]) cylinder(d=5, h=WALL+2); // 前縁通気
+    for(s=[-1,1]) translate([s*LEG_SP/2,0,-1]) cylinder(d=2.8, h=WALL+12);  // 脚固定ネジ下穴(M3タップ)
   }
 }
 
@@ -151,13 +153,15 @@ module bottom_v3(){
 module lid_v3(){
   difference(){
     union(){
-      cylinder(d=TOP_OPEN_D+2*WALL-1.2, h=2);
+      cylinder(d=TOP_OPEN_D+2*WALL-1.2, h=2);        // 落とし込み段(胴の天面リングに嵌る)
       translate([0,0,2]) cylinder(d=TOP_OPEN_D-1, h=2);
     }
-    translate([0,0,-1]) cylinder(d=NECK_D, h=6);                               // 首穴
-    for(a=[35,90,145]) rotate([0,0,a]) translate([TOP_OPEN_D/2-18,0,-1]) cylinder(d=9, h=6); // USBケーブル穴×3
-    translate([-9, -TOP_OPEN_D/2+10, -1]) cube([18,7,6]);                      // 平ケーブル用スロット
-    for(s=[-1,1]) translate([s*(TOP_OPEN_D/2-6),0,-1]) cylinder(d=12,h=1.6);   // 指掛かり
+    translate([0,0,-1]) cylinder(d=NECK_D, h=6);                               // 中心穴(首/太ケーブル)
+    // ケーブル穴を複数:外リングφ8×8 + 中リングφ6×6 で各所からケーブルを出せる
+    for(a=[0:45:359]) rotate([0,0,a]) translate([TOP_OPEN_D/2-13,0,-1]) cylinder(d=8, h=6);
+    for(a=[30:60:359]) rotate([0,0,a]) translate([NECK_D/2+12,0,-1]) cylinder(d=6, h=6);
+    translate([-9, -TOP_OPEN_D/2+11, -1]) cube([18,7,6]);                      // 平ケーブル用スロット
+    for(s=[-1,1]) translate([s*(TOP_OPEN_D/2-6),0,-1]) cylinder(d=12,h=1.6);   // 指掛かり(裏)
   }
 }
 
