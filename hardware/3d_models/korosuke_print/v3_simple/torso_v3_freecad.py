@@ -57,10 +57,10 @@ def build():
     # 搭載部品(編集可能ソリッド)
     add(doc, "RDK_X5_case", Part.makeBox(62.4, 27.1, 91.4, Vector(-31.2, -13.55, 8)), (0.30, 0.69, 0.31))
     add(doc, "Battery",     Part.makeBox(62, 24, 95, Vector(-31, 20, 3)), (0.27, 0.35, 0.39))
-    # スピーカーは側面(左)配置: 中心(-70.15,-32,52)、軸+X(内側へ)、音抜きは側壁へ
-    add(doc, "Speaker_phi50", Part.makeCylinder(25, 18.5, Vector(-70.15, -32, 52), Vector(1, 0, 0)), (0.86, 0.86, 0.86))
+    # スピーカーは側面(左)の真横: 外面(-72.4,0,52)、軸+X(内側へ)、音抜き穴なし(側壁は塞ぐ)。ディスク縁を内壁にインセット
+    spk = add(doc, "Speaker_phi50", Part.makeCylinder(25, 18.5, Vector(-72.4, 0, 52), Vector(1, 0, 0)), (0.86, 0.86, 0.86))
     # カメラは前面ディスプレイ(z20-120)の上・z136(基板z123.5-148.5)。下から挿入
-    add(doc, "Camera_HBV_W202012HD", Part.makeBox(30, 14, 25, Vector(-15, -78.9, 123.5)), (0.15, 0.15, 0.15))  # 30x25x14 前面上
+    cam = add(doc, "Camera_HBV_W202012HD", Part.makeBox(30, 14, 25, Vector(-15, -76.9, 123.5)), (0.15, 0.15, 0.15))  # 30x25x14 前面上(2mm奥へインセット)
     # 実物SG90 + 十字ホーン(左右)。本体は前(-Y)、ホーンは軸の後ろ(y3)でX-Z面を回る。
     sgs = []
     for s in (-1, 1):
@@ -70,7 +70,7 @@ def build():
     doc.recompute()
     # --- 検証: 内壁コーンより外に出ていないか(壁貫通=干渉) ---
     cavity = Part.makeCone(158/2-3, 165/2-3, 165)      # 内壁(テーパー)
-    for o in sgs:
+    for o in sgs + [spk, cam]:
         poke = o.Shape.cut(cavity)
         vol = poke.Volume/1000 if poke.Solids else 0
         App.Console.PrintMessage("CHECK %-13s 壁外はみ出し=%.2f cm3  (0=完全に胴内)\n" % (o.Name, vol))

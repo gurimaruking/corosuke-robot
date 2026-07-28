@@ -35,7 +35,7 @@ SPK_D=50; SPK_T=18.5;                                  // スピーカー(秋月
 TOP_OPEN_D=120;  NECK_D=46;      // 天面開口 / 首穴
 ARM_Z=127; ARM_D=36;             // 腕穴(高さ/径)
 // スピーカーは側面(左右)配置。SPK_SIDE=-1:左 / 1:右
-SPK_SIDE=-1; SPK_Y=-32; SPK_Z=52; // 前寄りの側面(RDK/サーボ台を避ける)
+SPK_SIDE=-1; SPK_Y=0; SPK_Z=52; SPK_R=25; // 側面の最も広い位置(真横=放射方向)。RDK/サーボ台/ディスプレイと非干渉
 HATCH_W=70; HATCH_H=100;         // 前面の長方形=ディスプレイ用開口(7x10cm=v2ハッチと同寸を確保)
 HATCH_Z=20;                      // 長方形の下端(z20-120)
 // ---- 胸カメラ HBV-W202012HD (OV9726 1MP, 50°, USB) ----
@@ -101,15 +101,14 @@ module shell_v3(){
       for(sg=[-1,1]) servo_mount(sg);
       cam_mount();                          // 前面・長方形の上 カメラ台
       case_cage();                          // RDK/バッテリー 固定(全て胴体側・両面テープ)
-      speaker_mount();                      // 前面長方形の裏 スピーカーのコの字ホルダ
+      speaker_mount();                      // 左側面 スピーカーのU字クレードル(音抜き穴なし)
     }
     // --- 開口(すべて単純な差分) ---
     translate([0,0,JH-WALL-0.5]) cylinder(h=WALL+2, d=TOP_OPEN_D);                        // 天面開口(念のため貫通)
     for(s=[-1,1]) translate([s*JTOP_D/2,0,ARM_Z]) rotate([0,90,0]) cylinder(d=ARM_D,h=26,center=true); // 腕穴
     translate([-HATCH_W/2, -JBOT_D/2-6, HATCH_Z]) cube([HATCH_W, 20, HATCH_H]);           // 前面の長方形開口(7x10cm, z20-120)
     translate([0,-JTOP_D/2,CAM_Z]) rotate([90,0,0]) cylinder(d=CAM_WIN,h=40,center=true); // 胸カメラ レンズ窓(ディスプレイの上)
-    // 側面スピーカー音抜きφ44(側壁を貫通)
-    translate([spk_xw(), SPK_Y, SPK_Z]) rotate([0,-90*SPK_SIDE,0]) translate([0,0,-12]) cylinder(d=44, h=20);
+    // (スピーカー音抜き穴は廃止 — 側壁は塞いだまま。スピーカーはホルダに落とし込み+両面テープ固定)
     // case_cage の仕切りにケーブル穴(前後方向に配線を通す)
     for(y=[-CASE_H/2-CASE_CLR_XY-4, CASE_H/2+CASE_CLR_XY-4]) translate([-15, y, 22]) cube([30, 12, 34]);
   }
@@ -128,29 +127,34 @@ module case_cage(){
   }
 }
 
-// スピーカー(φ50x18.5)がすっぽり入るコの字ホルダ。★側面(左右)配置・上開放で落とし込み・側面へ音抜き。
-function spk_xw() = SPK_SIDE * sqrt(pow(rin(SPK_Z),2) - pow(SPK_Y,2));  // その位置の側壁内面X
+// スピーカー(φ50x18.5)を側壁内側に保持するU字クレードル。
+//   ★音抜き穴なし=側壁は塞いだまま。上から落とし込み、壁側は塞ぎ(solid back)、両面テープで固定(大体でOK)。
+//   xw=ディスク外面X。縁(半径R)が内壁に触れないようインセット(sqrt(rin^2-(R+1.5)^2))して全体を胴内へ。
+function spk_xw() = SPK_SIDE * sqrt(pow(rin(SPK_Z),2) - pow(SPK_R+1.5, 2));
 module speaker_mount(){
-  xw=spk_xw(); ang=-90*SPK_SIDE;   // ang: 中心方向へ向く回転
+  xw=spk_xw(); ang=-90*SPK_SIDE;              // ang: ポケット軸を中心向きに(=放射方向)
+  bx = SPK_SIDE<0 ? -6 : -18;                 // 外形ブロックX原点(壁側へ延ばして融着)
   intersection(){
     translate([xw, SPK_Y, SPK_Z]) difference(){
-      translate([SPK_SIDE<0?-2:-20, -29, -29]) cube([22, 58, 40]);          // 外形ブロック(壁沿い)
-      rotate([0,ang,0]) translate([0,0,-3]) cylinder(d=50.6, h=24);         // 本体ポケット(軸X, 中心へ)
-      translate([SPK_SIDE<0?-3:-19, -26, 0]) cube([22, 52, 30]);            // 上を開放=コの字(落とし込み)
-      rotate([0,ang,0]) translate([0,0,-9]) cylinder(d=44, h=14);           // 側面へ音抜きφ44
-      for(t=[-1,1]) translate([0, t*27, 0]) rotate([90,0,0]) cylinder(d=3.2, h=60, center=true); // 結束バンド穴
+      translate([bx, -29, -29]) cube([24, 58, 42]);                 // 外形ブロック(壁沿い)
+      rotate([0,ang,0]) translate([0,0,-0.5]) cylinder(d=52, h=21); // ディスクポケット(外面〜内側, φ52で遊び)
+      translate([bx-1, -30, 2]) cube([26, 60, 40]);                 // 上を開放(z>2を除去)=落とし込みU字
     }
     cylinder(h=JH, d1=JBOT_D+2, d2=JTOP_D+2);   // 外形は壁でクリップ(曲面に合わせる)
   }
 }
 
 // 胸カメラ台(前面内壁・ディスプレイの上): 30x25x14基板を「下から」挿入(映像逆転はソフト)。
+//   基板は平ら/壁は湾曲なので2mm奥へインセット→角のはみ出し無し。外形は壁でクリップして融着。
 module cam_mount(){
-  yb = -(JBOT_D + (JTOP_D-JBOT_D)*CAM_Z/JH)/2 + WALL;      // 前壁内面Y
-  translate([0, yb, CAM_Z]) difference(){
-    translate([-CAM_BW/2-2.5, 0, -CAM_BH/2-2.5]) cube([CAM_BW+5, CAM_BT+3, CAM_BH+5]);          // 外形(上は塞ぐ)
-    translate([-CAM_BW/2-0.4, -1, -CAM_BH/2-0.4-22]) cube([CAM_BW+0.8, CAM_BT+1.5, CAM_BH+22]); // 基板ポケット(下開放=下から挿入)
-    translate([0, -1, 0]) rotate([-90,0,0]) cylinder(d=CAM_WIN+3, h=CAM_BT+5);                  // レンズ/配線逃げ
+  yb = -(JBOT_D + (JTOP_D-JBOT_D)*CAM_Z/JH)/2 + WALL;      // 前壁内面Y(x=0)
+  intersection(){
+    translate([0, yb, CAM_Z]) difference(){
+      translate([-CAM_BW/2-2.5, 0, -CAM_BH/2-2.5]) cube([CAM_BW+5, CAM_BT+4, CAM_BH+5]);          // 外形(上は塞ぐ)
+      translate([-CAM_BW/2-0.4, 2, -CAM_BH/2-0.4-22]) cube([CAM_BW+0.8, CAM_BT+1.5, CAM_BH+22]);  // 基板ポケット(2mm奥へインセット, 下開放=下から挿入)
+      translate([0, -2, 0]) rotate([-90,0,0]) cylinder(d=CAM_WIN+3, h=CAM_BT+8);                  // レンズ/配線逃げ(壁まで貫通)
+    }
+    cylinder(h=JH, d1=JBOT_D, d2=JTOP_D);   // 外形は壁でクリップ(曲面に融着=角のはみ出し無し)
   }
 }
 
@@ -195,7 +199,7 @@ module ghosts(){
   part("#4caf50") translate([-CASE_D/2,-CASE_H/2,WALL+CASE_VCLR]) cube([CASE_D,CASE_H,CASE_W]); // RDK
   part("#455a64") translate([-PB_W/2,20,WALL]) cube([PB_W,PB_T,PB_H]);                          // battery
   part("#e0e0e0") translate([spk_xw(),SPK_Y,SPK_Z]) rotate([0,-90*SPK_SIDE,0]) cylinder(d=SPK_D,h=SPK_T); // speaker(側面へ)
-  part("#333333") translate([-CAM_BW/2, -rin(CAM_Z), CAM_Z-CAM_BH/2]) cube([CAM_BW,CAM_BT,CAM_BH]); // camera基板
+  part("#333333") translate([-CAM_BW/2, -rin(CAM_Z)+2, CAM_Z-CAM_BH/2]) cube([CAM_BW,CAM_BT,CAM_BH]); // camera基板(2mm奥へインセット)
   for(sg=[-1,1]){
     part("#1976d2") xbox(sg*49.2, sg*62.8, -25, 30.4, 110.8, 32.4);      // SG90本体(実寸)
     part("#1565c0") translate([sg*SG_SX,3,SG_SZ]) rotate([90,0,0]) cylinder(d=37,h=4); // 十字ホーン旋回envelope(半径18)
