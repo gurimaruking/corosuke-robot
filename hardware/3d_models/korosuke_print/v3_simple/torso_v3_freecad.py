@@ -57,8 +57,10 @@ def build():
     # 搭載部品(編集可能ソリッド)
     add(doc, "RDK_X5_case", Part.makeBox(62.4, 27.1, 91.4, Vector(-31.2, -13.55, 8)), (0.30, 0.69, 0.31))
     add(doc, "Battery",     Part.makeBox(62, 24, 95, Vector(-31, 20, 3)), (0.27, 0.35, 0.39))
-    add(doc, "Speaker_phi50", Part.makeCylinder(25, 18.5, Vector(0, -76.7, 35), Vector(0, 1, 0)), (0.86, 0.86, 0.86))
-    add(doc, "Camera_HBV_W202012HD", Part.makeBox(30, 14, 25, Vector(-15, -78.5, 105.5)), (0.15, 0.15, 0.15))  # 30x25x14 前面上
+    # スピーカーは側面(左)配置: 中心(-70.15,-32,52)、軸+X(内側へ)、音抜きは側壁へ
+    add(doc, "Speaker_phi50", Part.makeCylinder(25, 18.5, Vector(-70.15, -32, 52), Vector(1, 0, 0)), (0.86, 0.86, 0.86))
+    # カメラは前面ディスプレイ(z20-120)の上・z136(基板z123.5-148.5)。下から挿入
+    add(doc, "Camera_HBV_W202012HD", Part.makeBox(30, 14, 25, Vector(-15, -78.9, 123.5)), (0.15, 0.15, 0.15))  # 30x25x14 前面上
     # 実物SG90 + 十字ホーン(左右)。本体は前(-Y)、ホーンは軸の後ろ(y3)でX-Z面を回る。
     sgs = []
     for s in (-1, 1):

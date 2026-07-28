@@ -36,10 +36,11 @@ TOP_OPEN_D=120;  NECK_D=46;      // 天面開口 / 首穴
 ARM_Z=127; ARM_D=36;             // 腕穴(高さ/径)
 // スピーカーは側面(左右)配置。SPK_SIDE=-1:左 / 1:右
 SPK_SIDE=-1; SPK_Y=-32; SPK_Z=52; // 前寄りの側面(RDK/サーボ台を避ける)
-HATCH_W=70; HATCH_H=72;          // 前面の長方形=ディスプレイ用開口(スペース確保)
+HATCH_W=70; HATCH_H=100;         // 前面の長方形=ディスプレイ用開口(7x10cm=v2ハッチと同寸を確保)
+HATCH_Z=20;                      // 長方形の下端(z20-120)
 // ---- 胸カメラ HBV-W202012HD (OV9726 1MP, 50°, USB) ----
 CAM_BW=30; CAM_BH=25; CAM_BT=14; // 基板 W×H×厚(実測公称)
-CAM_Z=112;                       // 前面・ディスプレイ長方形の上(上にずらす)
+CAM_Z=136;                       // 前面・ディスプレイ長方形(上端120)の上。腕穴(127,側面)とは別角度で非干渉
 CAM_WIN=9;                       // レンズ窓(ツイストレンズ径+遊び)
 // ---- RDK/バッテリー 位置決め(緩め: 5mm隙間・両面テープ固定前提) ----
 CASE_CLR_XY=5;
@@ -105,7 +106,7 @@ module shell_v3(){
     // --- 開口(すべて単純な差分) ---
     translate([0,0,JH-WALL-0.5]) cylinder(h=WALL+2, d=TOP_OPEN_D);                        // 天面開口(念のため貫通)
     for(s=[-1,1]) translate([s*JTOP_D/2,0,ARM_Z]) rotate([0,90,0]) cylinder(d=ARM_D,h=26,center=true); // 腕穴
-    translate([-HATCH_W/2, -JBOT_D/2-6, 20]) cube([HATCH_W, 20, HATCH_H]);                // 前面の長方形開口(z20-85)
+    translate([-HATCH_W/2, -JBOT_D/2-6, HATCH_Z]) cube([HATCH_W, 20, HATCH_H]);           // 前面の長方形開口(7x10cm, z20-120)
     translate([0,-JTOP_D/2,CAM_Z]) rotate([90,0,0]) cylinder(d=CAM_WIN,h=40,center=true); // 胸カメラ レンズ窓(ディスプレイの上)
     // 側面スピーカー音抜きφ44(側壁を貫通)
     translate([spk_xw(), SPK_Y, SPK_Z]) rotate([0,-90*SPK_SIDE,0]) translate([0,0,-12]) cylinder(d=44, h=20);
