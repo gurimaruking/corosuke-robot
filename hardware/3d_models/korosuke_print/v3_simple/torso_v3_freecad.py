@@ -39,10 +39,11 @@ def mesh(doc, name, stl, rgb):
         o.ViewObject.ShapeColor = rgb
     return o
 
-def imp_step(doc, path, name, target_center, rgb):
-    """STEPを読み、軸(model+Z)を胴+Y向きに回し、bbox中心を target_center に合わせる。"""
+X_ROT = 90   # SG90/ホーンの向き。90=軸を前(-Y)向き / -90=後ろ(+Y)向き。逆にしたい時は符号を変える。
+def imp_step(doc, path, name, target_center, rgb, xrot=X_ROT):
+    """STEPを読み、軸(model+Z)を胴のY向きに回し、bbox中心を target_center に合わせる。"""
     sh = Part.Shape(); sh.read(path)
-    sh.rotate((0, 0, 0), (1, 0, 0), -90)          # 軸 +Z → +Y(胴の後ろ)。ホーンは X-Z 面に。
+    sh.rotate((0, 0, 0), (1, 0, 0), xrot)
     c = sh.BoundBox.Center
     sh.translate((target_center[0]-c.x, target_center[1]-c.y, target_center[2]-c.z))
     return add(doc, name, sh, rgb)
@@ -57,11 +58,13 @@ def build():
     add(doc, "RDK_X5_case", Part.makeBox(62.4, 27.1, 91.4, Vector(-31.2, -13.55, 8)), (0.30, 0.69, 0.31))
     add(doc, "Battery",     Part.makeBox(62, 24, 95, Vector(-31, 20, 3)), (0.27, 0.35, 0.39))
     add(doc, "Speaker_phi50", Part.makeCylinder(25, 18.5, Vector(0, -76.7, 35), Vector(0, 1, 0)), (0.86, 0.86, 0.86))
-    # 実物SG90 + 十字ホーン(左右)。軸=胴の後ろ向き、腕穴の内側でホーンが回る。
+    add(doc, "Camera_HBV_W202012HD", Part.makeBox(30, 14, 25, Vector(-15, -78.5, 105.5)), (0.15, 0.15, 0.15))  # 30x25x14 前面上
+    # 実物SG90 + 十字ホーン(左右)。X_ROT で軸の前後向きを反転可。ホーン面は軸側。
+    hy = 5 if X_ROT < 0 else -5
     for s in (-1, 1):
         tag = "R" if s > 0 else "L"
         imp_step(doc, SG90_STEP, "SG90_%s" % tag, (52.5*s, -8, 126), (0.10, 0.46, 0.82))
-        imp_step(doc, HORN_STEP, "CrossHorn_%s" % tag, (58*s, 5, 127), (0.85, 0.85, 0.88))
+        imp_step(doc, HORN_STEP, "CrossHorn_%s" % tag, (58*s, hy, 127), (0.85, 0.85, 0.88))
     doc.recompute()
     return doc
 
