@@ -158,6 +158,31 @@ module cam_pocket_bosses(){   // 胸カメラ基板ボス(M2 x4, 10°上向き)
       }
 }
 
+// ---- SG90コの字タワー(腕穴の直下・壁沿い。実機レイアウト2026-07-28準拠) ----
+// 床から立つ中空タワーの頂部に「コの字」スロット(上開放・前面にフランジ座)。
+// サーボは上から落とし込み→前面からM2x2。軸(-X側の端)を胴中心側に向ける(左右で逆)。
+// ロープ: 腕穴(x=±77.5,z=127) → タワー天面のVノッチ → ホーン先端(ほぼ一直線)。
+SGT_TOP = 111.7;   // タワー天面(スロット底99.6+サーボ幅12.1)
+module servo_tower_right(){
+  X0=44; X1=79; Y0=-14; Y1=14;
+  SLOT_CX=61.5; SLOT_W=SG_L+0.2;     // スロット中心/幅(23.3)
+  SLOT_ZB=SGT_TOP-SG_W-(-0.4);        // スロット底 z=99.6
+  difference(){
+    intersection(){
+      translate([X0,Y0,0]) cube([X1-X0, Y1-Y0, SGT_TOP]);
+      cylinder(h=JH, d1=JBOT_D-1, d2=JTOP_D-1);            // 外形クリップ=壁へ融着
+    }
+    translate([X0+5, Y0+4, -1]) cube([X1-X0-10, Y1-Y0-8, 96]);   // 肉抜き(天井はブリッジ)
+    // コの字スロット(上開放・前面はフランジ2.4mmぶん彫り込み)
+    translate([SLOT_CX-SLOT_W/2, Y0-2.5, 99.6]) cube([SLOT_W, 18.4, SGT_TOP-99.6+2]);
+    // フランジ取付M2下穴(前面壁: 軸x=56 → タブ穴 x=47.25 / 75.85, z=105.65)
+    for(x=[47.25, 75.85]) translate([x, Y0-4, 105.65]) rotate([-90,0,0]) cylinder(d=SG_SCREW_D, h=9);
+    // ロープVノッチ(天面前縁: ホーン面(y≈-16)へロープを誘導)
+    translate([54, Y0-3, SGT_TOP-2]) cube([4.5, 7, 4]);
+  }
+}
+module servo_tower(s){ if(s==1) servo_tower_right(); else mirror([1,0,0]) servo_tower_right(); }
+
 module spk_seat(){            // φ50スピーカー座(グリル裏・曲面壁にトリムして全周融着)
   difference(){
     intersection(){
@@ -180,6 +205,7 @@ module jacket_shell_v2(){
       rdk_bay();
       pb_bay();
       for(a=[45,135,225,315]) deck_boss(a);
+      for(s=[-1,1]) servo_tower(s);
       cam_pocket_bosses();
       spk_seat();
     }
@@ -232,6 +258,12 @@ module bottom_plate_v2(){
     for(a=[45,135,225,315]) rotate([0,0,a]){
       translate([70,0,-1]) cylinder(d=11.5, h=WALL+2);
       translate([69,-3.6,-1]) cube([9, 7.2, WALL+2]);
+    }
+    // サーボタワー壁の逃げ(左右: 前壁/後壁/内壁の足元。タワー内側の床は残す)
+    for(s=[-1,1]) mirror([s==1?0:1,0,0]){
+      translate([43, -15.5, -1]) cube([37, 6, WALL+2]);    // 前壁足元
+      translate([43,   9.5, -1]) cube([37, 6, WALL+2]);    // 後壁足元
+      translate([43, -15.5, -1]) cube([7, 31, WALL+2]);    // 内壁足元(脚ボスに少し掛かるが許容)
     }
   }
 }
@@ -292,11 +324,8 @@ module mid_deck(){
     }
     // 4隅 M3通し穴(deck_boss位置 r=70, 45°刻み)
     for(a=[45,135,225,315]) rotate([0,0,a]) translate([70,0,-1]) cylinder(d=3.4, h=DECK_T+2);
-    // ロープ穴(=ガイド) + サーボブラケット取付M3
-    for(s=[-1,1]){
-      translate([s*ROPE_X, 0, -1]) cylinder(d=ROPE_HOLE_D, h=DECK_T+2);
-      for(t=[-1,1]) translate([s*ROPE_X, t*10, -1]) cylinder(d=3.4, h=DECK_T+2);
-    }
+    // サーボタワー逃げ(左右) — 旧デッキ吊りのロープ穴/M3は廃止
+    for(s=[-1,1]) mirror([s==1?0:1,0,0]) translate([42, -16.5, -1]) cube([35, 33, DECK_T+2]);
     // 背面ケーブル落とし(ESP32のUSB→RDKへ / サーボ線)
     translate([-16, 40, -1]) cube([32, 14, DECK_T+2]);
     // 結束バンドスロット(LiPo/アンプ基板等の固定用)
@@ -387,12 +416,12 @@ module cam_bezel(){
 MOCKUP = false;
 module G(){ if(MOCKUP) children(); else %children(); }
 module ghosts(){
+  // ※ブレッドボード+ESP32-S3は頭部に移設(2026-07-28)→胴体モックアップから削除
   G() color("#4caf50",0.6) translate([-CASE_D/2, -CASE_H/2, WALL]) cube([CASE_D, CASE_H, CASE_W]); // RDK X5ケース
   G() color("#455a64",0.6) translate([-PB_W/2, PB_Y0+0.8, WALL]) cube([PB_W, PB_T, PB_H]);         // モバイルバッテリー
-  G() color("#eeeeee",0.6) translate([-83/2, -6-55.5/2, DECK_Z]) cube([83, 55.5, 10]);             // ブレッドボード
-  // SG90本体(コの字クレードル内・軸=ロープ穴直下)
+  // SG90本体(コの字タワー内・スロット底99.6に着座)
   for(s=[-1,1]) G() color("#1976d2",0.7)
-    translate([s*(ROPE_X+SG_SHAFT_OFF)-23.1/2, -17, DECK_Z-DECK_T-21.75-6.05]) cube([23.1, 15.9, 12.1]);
+    mirror([s==1?0:1,0,0]) translate([49.95, -14, 99.6]) cube([23.1, 15.9, 12.1]);
 }
 CUT = true;    // true=断面表示 / false=全体表示
 module assembly_v2(){
@@ -401,7 +430,6 @@ module assembly_v2(){
       color("#ef8f1f") jacket_shell_v2();
       color("#d97706") translate([0,0,0.01]) bottom_plate_v2();
       color("#8d6e63") translate([0,0,DECK_Z-DECK_T]) mid_deck();
-      for(s=[-1,1]) color("#607d8b") translate([s*ROPE_X, 0, DECK_Z-DECK_T]) rotate([0,0,s==1?0:180]) servo_bracket();
       color("#f7dc6f") translate([0,0,JH-2]) top_lid();
     }
     // 断面カット(CUT=true のときだけ)
