@@ -84,10 +84,10 @@ module servo_mount(sg){
 module shell_v3(){
   difference(){
     union(){
-      // 中空テーパー壁(cone差分のみ)
+      // 中空テーパー壁(上下とも貫通=底面も開放。Baseを裾に嵌める)
       difference(){
         cylinder(h=JH, d1=JBOT_D, d2=JTOP_D);
-        translate([0,0,WALL]) cylinder(h=JH, d1=JBOT_D-2*WALL, d2=JTOP_D-2*WALL);
+        translate([0,0,-1]) cylinder(h=JH+2, d1=JBOT_D-2*WALL-0.1, d2=JTOP_D-2*WALL+0.1);
       }
       // 天面リング(開口φ120 + リッド落とし込み段)
       translate([0,0,JH-WALL]) difference(){
@@ -98,6 +98,7 @@ module shell_v3(){
       // サーボ台 ×2(壁内・一体)
       for(sg=[-1,1]) servo_mount(sg);
       cam_mount();                          // 前面上側 カメラ台
+      case_cage();                          // RDK/バッテリー 固定(全て胴体側・両面テープ)
     }
     // --- 開口(すべて単純な差分) ---
     translate([0,0,JH-WALL-0.5]) cylinder(h=WALL+2, d=TOP_OPEN_D);                        // 天面開口(念のため貫通)
@@ -105,6 +106,21 @@ module shell_v3(){
     translate([-HATCH_W/2, JBOT_D/2-14, 20]) cube([HATCH_W, 20, HATCH_H]);                // 背面ハッチ
     translate([0,-JTOP_D/2,CAM_Z]) rotate([90,0,0]) cylinder(d=CAM_WIN,h=40,center=true); // 胸カメラ レンズ窓
     for(i=[-3:3]) translate([i*8,-JBOT_D/2,SPK_Z]) rotate([90,0,0]) cylinder(d=4,h=26,center=true); // スピーカーグリル(1列)
+    // case_cage の仕切りにケーブル穴(前後方向に配線を通す)
+    for(y=[-CASE_H/2-CASE_CLR_XY-4, CASE_H/2+CASE_CLR_XY-4]) translate([-15, y, 22]) cube([30, 12, 34]);
+  }
+}
+
+// RDK/バッテリーを胴体側に固定する内部フレーム(緩め・両面テープ。両端を壁へ融着)。
+//   前ストッパ(RDK前) / 仕切り(RDK後=電池前) / 後ストッパ(電池後) の3枚。全高低め。
+module case_cage(){
+  intersection(){
+    union(){
+      translate([-80, -CASE_H/2-CASE_CLR_XY-2, WALL]) cube([160, 3, 55]);        // RDK前ストッパ
+      translate([-80,  CASE_H/2+CASE_CLR_XY-1, WALL]) cube([160, 3, 60]);        // 仕切り(RDK後/電池前)
+      translate([-80,  20+PB_T+CASE_CLR_XY-1, WALL]) cube([160, 3, 50]);         // 電池後ストッパ
+    }
+    cylinder(h=JH, d1=JBOT_D, d2=JTOP_D);   // 壁でクリップ=両端を壁へ融着
   }
 }
 
@@ -124,24 +140,25 @@ module cam_mount(){
 //   脚ボス＋サーボ支柱ノッチ＋通気。裾に圧入。
 // =============================================================================
 LEG_D=36; LEG_SP=78;
-// Base v3: 「大きな穴」の開いた台。Shellの裾(空洞)に嵌める外リング + 脚を渡す左右バー
-//   + 前後の大穴(ケーブル・上からの出し入れ)。RDK/電池は緩い前ストッパ+両面テープで固定。
-BASE_RIM=13;
+// Base v3: 「胴体を載せるだけ」の台(臓物は全てShell側)。
+//   φ158フランジ(胴裾が載る) + 裾内側に嵌る位置決めリム + 脚ボス + 大穴(配線)。
 module bottom_v3(){
-  Rout = JBOT_D/2-WALL-0.3;                     // 裾内径に圧入
-  Rin  = Rout-BASE_RIM;                          // 大穴半径(リム幅BASE_RIM)
+  Rin = JBOT_D/2-WALL-0.4;                       // 裾内側に嵌るリム半径
   difference(){
     union(){
-      difference(){                              // 外リング(裾に嵌る)
-        cylinder(d=2*Rout, h=WALL);
-        translate([0,0,-1]) cylinder(d=2*Rin, h=WALL+2);
+      cylinder(d=JBOT_D, h=WALL);                              // フランジ(胴裾が載る φ158)
+      translate([0,0,WALL-0.1]) difference(){                  // 位置決めリム(裾内側へ立つ)
+        cylinder(d=2*Rin, h=6); translate([0,0,-1]) cylinder(d=2*Rin-2*3, h=8);
       }
-      translate([-Rout, -10, 0]) cube([2*Rout, 20, WALL]);   // 左右バー(脚を両側リムへ渡す)
+      translate([-Rin, -10, 0]) cube([2*Rin, 20, WALL]);       // 脚を渡す左右バー
       for(s=[-1,1]) translate([s*LEG_SP/2,0,WALL-0.1]) cylinder(d=LEG_D-2*WALL-1, h=8);  // 脚ボス
-      translate([-CASE_D/2-CASE_CLR_XY, -10, 0]) cube([CASE_D+2*CASE_CLR_XY, 3, 35]);    // RDK前ストッパ(緩め・バー前縁)
     }
-    for(s=[-1,1]) translate([s*LEG_SP/2,0,-1]) cylinder(d=2.8, h=WALL+12);  // 脚固定ネジ下穴(M3タップ)
+    for(s=[-1,1]) translate([s*LEG_SP/2,0,-1]) cylinder(d=2.8, h=WALL+12);  // 脚固定ネジ下穴
     translate([-26,-10,-1]) cube([52,20,WALL+2]);                          // バー中央=ケーブル大穴
+    // フランジ前後の大穴(配線・軽量化。リム/バーは残す)
+    for(a=[0,180]) rotate([0,0,a]) translate([0,12,-1]) intersection(){
+      cylinder(r=Rin-4, h=WALL+2); translate([-Rin,0,0]) cube([2*Rin, Rin, WALL+2]);
+    }
   }
 }
 
