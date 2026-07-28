@@ -318,6 +318,12 @@ module servo_bracket(){
   plate_w  = 44;   // 垂直板X幅(窓23.1+両ネジ28.6を余白込みで収める)
   plate_x0 = -14;  // 垂直板左端(窓が+X側へ5.55ずれるため右寄せ非対称)
   plate_h  = 32;   // 垂直板高さ
+  // ---- コの字クレードル(板の裏側でSG90本体を底+左右壁で抱える) ----
+  ch_d   = 18;     // 奥行き(本体のフランジ下15.9mm+余裕)
+  ch_wt  = 2.7;    // 壁厚
+  ch_xl  = SG_SHAFT_OFF - SG_L/2 - 0.2;   // 内左(窓左端-遊び)
+  ch_xr  = SG_SHAFT_OFF + SG_L/2 + 0.2;   // 内右
+  ch_zb  = -plate_h + 4 - 0.2;            // 内底(窓下端-遊び)
   difference(){
     union(){
       translate([-flange_l/2, -flange_w/2, 0]) cube([flange_l, flange_w, 4]);       // 上フランジ
@@ -325,6 +331,10 @@ module servo_bracket(){
       // 三角リブx2(フランジ⇔板)
       for(s=[-1,1]) translate([s*(flange_l/2-2.5)-1.5, -flange_w/2+3, -14])
         rotate([90,0,90]) linear_extrude(3) polygon([[0,0],[12,14],[0,14]]);
+      // コの字クレードル(板の裏、上開放=配線と目視。断面がコの字)
+      translate([ch_xl-ch_wt, -flange_w/2+3, ch_zb-ch_wt]) cube([ch_wt, ch_d, 18]);            // 左壁
+      translate([ch_xr,       -flange_w/2+3, ch_zb-ch_wt]) cube([ch_wt, ch_d, 18]);            // 右壁
+      translate([ch_xl-ch_wt, -flange_w/2+3, ch_zb-ch_wt]) cube([ch_xr-ch_xl+2*ch_wt, ch_d, ch_wt]); // 底
     }
     // フランジ: M3通し x2(デッキ穴t=±10と一致) + ロープ穴φ8
     for(t=[-1,1]) translate([0, t*10, -1]) cylinder(d=3.2, h=6);
@@ -338,6 +348,8 @@ module servo_bracket(){
     // SG90取付ネジ(タブ穴φ2.2ピッチ28.6, 付属タッピングM2)
     for(s=[-1,1]) translate([SG_SHAFT_OFF+s*SG_HOLE_PITCH/2, -flange_w/2-1, -plate_h+4+SG_W/2])
       rotate([-90,0,0]) cylinder(d=SG_SCREW_D, h=6);
+    // ケーブルスロット(軸は-X端 → コードは+X端の下から出る)
+    translate([ch_xr-1, -flange_w/2+7, ch_zb+0.2]) cube([ch_wt+2, 9, 5.5]);
   }
 }
 
@@ -369,13 +381,20 @@ module cam_bezel(){
 // =============================================================================
 // プレビュー(断面 + ゴースト)
 // =============================================================================
+// MOCKUP=false: ゴースト(%)=プレビュー専用でSTL/CSGに出ない
+// MOCKUP=true : 実体として出力(FreeCADで搭載部品も見たいとき)
+//   例: openscad -o preview.csg -D "MOCKUP=true" -D "SHOW=0" torso_v2.scad
+MOCKUP = false;
+module G(){ if(MOCKUP) children(); else %children(); }
 module ghosts(){
-  %translate([-CASE_D/2, -CASE_H/2, WALL]) cube([CASE_D, CASE_H, CASE_W]);          // RDK X5ケース
-  %translate([-PB_W/2, PB_Y0+0.8, WALL]) cube([PB_W, PB_T, PB_H]);                  // モバイルバッテリー
-  %translate([-83/2, -6-55.5/2, DECK_Z]) cube([83, 55.5, 10]);                      // ブレッドボード
-  for(s=[-1,1]) %translate([s*ROPE_X-6, -12, DECK_Z-DECK_T-32]) cube([12, 24, 28]); // SG90ゾーン
+  G() color("#4caf50",0.6) translate([-CASE_D/2, -CASE_H/2, WALL]) cube([CASE_D, CASE_H, CASE_W]); // RDK X5ケース
+  G() color("#455a64",0.6) translate([-PB_W/2, PB_Y0+0.8, WALL]) cube([PB_W, PB_T, PB_H]);         // モバイルバッテリー
+  G() color("#eeeeee",0.6) translate([-83/2, -6-55.5/2, DECK_Z]) cube([83, 55.5, 10]);             // ブレッドボード
+  // SG90本体(コの字クレードル内・軸=ロープ穴直下)
+  for(s=[-1,1]) G() color("#1976d2",0.7)
+    translate([s*(ROPE_X+SG_SHAFT_OFF)-23.1/2, -17, DECK_Z-DECK_T-21.75-6.05]) cube([23.1, 15.9, 12.1]);
 }
-CUT = false;   // true にすると断面表示(内部レイアウト確認用)。既定は全体表示
+CUT = true;    // true=断面表示 / false=全体表示
 module assembly_v2(){
   difference(){
     union(){
