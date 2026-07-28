@@ -82,6 +82,9 @@ SPK_Z = 35;              // v1グリル(z26-44)の中心
 
 FN = 96;                  // 印刷STL=96。FreeCADプレビューは -D FN=28 等で高速化
 $fn = $preview ? 48 : FN;
+// FreeCAD CSGインポータは offset()/角丸で "Null input shape" 落ちするため、
+// CSG出力時は -D FCSAFE=true で純プリミティブ(cube/cylinder)に置換する。
+FCSAFE = false;
 
 // 内半径ヘルパ(テーパー)
 function r_out(z) = (JBOT_D + (JTOP_D-JBOT_D)*z/JH)/2;
@@ -318,10 +321,16 @@ module mid_deck(){
   difference(){
     union(){
       // 本体(前側直線カットで胸カメラと干渉回避)
-      linear_extrude(DECK_T) intersection(){
-        circle(r=r_in(DECK_Z)-2.5);
-        translate([-100, DECK_FRONT_CUT]) square([200, 200]);
-      }
+      if(FCSAFE)
+        intersection(){                                    // CSG安全: 3Dプリミティブ交差
+          cylinder(r=r_in(DECK_Z)-2.5, h=DECK_T);
+          translate([-100, DECK_FRONT_CUT, -1]) cube([200, 200, DECK_T+2]);
+        }
+      else
+        linear_extrude(DECK_T) intersection(){
+          circle(r=r_in(DECK_Z)-2.5);
+          translate([-100, DECK_FRONT_CUT]) square([200, 200]);
+        }
       // ブレッドボード枠(リム2mm)
       translate([0,-6,DECK_T]) difference(){
         rrect(BB_W+2.4+4, BB_D+2.4+4, 2, 5);
@@ -338,7 +347,10 @@ module mid_deck(){
     for(s=[-1,1], y=[-30, 26]) translate([s*40-2, y, -1]) cube([4, 10, DECK_T+2]);
   }
 }
-module rrect(w,d,h,r){ translate([-w/2,-d/2,0]) linear_extrude(h) offset(r=r) offset(r=-r) square([w,d]); }
+module rrect(w,d,h,r){
+  if(FCSAFE) translate([-w/2,-d/2,0]) cube([w,d,h]);                                 // CSG安全: 角丸なし
+  else translate([-w/2,-d/2,0]) linear_extrude(h) offset(r=r) offset(r=-r) square([w,d]);
+}
 
 // =============================================================================
 // SG90 Lブラケット(左右共通・2個印刷): デッキ下面へ M3x2 で吊る。
