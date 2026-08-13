@@ -16,10 +16,18 @@
 #if defined(BOARD_1732S019)
 #include "LGFX_ESP32_1732S019.h"    // 1.9" 170x320 SPI(タッチ無し) → 横長320x170で使用
 static const int W = 320, H = 170;
+#define HAS_TOUCH 0
 #else
 #include "LGFX_ESP32_4827S043.h"    // 4.3" 480x272 RGBパラレル(抵抗膜タッチ)
 static const int W = 480, H = 272;
+#define HAS_TOUCH 1
 #endif
+
+// 自己申告「SIZE w h T0/1」: センダ(display_send.py)がこれを読んで解像度・タッチ有無に
+// 自動適応する。起動時+アイドル2秒毎+統計1秒毎に出す(センダは接続時に入力を捨てるため反復必須)。
+static void announceSize() {
+  Serial.printf("SIZE %d %d T%d\n", W, H, HAS_TOUCH);
+}
 #include <JPEGDEC.h>
 
 static LGFX lcd;
@@ -112,6 +120,7 @@ void setup() {
   Serial.begin(BAUD);
   delay(200);
   Serial.printf("\n=== Korosuke Display M2 (USB JPEG viewer) baud=%d ===\n", BAUD);
+  announceSize();
   jpg = (uint8_t*)ps_malloc(MAX_JPG);
   if (!jpg) jpg = (uint8_t*)malloc(60000);   // PSRAM無し変種の保険(小画面JPEGなら足りる)
   Serial.printf("PSRAM %s, jpg buffer %s (%d B)\n",
@@ -128,6 +137,8 @@ void setup() {
 void loop() {
   pollTouch();
   if (!syncMagic(1000)) {
+    static uint32_t lastSizeMs = 0;
+    if (millis() - lastSizeMs > 2000) { announceSize(); lastSizeMs = millis(); }
     if (everFrame && !idleShown && millis() - lastFrameMs > 1500) {
       drawNoSignalBadge();          // 最後の絵は残す
       idleShown = true;
@@ -162,6 +173,7 @@ void loop() {
     float kbps = bytesAcc / 1024.0f / ((now - lastStat) / 1000.0f);
     Serial.printf("fps=%.1f  %.0f KB/s  lastlen=%u  total=%u\n",
                   fps, kbps, (unsigned)len, (unsigned)total);
+    announceSize();                 // ストリーム中もセンダへ周知(接続直後の読み捨て対策)
     frames = 0; bytesAcc = 0; lastStat = now;
   }
 }

@@ -63,8 +63,8 @@ settings = {
                  else OJ_VOICE),
     "oj_a": 0.40,         # 声道長(小=子供っぽい)
     "oj_r": 1.12,         # 話速
-    "tts_en_voice": "en-us+f4",  # 英語(espeak-ng)の声。+f1〜f5=女声/+m1〜m5=男声
-    "en_pitch": 65,        # 英語ピッチ(espeak-ng -p 0-99)
+    "tts_en_voice": "piper:hfc",  # 英語の声。piper:*=ニューラル(高品質) / en-us+f*=espeak(ロボ声)
+    "en_pitch": 65,        # 英語ピッチ。espeak: -p 0-99 / Piper: 50=標準で±セミトーンシフト
     "react_greet": True,   # 入退室で挨拶する
     "react_speech": True,  # 話しかけに反応する
     "use_llm": True,       # キーワードに無い発話をローカルLLMで返答
@@ -359,12 +359,103 @@ def _eff_lang(setting_key, text=""):
     return _detect_lang(text) if v == "auto" else v
 
 
+# ---- 英語ニューラルTTS (Piper / sherpa-onnx VITS) -------------------------
+# espeak-ng(フォルマント合成=ロボ声)より格段に自然。実測RTF≈0.5(X5 CPU 4thread)。
+# モデルは /home/sunrise/voices/piper/ に配置(sherpa-onnx配布のtar.bz2展開)。
+PIPER_DIR = "/home/sunrise/voices/piper"
+PIPER_VOICES = {          # tts_en_voice="piper:<key>" で選択
+    "amy":   "vits-piper-en_US-amy-medium",
+    "hfc":   "vits-piper-en_US-hfc_female-medium",
+    "jenny": "vits-piper-en_GB-jenny_dioco-medium",
+}
+_piper = {"key": None, "tts": None, "lock": threading.Lock()}
+
+
+def _piper_get(voice):
+    """piper:<key> のOfflineTtsを返す(初回ロード6-10秒は1回だけ、以後キャッシュ)。"""
+    key = voice.split(":", 1)[1] if ":" in voice else ""
+    d = os.path.join(PIPER_DIR, PIPER_VOICES.get(key, ""))
+    if not key or not os.path.isdir(d):
+        print(f"[piper] モデル未配置: key={key!r} dir={d!r}", flush=True)
+        return None
+    if not _piper["lock"].acquire(timeout=30):   # ロード中(~10s)の同時要求は待つ。異常時は諦める
+        print("[piper] lockタイムアウト", flush=True)
+        return None
+    try:
+        if _piper["key"] != key:
+            try:
+                import glob as _g
+                import sherpa_onnx
+                cfg = sherpa_onnx.OfflineTtsConfig(model=sherpa_onnx.OfflineTtsModelConfig(
+                    vits=sherpa_onnx.OfflineTtsVitsModelConfig(
+                        model=_g.glob(d + "/*.onnx")[0], tokens=d + "/tokens.txt",
+                        data_dir=d + "/espeak-ng-data"),
+                    num_threads=4))
+                _piper["tts"] = sherpa_onnx.OfflineTts(cfg)
+                _piper["key"] = key
+                print(f"[piper] loaded: {key}", flush=True)
+            except BaseException as e:
+                import traceback
+                print("[piper] load失敗:", repr(e), flush=True)
+                traceback.print_exc()
+                return None
+        return _piper["tts"]
+    finally:
+        _piper["lock"].release()
+
+
+def _piper_say(voice, text, wav):
+    """Piperで英語合成→wav。en_pitchスライダは 50=標準 とし±セミトーンでピッチシフト
+    (ffmpeg asetrate+atempo。コロ助らしい高い声は 65-80 あたり)。"""
+    tts = _piper_get(voice)
+    if tts is None:
+        return False
+    import numpy as np
+    au = tts.generate(text)
+    import wave as _w
+    f = _w.open(wav, "wb")
+    f.setnchannels(1); f.setsampwidth(2); f.setframerate(au.sample_rate)
+    f.writeframes((np.clip(np.array(au.samples), -1, 1) * 32767).astype("<i2").tobytes())
+    f.close()
+    semis = (int(settings.get("en_pitch", 65)) - 50) * 0.12   # 65→+1.8半音, 99→+5.9
+    if abs(semis) >= 0.3 and shutil.which("ffmpeg"):
+        r = 2 ** (semis / 12)
+        sr = au.sample_rate
+        p = subprocess.run(
+            ["ffmpeg", "-y", "-loglevel", "error", "-i", wav, "-af",
+             f"asetrate={int(sr * r)},aresample={sr},atempo={1 / r:.6f}", wav + ".p.wav"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
+        if p.returncode == 0 and os.path.getsize(wav + ".p.wav") > 0:
+            os.replace(wav + ".p.wav", wav)
+    return os.path.exists(wav) and os.path.getsize(wav) > 0
+
+
+# 起動時に既定Piper声を裏で先読み(初回英語発話の6-10秒待ちを回避)。
+# import時のスレッド起動は避け、初期化が落ち着いてから(Timer)行う。
+def _piper_preload():
+    v = settings.get("tts_en_voice", "")
+    if v.startswith("piper:"):
+        print("[piper] preload開始:", v, flush=True)
+        _piper_get(v)
+
+
+threading.Timer(20.0, _piper_preload).start()
+
+
 def _synthesize(text, wav):
-    """textをwavへ合成する。実効tts言語がenかつespeak-ngがあれば英語音声、
+    """textをwavへ合成する。実効tts言語がenならPiper(高品質)→espeak-ng(保険)、
     それ以外(または未インストール)は日本語Open JTalk。戻り値: 成功True。"""
     text = _tts_clean(text)
     if not text:
         return False
+    if _eff_lang("tts_lang", text) == "en":
+        voice = settings.get("tts_en_voice", "piper:hfc")
+        if voice.startswith("piper:"):
+            try:
+                if _piper_say(voice, text, wav):
+                    return True
+            except Exception as e:
+                print("[piper] 合成失敗→espeakへ:", e)
     if _eff_lang("tts_lang", text) == "en" and shutil.which("espeak-ng"):
         # 英語(espeak-ng)。コロ助らしい高めの子供っぽいロボ声。
         # 「声の高さ(oj_fm)」「話速(oj_r)」スライダを流用してWebから調整可能に。
@@ -372,6 +463,8 @@ def _synthesize(text, wav):
         pitch = max(0, min(99, int(settings.get("en_pitch", 65))))
         speed = max(80, min(260, int(130 * float(settings["oj_r"]))))
         voice = settings.get("tts_en_voice", "en-us+f4")   # +f3〜f5で声色変更可
+        if voice.startswith("piper:"):
+            voice = "en-us+f4"                             # piper失敗時のespeak保険
         p = subprocess.run(
             ["espeak-ng", "-v", voice, "-s", str(speed), "-p", str(pitch), "-w", wav, text],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
@@ -1232,14 +1325,21 @@ small{color:var(--mut);font-size:.78rem}
       <small>追加の声は /home/sunrise/voices/ に .htsvoice を置く</small></div>
     <div class="ctl"><span class="lab">🇬🇧 英語の声 / EN voice</span>
       <select id="c_env" onchange="set('tts_en_voice',this.value)">
+        <optgroup label="ニューラル Piper (高品質)">
+        <option value="piper:hfc" selected>Piper: HFC (US女性・明るめ/既定)</option>
+        <option value="piper:amy">Piper: Amy (US女性)</option>
+        <option value="piper:jenny">Piper: Jenny (GB女性)</option>
+        </optgroup>
+        <optgroup label="espeak-ng (ロボ声)">
         <option value="en-us+f1">Female 1</option>
         <option value="en-us+f2">Female 2</option>
         <option value="en-us+f3">Female 3</option>
-        <option value="en-us+f4" selected>Female 4 (既定)</option>
+        <option value="en-us+f4">Female 4</option>
         <option value="en-us+f5">Female 5</option>
         <option value="en-us+m1">Male 1</option>
         <option value="en-us+m3">Male 3</option>
         <option value="en-us+m5">Male 5</option>
+        </optgroup>
         <option value="en-gb+f4">British Female</option></select></div>
     <div class="ctl"><span class="lab">🇬🇧 英語ピッチ / EN pitch</span>
       <input type="range" min="0" max="99" value="65" id="c_enp"
@@ -1679,8 +1779,13 @@ class Handler(BaseHTTPRequestHandler):
                     except ValueError:
                         pass
                 elif k == "tts_en_voice":
-                    if re.fullmatch(r"[a-z]{2}(-[a-z]+)?(\+[fm][1-5])?", val):
+                    if (re.fullmatch(r"[a-z]{2}(-[a-z]+)?(\+[fm][1-5])?", val)
+                            or (val.startswith("piper:")
+                                and val.split(":", 1)[1] in PIPER_VOICES)):
                         settings["tts_en_voice"] = val
+                        if val.startswith("piper:"):      # 次の発話で待たないよう先読み
+                            threading.Thread(target=_piper_get, args=(val,),
+                                             daemon=True).start()
                 elif k in ("oj_a", "oj_r", "mic_gain", "pose_score", "kpt_thres",
                            "gesture_cd", "peak_ceil_db", "hpf"):
                     try:
@@ -1861,8 +1966,10 @@ class Handler(BaseHTTPRequestHandler):
                                            else "コロ助（日本語・ナリ口調）")
                     snap["stt_model"] = state.get("stt_model_name", "sherpa-onnx")
                     _tl = settings["tts_lang"]
-                    snap["tts_engine"] = ("Auto: Open JTalk / espeak-ng" if _tl == "auto"
-                                          else "espeak-ng (English)" if _tl == "en"
+                    _en_eng = ("Piper" if settings.get("tts_en_voice", "").startswith("piper:")
+                               else "espeak-ng")
+                    snap["tts_engine"] = ("Auto: Open JTalk / " + _en_eng if _tl == "auto"
+                                          else _en_eng + " (English)" if _tl == "en"
                                           else "Open JTalk (日本語)")
                     self.wfile.write(("data: " + json.dumps(snap, ensure_ascii=False) + "\n\n").encode("utf-8"))
                     self.wfile.flush()

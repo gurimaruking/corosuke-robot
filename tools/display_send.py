@@ -50,7 +50,25 @@ _FONT = None
 _ctl = {"base": ""}                       # monitorのベースURL(タッチ言語切替に使用)
 _toast = {"t": "", "until": 0.0}          # 画面中央の一時表示(言語切替の確認)
 _btn = {"rect": (0, 0, 0, 0), "vw": 480, "vh": 272}   # 言語ボタン(viewer空間)のヒット領域
-_UI = {"lh": 26, "btn": True}    # 行高/ボタン有無(小画面・タッチ無しパネルでmainが調整)
+_UI = {"lh": 26, "btn": True, "btn_cli": True}   # 行高/ボタン有無(小画面・タッチ無しで調整)
+_panel = {"w": 480, "h": 272, "touch": None}     # FWの自己申告「SIZE w h T0/1」で自動更新
+
+
+def _apply_panel(w, h, touch):
+    """FWが名乗った解像度/タッチ有無に追従(1732S019=320x170 T0 / 4827S043=480x272 T1)。
+    小画面では帯の行高とフォントも縮小。タッチ無しなら言語ボタンを消す。"""
+    global _FONT
+    if (w, h) != (_panel["w"], _panel["h"]):
+        _panel["w"], _panel["h"] = w, h
+        _UI["lh"] = 26 if h >= 220 else 19
+        if _FONT is not None:
+            _FONT = _load_jp_font(19 if h >= 220 else 14)
+        print(f"[panel] FW申告に追従: {w}x{h}")
+    if touch is not None and touch != _panel["touch"]:
+        _panel["touch"] = touch
+        _UI["btn"] = touch and _UI["btn_cli"]
+        print(f"[panel] タッチ{'あり' if touch else '無し'} → 言語ボタン"
+              f"{'表示' if _UI['btn'] else '非表示'}")
 
 
 def on_touch(px, py):
@@ -407,7 +425,14 @@ def drain_esp(ser, buf):
                 got_ack = True
             elif byte in (0x0A,):    # \n
                 line = bytes(buf).decode("ascii", "ignore").strip()
-                if line:
+                if line.startswith("SIZE "):          # FW自己申告(毎秒来る)→静かに適応
+                    try:
+                        p = line.split()
+                        t = {"T0": False, "T1": True}.get(p[3]) if len(p) > 3 else None
+                        _apply_panel(int(p[1]), int(p[2]), t)
+                    except (ValueError, IndexError):
+                        pass
+                elif line:
                     print("  [esp]", line)
                     if line == "CTL lang":            # 旧ファーム互換: 全面タップ=言語切替
                         threading.Thread(target=cycle_lang, daemon=True).start()
@@ -460,7 +485,9 @@ def main():
                     help="言語ボタンを描かない(ESP32-1732S019などタッチ無しパネル用)")
     args = ap.parse_args()
 
-    _UI["btn"] = not args.no_button
+    _UI["btn_cli"] = not args.no_button
+    _UI["btn"] = _UI["btn_cli"]
+    _panel["w"], _panel["h"] = args.width, args.height
     if args.height < 220:                 # 小画面(1732S019=170px高)は帯を細く
         _UI["lh"] = 19
 
@@ -496,6 +523,7 @@ def main():
     try:
         for frame in frames_from_source(args.source, w, h):
             t = time.time()
+            w, h = _panel["w"], _panel["h"]             # FWのSIZE申告に毎フレーム追従
             cam_r, disp_r = _rot["cam"] % 360, _rot["disp"] % 360
             if cam_r:
                 frame = rotate_frame(frame, cam_r)      # カメラ向き補正
