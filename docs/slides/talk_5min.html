@@ -12,19 +12,19 @@
   .slide{ display:none; width:100vw; height:100vh; padding:5vh 6vw; flex-direction:column; }
   .slide.on{ display:flex; }
   .eyebrow{ color:var(--accent); font-weight:700; letter-spacing:.18em; font-size:1.6vh; text-transform:uppercase; }
-  h1{ font-size:7.2vh; line-height:1.15; margin:1.2vh 0; }
-  h2{ font-size:5.2vh; margin:.8vh 0 2.4vh; }
-  .sub{ color:var(--muted); font-size:2.6vh; }
-  .big{ font-size:3.2vh; line-height:1.55; }
+  h1{ font-size:7vh; line-height:1.15; margin:1.2vh 0; }
+  h2{ font-size:5vh; margin:.8vh 0 2.2vh; }
+  .sub{ color:var(--muted); font-size:2.5vh; }
+  .big{ font-size:3.1vh; line-height:1.55; }
   ul.big{ padding-left:1.2em; }
-  .big li{ margin:.9vh 0; }
+  .big li{ margin:.85vh 0; }
   b, strong{ color:var(--gold); }
   .accent{ color:var(--accent); font-weight:700; }
   .green{ color:var(--green); font-weight:700; }
   .row{ display:flex; gap:2vw; align-items:center; flex:1; min-height:0; }
   .col{ flex:1; min-width:0; }
-  img.ph{ max-width:100%; max-height:62vh; border-radius:1.2vh; object-fit:contain; }
-  img.wide{ max-height:70vh; }
+  img.ph{ max-width:100%; max-height:60vh; border-radius:1.2vh; object-fit:contain; }
+  img.wide{ max-height:66vh; }
   .logos img{ height:6.5vh; margin-right:2vw; vertical-align:middle; background:#fff; padding:.6vh; border-radius:.8vh; }
   .foot{ position:fixed; left:2vw; bottom:1.6vh; color:var(--muted); font-size:1.8vh; }
   .chip{ position:fixed; right:2vw; bottom:1.6vh; color:var(--bg); background:var(--gold);
@@ -44,26 +44,46 @@
     <img src="../photo/D-Robotics_Logo.png" alt="D-Robotics">
     <img src="../photo/event_logo1.png" alt="Robotics Dream Keeper Challenge">
   </p>
-  <p class="eyebrow">Robotics Dream Keeper Challenge · Tokyo</p>
+  <p class="eyebrow">Robotics Dream Keeper Challenge</p>
   <h1>I am Korosuke!</h1>
   <p class="big"><b>An era when anyone can build a robot</b></p>
   <div class="row center" style="flex:0 1 auto; margin-top:2vh;">
-    <img class="ph" style="max-height:34vh" src="../photo/korosuke_robo.jpg" alt="Korosuke">
+    <img class="ph" style="max-height:32vh" src="../photo/korosuke_robo.jpg" alt="Korosuke">
   </div>
-  <p class="sub" style="margin-top:2vh;">uecken — my first robot · built at Robostadion (Akihabara)</p>
+  <p class="sub" style="margin-top:2vh;">uecken · my first robot · built by Robostadion (Akihabara, Tokyo)</p>
   <span class="chip">0:00–0:30</span>
 </section>
 
-<!-- 2 BACKGROUND 0:30-1:10 -->
+<!-- 2 INTRODUCTION 0:30-1:05 -->
+<section class="slide">
+  <p class="eyebrow">Introduction</p>
+  <h2>A fan-made karakuri robot with an RDK X5 brain</h2>
+  <div class="row">
+    <div class="col big">
+      <ul class="big">
+        <li>The partner robot from <b><i>Kiteretsu Daihyakka</i></b> (Fujiko F. Fujio)</li>
+        <li>Fan-made by <span class="accent">Robostadion</span> — brain = <b>one D-Robotics RDK X5</b></li>
+        <li>Mechanics / electronics / software — <b>designed together with AI</b></li>
+        <li>Sees · listens · thinks · talks · emotes — <span class="green">100% on the board, no cloud</span></li>
+      </ul>
+    </div>
+    <div class="col" style="text-align:center;">
+      <img class="ph" src="../photo/20260725_korosuke-robot-revision_0.1.jpg" alt="Korosuke rev0.1">
+    </div>
+  </div>
+  <span class="chip">0:30–1:05</span>
+</section>
+
+<!-- 3 BACKGROUND 1:05-1:40 -->
 <section class="slide">
   <p class="eyebrow">Background</p>
   <h2>"Why not build Korosuke?"</h2>
   <div class="row">
     <div class="col big">
       <ul class="big">
-        <li>I'm a <b>wireless engineer</b> — not a robotics person</li>
-        <li>Only ideas, no robot… then <b>Murata-san</b> (<span class="accent">Robostadion</span>, Akihabara) invited me</li>
-        <li>Got the 3D-printed parts at his studio → started building</li>
+        <li>I'm a <b>wireless engineer</b> — this is my first robot</li>
+        <li><b>Murata-san</b> (owner of Robostadion) invited me</li>
+        <li>Saw the Discord → remembered → got the parts → <b>built it!</b></li>
         <li>Inspired by <b>Disney's Olaf robot</b> &amp; <b>Open Duck Mini</b></li>
       </ul>
     </div>
@@ -72,93 +92,75 @@
       <img class="ph" src="../photo/korosuke_uecken_at_robostadion.jpg" alt="uecken">
     </div>
   </div>
-  <span class="chip">0:30–1:10</span>
+  <span class="chip">1:05–1:40</span>
 </section>
 
-<!-- 3 WHAT 1:10-1:45 -->
+<!-- 4 HARDWARE 1:40-2:15 -->
 <section class="slide">
-  <p class="eyebrow">What is Korosuke?</p>
-  <h2>Sees · Listens · Thinks · Talks · Emotes</h2>
-  <div class="row">
-    <div class="col big">
-      <ul class="big">
-        <li>Brain = <b>one D-Robotics RDK X5</b> board</li>
-        <li>Vision + STT + <b>local LLM</b> + TTS — <span class="green">100% on-device</span></li>
-        <li><b>No cloud. No API keys.</b></li>
-        <li>Speaks <b>Japanese &amp; English</b></li>
-      </ul>
-    </div>
-    <div class="col" style="text-align:center;">
-      <img class="ph" src="../photo/20260725_korosuke-robot-revision_0.1.jpg" alt="Korosuke rev0.1">
-    </div>
-  </div>
-  <span class="chip">1:10–1:45</span>
-</section>
-
-<!-- 4 HARDWARE 1:45-2:20 -->
-<section class="slide">
-  <p class="eyebrow">Hardware</p>
+  <p class="eyebrow">Architecture · Hardware</p>
   <h2>No custom PCB — just simple wiring</h2>
   <div class="row" style="justify-content:center;">
     <img class="ph wide" src="img/korosuke_03.jpg" alt="Wiring diagram">
   </div>
-  <p class="sub">Power bank → RDK X5 · camera <b>= mic</b> (C270) · <b>one ESP32-S3</b> → eyes + arms · I2S amp → φ50 speaker · two power rails, common GND</p>
-  <span class="chip">1:45–2:20</span>
+  <p class="sub">Power bank → RDK X5 · C270 camera <b>= mic</b> · <b>one ESP32-S3</b> → 2 eyes + 2 arms · I2S amp → φ50 speaker · <b>two power rails, common GND</b></p>
+  <span class="chip">1:40–2:15</span>
 </section>
 
-<!-- 5 SOFTWARE 2:20-2:55 -->
+<!-- 5 SOFTWARE 2:15-2:50 -->
 <section class="slide">
-  <p class="eyebrow">Software</p>
+  <p class="eyebrow">Architecture · Software</p>
   <h2>One "brain" orchestrates everything</h2>
   <div class="row">
     <div class="col big">
       <ul class="big">
-        <li>🎤 Speech → text (<b>SenseVoice</b>)</li>
-        <li>🧠 Local LLM thinks (<b>TinySwallow-1.5B</b>, 5–10 s → "thinking eyes")</li>
-        <li>🗣 Voice out (<b>Open JTalk</b>)</li>
-        <li>👀 <b>BPU</b> finds people @ ~20 FPS → eyes follow you</li>
-        <li>💪 ESP32-S3 → 8 eye emotions + rope-pull arms</li>
+        <li>👂 <b>Listen</b> — speech → text (STT: SenseVoice)</li>
+        <li>🧠 <b>Think</b> — local LLM (TinySwallow-1.5B) · 5–10 s → <b>"thinking eyes"</b></li>
+        <li>🗣 <b>Speak</b> — Open JTalk → amp → speaker</li>
+        <li>👀 <b>See</b> — <b>BPU</b> finds people (~20 FPS) → eyes follow you</li>
+        <li>💪 <b>Move</b> — ESP32-S3 → 8 eye emotions + arms</li>
+        <li>⏻ <b>Power button</b> — "good night" → ✕✕ eyes → safe shutdown</li>
       </ul>
     </div>
     <div class="col" style="text-align:center;">
       <img class="ph" src="../photo/korosuke-monitor.png" alt="Korosuke monitor">
     </div>
   </div>
-  <span class="chip">2:20–2:55</span>
+  <span class="chip">2:15–2:50</span>
 </section>
 
-<!-- 6 BUILD 2:55-3:30 -->
+<!-- 6 BUILD PROCESS 2:50-3:30 -->
 <section class="slide">
-  <p class="eyebrow">Build</p>
-  <h2>25 hours, together with AI</h2>
+  <p class="eyebrow">Build process</p>
+  <h2>3D print · wire · let AI write it</h2>
   <div class="row">
     <div class="col big">
       <ul class="big">
-        <li><b>15 h</b> 3D printing + <b>10 h</b> electronics &amp; software</li>
-        <li>Tools: 3D printer · velcro · string · zip ties</li>
-        <li>Body, wiring, software — <b>designed with AI</b></li>
-        <li><span class="accent">I was the eyes and hands of the AI</span> — placing parts, debugging</li>
+        <li>3D parts <b>co-created by Murata-san and AI</b> (v1 files in the repo)</li>
+        <li>Head = 2 hemispheres · torso holds everything · <b>rope-pull arms</b> (rings + string)</li>
+        <li>Wiring — exactly as the repo docs</li>
+        <li>Software — <b>"Let AI write it"</b> (I placed parts &amp; debugged)</li>
+        <li>Tools: 3D printer · velcro · double-sided tape · string · zip ties</li>
       </ul>
     </div>
     <div class="col" style="display:flex; flex-direction:column; gap:1vh;">
-      <img class="ph" style="max-height:30vh" src="../photo/korosuke_3Dprint_parts.jpg" alt="slicer">
-      <img class="ph" style="max-height:30vh" src="../photo/korosuke_3Dparts_bulding.jpg" alt="assembly">
+      <img class="ph" style="max-height:29vh" src="../photo/head_v1.jpg" alt="head part">
+      <img class="ph" style="max-height:29vh" src="../photo/body_ver2.jpg" alt="torso part">
     </div>
   </div>
-  <span class="chip">2:55–3:30</span>
+  <span class="chip">2:50–3:30</span>
 </section>
 
-<!-- 7 MESSAGE 3:30-4:00 -->
+<!-- 7 AFTERWORD 3:30-4:00 -->
 <section class="slide center">
-  <p class="eyebrow">Message</p>
+  <p class="eyebrow">Afterword</p>
   <h1 style="font-size:6vh;">Anyone can build a robot.</h1>
-  <p class="big" style="max-width:70vw; margin-top:2vh;">
-    One beginner + <b>AI</b> + a 3D printer + good friends at a robot space<br>
-    = a talking robot in <b>25 hours</b>. Someday, <span class="accent">one day</span>.
+  <p class="big" style="max-width:72vw; margin-top:2vh;">
+    This build: <b>15 h printing + 10 h electronics &amp; software ≈ 25 hours</b>.<br>
+    With AI — <span class="accent">a custom robot in one day, maybe ~5 hours, is within reach!</span>
   </p>
-  <p class="big" style="margin-top:3vh;">Everything is open source →
+  <p class="big" style="margin-top:2.5vh;">All open source →
     <span class="green">github.com/gurimaruking/corosuke-robot</span></p>
-  <p class="big" style="margin-top:4vh;"><b>Now — let's meet him. Korosuke, say hello!</b></p>
+  <p class="big" style="margin-top:3.5vh;"><b>Now — let's meet him. Korosuke, say hello!</b></p>
   <span class="chip">3:30–4:00</span>
 </section>
 

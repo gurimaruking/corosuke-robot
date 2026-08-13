@@ -9,7 +9,7 @@
 > 🇬🇧 **English version → [intro_en.md](intro_en.md)** · 技術詳細は [STAGE3.md](../../STAGE3.md) を参照ナリ。
 
 > 🇬🇧 **Key messages (English)** — *presented in Japanese, key points below:*
-> - **Korosuke** is a fan-made animatronic of the karakuri robot from *Kiteretsu Daihyakka*, built at **Robostadion** (Akihabara robot co-working space) for the [Robotics Dream Keeper Challenge](https://github.com/D-Robotics/Robotics-Dream-Keeper-Challenge).
+> - **Korosuke** is a fan-made animatronic of the karakuri robot from *Kiteretsu Daihyakka*, built by **Robostadion** (Akihabara robot co-working space) for the [Robotics Dream Keeper Challenge](https://github.com/D-Robotics/Robotics-Dream-Keeper-Challenge).
 > - Everything runs **100% on-device on RDK X5** — BPU vision, speech recognition, local-LLM dialogue, TTS. **No cloud.**
 > - This is **my first robot**: Murata-san (Robostadion) invited me, shared the parts, and I built it.
 > - The 3D-printed body was **designed with Claude (AI)**; software was also written with AI (VS Code + Claude Code). All files are in this repo.
@@ -220,6 +220,8 @@ flowchart LR
 - **両面テープ** — パーツの接着に便利。
 - **紐** — 手を動かすのに必要です。
 - **結束バンド** — ロープアームの調整に必要です。 [ダイソー](https://jp.daisonet.com/products/4550480088891)
+- **ブレッドボード(小型)** — ESP32-S3まわりの配線に使用
+- **ジャンパワイヤ**(オス-オス/オス-メス) — 各部品の接続に使用
 
 ## あとがき
 
