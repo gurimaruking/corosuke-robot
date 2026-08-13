@@ -524,14 +524,28 @@ class Eyes:
     def __init__(self):
         self._ser = None
 
+    # 目基板ポートを選ぶ。表示基板(CYD, CH340 1a86:7523)はVID/PIDで除外(RDKにS3が2枚あるため)。
+    def _pick_port(self):
+        try:
+            from serial.tools import list_ports
+            cands = [p.device for p in list_ports.comports()
+                     if p.device.startswith(("/dev/ttyACM", "/dev/ttyUSB"))
+                     and (p.vid, p.pid) != (0x1A86, 0x7523)]   # 表示基板を除外
+            if cands:
+                return sorted(cands)[0]
+        except Exception:  # noqa
+            pass
+        ports = sorted(glob.glob("/dev/ttyACM*") + glob.glob("/dev/ttyUSB*"))  # フォールバック
+        return ports[0] if ports else None
+
     def _ensure(self):
         if self._ser or serial is None:
             return
-        ports = sorted(glob.glob("/dev/ttyACM*") + glob.glob("/dev/ttyUSB*"))  # 番号自動検出
-        if not ports:
+        port = self._pick_port()
+        if not port:
             return
         try:
-            self._ser = serial.Serial(ports[0], 115200, timeout=0.3)
+            self._ser = serial.Serial(port, 115200, timeout=0.3)
             time.sleep(0.3)
             with lock:
                 state["eye_ok"] = True

@@ -1,5 +1,10 @@
 # Project Korosuke — Stage 3 (Launch): Fully On-Device Interactive Robot
 
+<p>
+<img src="docs/photo/D-Robotics_Logo.png" height="72" alt="D-Robotics">
+<img src="docs/photo/event_logo1.png" height="72" alt="Robotics Dream Keeper Challenge">
+</p>
+
 D-Robotics **Robotics Dream Keeper Challenge** — Stage 3 showcase.
 Korosuke (コロ助), the karakuri-robot from *Kiteretsu Daihyakka*, rebuilt as a ~46 cm
 desktop animatronic whose brain is an **RDK X5** (10 TOPS BPU "Bayes-e", 8× Cortex-A55,
