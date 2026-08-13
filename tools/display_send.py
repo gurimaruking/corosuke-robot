@@ -22,6 +22,7 @@ import struct
 import sys
 import threading
 import time
+import urllib.parse
 import urllib.request
 
 import numpy as np
@@ -44,8 +45,32 @@ DISPLAY_VID, DISPLAY_PID = 0x1A86, 0x7523
 _rot = {"cam": 0, "disp": 0}
 
 # 認識テキスト+返答( korosuke_monitor の /disptext をポーリング)。上帯=聞いた声 / 下帯=コロ助の返答
-_txt = {"heard": "", "reply": ""}
+_txt = {"heard": "", "reply": "", "lang": "auto"}
 _FONT = None
+_ctl = {"base": ""}                       # monitorのベースURL(タッチ言語切替に使用)
+_toast = {"t": "", "until": 0.0}          # 画面中央の一時表示(言語切替の確認)
+
+
+def cycle_lang():
+    """CYDタップ → 言語を ja→en→auto で巡回。/setで一括切替し、トースト+音声で確認。"""
+    base = _ctl["base"]
+    if not base:
+        return
+    order = ["ja", "en", "auto"]
+    cur = _txt.get("lang") or "auto"
+    nxt = order[(order.index(cur) + 1) % 3] if cur in order else "ja"
+    names = {"ja": "日本語", "en": "English", "auto": "Auto(バイリンガル)"}
+    say = {"ja": "日本語モードナリ！", "en": "English mode!", "auto": "バイリンガルモードナリ！"}
+    try:
+        urllib.request.urlopen(
+            f"{base}/set?stt_lang={nxt}&llm_lang={nxt}&tts_lang={nxt}", timeout=3).read()
+        _txt["lang"] = nxt
+        _toast["t"] = "言語: " + names[nxt]
+        _toast["until"] = time.time() + 2.5
+        urllib.request.urlopen(base + "/say?text=" + urllib.parse.quote(say[nxt]), timeout=3).read()
+        print(f"[ctl] 言語切替 → {nxt}")
+    except Exception as e:
+        print("[ctl] 言語切替失敗:", e)
 
 
 def _load_jp_font(size=19):
@@ -72,6 +97,7 @@ def text_poller(url):
                 d = json.loads(r.read().decode("utf-8"))
                 _txt["heard"] = (d.get("heard") or "").strip()
                 _txt["reply"] = (d.get("reply") or "").strip()
+                _txt["lang"] = d.get("lang") or _txt["lang"]
         except Exception:
             pass
         time.sleep(0.5)
@@ -80,7 +106,8 @@ def text_poller(url):
 def overlay_text(canvas):
     """上帯=認識した声(白) / 下帯=コロ助の返答(黄) を半透明帯で合成。"""
     heard, reply = _txt["heard"], _txt["reply"]
-    if _FONT is None or Image is None or not (heard or reply):
+    toast = _toast["t"] if time.time() < _toast["until"] else ""
+    if _FONT is None or Image is None or not (heard or reply or toast):
         return canvas
     img = Image.fromarray(cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB)).convert("RGBA")
     ov = Image.new("RGBA", img.size, (0, 0, 0, 0))
@@ -101,6 +128,11 @@ def overlay_text(canvas):
         band(0, heard, (255, 255, 255, 255))
     if reply:
         band(H - bh, reply, (255, 224, 110, 255))
+    if toast:                                # 画面中央: 言語切替の確認表示
+        tw = d.textlength(toast, font=_FONT)
+        d.rectangle([(W - tw) / 2 - 14, H / 2 - 20, (W + tw) / 2 + 14, H / 2 + 20],
+                    fill=(0, 60, 40, 210))
+        d.text(((W - tw) / 2, H / 2 - 11), toast, font=_FONT, fill=(120, 255, 200, 255))
     out = Image.alpha_composite(img, ov).convert("RGB")
     return cv2.cvtColor(np.array(out), cv2.COLOR_RGB2BGR)
 
@@ -345,7 +377,8 @@ def main():
         # 同じホストの /disptext から認識テキスト+返答を取得して帯表示
         global _FONT
         _FONT = _load_jp_font()
-        txt_url = cfg_url.rsplit("/", 1)[0] + "/disptext"
+        _ctl["base"] = cfg_url.rsplit("/", 1)[0]
+        txt_url = _ctl["base"] + "/disptext"
         threading.Thread(target=text_poller, args=(txt_url,), daemon=True).start()
         print(f"テキストポーリング: {txt_url}  (font={'OK' if _FONT else '無し→帯なし'})")
 

@@ -62,11 +62,23 @@ static void drawCounter() {
   lcd.drawString(String("#") + total, 3, 1);
 }
 
+// タップ検出(デバウンス0.7s) → "CTL lang" をRDKへ送信(言語巡回切替: display_send.pyが処理)
+static uint32_t lastTouchMs = 0;
+static void pollTouch() {
+  int32_t tx, ty;
+  if (lcd.getTouch(&tx, &ty)) {
+    uint32_t now = millis();
+    if (now - lastTouchMs > 700) Serial.println("CTL lang");
+    lastTouchMs = now;
+  }
+}
+
 static bool syncMagic(uint32_t toms) {
   uint32_t t = millis();
   int state = 0;
+  uint16_t k = 0;
   while (millis() - t < toms) {
-    if (!Serial.available()) { delay(1); continue; }
+    if (!Serial.available()) { if (++k >= 50) { k = 0; pollTouch(); } delay(1); continue; }
     uint8_t b = Serial.read();
     if (state == 0) { state = (b == 0xA5) ? 1 : 0; }
     else            { if (b == 0x5A) return true; state = (b == 0xA5) ? 1 : 0; }
@@ -105,6 +117,7 @@ void setup() {
 }
 
 void loop() {
+  pollTouch();
   if (!syncMagic(1000)) {
     if (everFrame && !idleShown && millis() - lastFrameMs > 1500) {
       drawNoSignalBadge();          // 最後の絵は残す
