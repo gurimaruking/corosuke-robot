@@ -54,6 +54,8 @@ It **thinks** — a small local LLM, TinySwallow 1.5B, writes a reply.
 It **speaks** — with Open JTalk.
 It **sees** — the **BPU**, the AI chip, finds people at about 20 FPS,
 so **his eyes follow you**.
+And it **moves** — the brain sends commands to the ESP32-S3,
+which switches the **eight eye emotions** and waves the **arms**.
 Thinking takes 5 to 10 seconds — so he shows **"thinking eyes"**.
 This web monitor shows everything in real time.
 
