@@ -32,18 +32,18 @@ One day **Murata-san**, the owner of Robostadion, said to me:
 **"Why not build Korosuke?"**
 Later I saw the Robostadion Discord, remembered that invitation,
 went to his studio, received the 3D-printed parts — and got to build it!
-These photos show our little **"head-mounting ceremony"** —
-placing Korosuke's head on his body for the first time.
 The design was inspired by **Disney's Olaf robot** and **Open Duck Mini**.
 
 ## [1:40] Slide 4 — Hardware (35 s)
 
 Here is the hardware.
-A power bank powers the RDK X5.
-A small camera — which is **also the microphone**.
-**One ESP32-S3** drives the two round LCD eyes and the rope-pull arms.
-A tiny I2S amp drives the speaker.
-Two power rails, one common ground.
+At the center is the **RDK X5** — it runs all the main functions:
+vision, speech recognition, dialogue, and voice.
+The camera is **also the microphone**.
+The eyes and the arms are controlled **through one ESP32-S3**, connected by USB.
+Only the servo power is special: the servos can draw **more than one amp**,
+so they run from a **separate LiPo battery**.
+And for the speaker, we use a tiny **I2S amp module** to keep everything small.
 **No custom PCB — just simple wiring.**
 
 ## [2:15] Slide 5 — Software (35 s)
