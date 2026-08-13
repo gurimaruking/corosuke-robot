@@ -48,9 +48,8 @@ thinks, talks and emotes — 100 % on the board, no cloud** — and was built fo
 [@robostadion_sin](https://x.com/robostadion_sin)) once said to me: "Why not build Korosuke?"**
 
 While Murata-san and the staff were busy preparing **REK** (*1 — a robot battle event held in
-Akihabara), I was planning to enter the RDK-Challenge myself, but for various reasons I had
-only finished the concept. One day I looked at the Robostadion Discord, remembered that
-invitation — went to Robostadion in Akihabara, received the Korosuke parts, and got to build it!
+Akihabara), one day I looked at the Robostadion Discord, remembered that invitation —
+went to Robostadion in Akihabara, received the Korosuke parts, and got to build it!
 
 <table>
 <tr>
