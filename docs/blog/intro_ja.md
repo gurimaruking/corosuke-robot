@@ -6,7 +6,7 @@
 </p>
 
 > D-Robotics「Robotics Dream Keeper Challenge」参加記(日本語)。
-> 英語版のプロジェクト概要は [KazukiMurata-Project-Korosuke.md](../KazukiMurata-Project-Korosuke.md)、技術詳細は [STAGE3.md](../../STAGE3.md) を参照ナリ。
+> 🇬🇧 **English version → [intro_en.md](intro_en.md)** · 技術詳細は [STAGE3.md](../../STAGE3.md) を参照ナリ。
 
 > 🇬🇧 **Key messages (English)** — *presented in Japanese, key points below:*
 > - **Korosuke** is a fan-made animatronic of the karakuri robot from *Kiteretsu Daihyakka*, built at **Robostadion** (Akihabara robot co-working space) for the [Robotics Dream Keeper Challenge](https://github.com/D-Robotics/Robotics-Dream-Keeper-Challenge).
@@ -173,7 +173,7 @@ flowchart LR
 <img src="../photo/korosuke_3Dparts_bulding.jpg" width="49%" alt="パーツの組み立て">
 </p>
 
-各部品の筐体構成は下記。
+各部品の詳細は下記。
 
 - **頭**: 半球二つ。片方に**目の穴**を開けて、丸型LCDの目を内側から差し込む
 - **胴体**: RDK X5・カメラ・スピーカ・サーボモータが収まる円筒。**上下に開口**して部品を出し入れでき、**横には腕を動かすロープアームを通す穴**
