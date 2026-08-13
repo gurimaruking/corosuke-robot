@@ -32,6 +32,8 @@ One day **Murata-san**, the owner of Robostadion, said to me:
 **"Why not build Korosuke?"**
 Later I saw the Robostadion Discord, remembered that invitation,
 went to his studio, received the 3D-printed parts — and got to build it!
+These photos show our little **"head-mounting ceremony"** —
+placing Korosuke's head on his body for the first time.
 The design was inspired by **Disney's Olaf robot** and **Open Duck Mini**.
 
 ## [1:40] Slide 4 — Hardware (35 s)
