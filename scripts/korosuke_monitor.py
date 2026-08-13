@@ -1531,9 +1531,9 @@ async function startPcCam(devId){
 async function togglePcCam(){
   const p=document.getElementById('pccam_panel'), note=document.getElementById('pccam_note'),
         btn=document.getElementById('pccam_btn');
-  if(p.style.display!=='none'){ p.style.display='none'; btn.classList.remove('active');
+  if(p.style.display!=='none'){ p.style.display='none'; btn.classList.remove('active'); camLayout(false);
     if(pcStream){ pcStream.getTracks().forEach(t=>t.stop()); pcStream=null; } return; }
-  p.style.display='block'; btn.classList.add('active');
+  p.style.display='block'; btn.classList.add('active'); camLayout(true);
   if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)){
     note.innerHTML='⚠ このURL(http)ではブラウザがカメラをブロックします。<br>Chrome/Edgeの <code>chrome://flags/#unsafely-treat-insecure-origin-as-secure</code> にこのページのURL(例 http://192.168.128.10:8080)を追加→ブラウザ再起動で使えます。';
     return; }
@@ -1547,6 +1547,19 @@ async function togglePcCam(){
     note.textContent='';
   }catch(e){ note.textContent='カメラを開けません: '+e; }
 }
+/* パネル表示中は本文をパネル幅ぶん右へ寄せる(ドラッグでのサイズ変更にも追従) */
+function camLayout(on){
+  const p=document.getElementById('pccam_panel');
+  document.querySelectorAll('.view').forEach(v=>{
+    v.style.marginLeft = on ? (p.offsetWidth+24)+'px' : '';
+    v.style.maxWidth   = on ? 'none' : '';
+    v.style.marginRight= on ? '16px' : '';
+  });
+}
+new ResizeObserver(()=>{
+  const p=document.getElementById('pccam_panel');
+  if(p && p.style.display!=='none') camLayout(true);
+}).observe(document.getElementById('pccam_panel'));
 
 /* Korosuke Active/Inactive: 「反応と会話」(react_greet/react_speech/use_llm/use_arm)を一括ON/OFF */
 let kActive=true;
