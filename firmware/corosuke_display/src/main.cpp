@@ -62,13 +62,13 @@ static void drawCounter() {
   lcd.drawString(String("#") + total, 3, 1);
 }
 
-// タップ検出(デバウンス0.7s) → "CTL lang" をRDKへ送信(言語巡回切替: display_send.pyが処理)
+// タップ検出(デバウンス0.7s) → "TOUCH x y" をRDKへ送信(display_send.pyがボタン判定)
 static uint32_t lastTouchMs = 0;
 static void pollTouch() {
   int32_t tx, ty;
   if (lcd.getTouch(&tx, &ty)) {
     uint32_t now = millis();
-    if (now - lastTouchMs > 700) Serial.println("CTL lang");
+    if (now - lastTouchMs > 700) { Serial.print("TOUCH "); Serial.print(tx); Serial.print(" "); Serial.println(ty); }
     lastTouchMs = now;
   }
 }

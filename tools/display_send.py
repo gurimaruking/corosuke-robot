@@ -49,6 +49,50 @@ _txt = {"heard": "", "reply": "", "lang": "auto"}
 _FONT = None
 _ctl = {"base": ""}                       # monitorのベースURL(タッチ言語切替に使用)
 _toast = {"t": "", "until": 0.0}          # 画面中央の一時表示(言語切替の確認)
+_btn = {"rect": (0, 0, 0, 0), "vw": 480, "vh": 272}   # 言語ボタン(viewer空間)のヒット領域
+
+
+def on_touch(px, py):
+    """パネル座標(480x272)のタップを viewer座標へ逆回転し、言語ボタンなら切替。"""
+    d = _rot["disp"] % 360
+    vw, vh = _btn["vw"], _btn["vh"]
+    if d == 0:
+        vx, vy = px, py
+    elif d == 90:      # viewerを90°CWしてパネルにした → 逆変換
+        vx, vy = py, vh - 1 - px
+    elif d == 180:
+        vx, vy = vw - 1 - px, vh - 1 - py
+    else:              # 270
+        vx, vy = vw - 1 - py, px
+    x0, y0, x1, y1 = _btn["rect"]
+    if x0 <= vx <= x1 and y0 <= vy <= y1:
+        threading.Thread(target=cycle_lang, daemon=True).start()
+    else:
+        # ボタン以外=お腹タッチ → くすぐったい反応(2.5秒クールダウン)
+        now = time.time()
+        if now - _tickle["last"] > 2.5:
+            _tickle["last"] = now
+            threading.Thread(target=tickle, daemon=True).start()
+
+
+_tickle = {"last": 0.0}
+TICKLE_LINES = ["くすぐったいナリ！", "わははっ、くすぐったいナリ〜！",
+                "えへへ、お腹をさわったナリ？", "ひゃっ！びっくりしたナリ！"]
+
+
+def tickle():
+    """お腹(ボタン以外)タッチ → 笑い目+「くすぐったいナリ」系のランダム発話。"""
+    base = _ctl["base"]
+    if not base:
+        return
+    import random
+    try:
+        urllib.request.urlopen(base + "/eye?emo=happy&blink=1", timeout=3).read()
+        urllib.request.urlopen(
+            base + "/say?text=" + urllib.parse.quote(random.choice(TICKLE_LINES)), timeout=3).read()
+        print("[ctl] くすぐったい反応")
+    except Exception as e:
+        print("[ctl] tickle失敗:", e)
 
 
 def cycle_lang():
@@ -103,11 +147,15 @@ def text_poller(url):
         time.sleep(0.5)
 
 
+LANG_LABEL = {"ja": "日本語", "en": "English", "auto": "Auto"}
+
+
 def overlay_text(canvas):
-    """上帯=認識した声(白) / 下帯=コロ助の返答(黄) を半透明帯で合成。"""
+    """上帯=認識した声(白) / 下帯=返答(黄) / 右下=言語ボタン(常時) を合成。
+    ※viewer空間(回転前)で描く。回転はこの後に適用されるので、画面回転時も正立で見える。"""
     heard, reply = _txt["heard"], _txt["reply"]
     toast = _toast["t"] if time.time() < _toast["until"] else ""
-    if _FONT is None or Image is None or not (heard or reply or toast):
+    if _FONT is None or Image is None:
         return canvas
     img = Image.fromarray(cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB)).convert("RGBA")
     ov = Image.new("RGBA", img.size, (0, 0, 0, 0))
@@ -133,6 +181,18 @@ def overlay_text(canvas):
         d.rectangle([(W - tw) / 2 - 14, H / 2 - 20, (W + tw) / 2 + 14, H / 2 + 20],
                     fill=(0, 60, 40, 210))
         d.text(((W - tw) / 2, H / 2 - 11), toast, font=_FONT, fill=(120, 255, 200, 255))
+    # 言語ボタン(常時・右下、返答帯の上): タップで ja→en→auto 巡回
+    lbl = "🌐 " if False else "言語: "
+    label = lbl + LANG_LABEL.get(_txt.get("lang") or "auto", "Auto")
+    tw = d.textlength(label, font=_FONT)
+    bw, bh2 = int(tw) + 24, 36
+    x1, y1 = W - 8, H - bh - 8            # 右下(返答帯の上に少し重ねない位置)
+    x0, y0 = x1 - bw, y1 - bh2
+    d.rounded_rectangle([x0, y0, x1, y1], radius=9,
+                        fill=(0, 90, 70, 215), outline=(120, 255, 200, 255), width=2)
+    d.text((x0 + 12, y0 + 7), label, font=_FONT, fill=(220, 255, 240, 255))
+    _btn["rect"] = (x0 - 10, y0 - 10, x1 + 10, y1 + 10)   # ヒット領域(余白+10px)
+    _btn["vw"], _btn["vh"] = W, H
     out = Image.alpha_composite(img, ov).convert("RGB")
     return cv2.cvtColor(np.array(out), cv2.COLOR_RGB2BGR)
 
@@ -320,6 +380,14 @@ def drain_esp(ser, buf):
                 line = bytes(buf).decode("ascii", "ignore").strip()
                 if line:
                     print("  [esp]", line)
+                    if line == "CTL lang":            # 旧ファーム互換: 全面タップ=言語切替
+                        threading.Thread(target=cycle_lang, daemon=True).start()
+                    elif line.startswith("TOUCH "):   # 新ファーム: 座標→ボタン/お腹判定
+                        try:
+                            _, sx, sy = line.split()
+                            on_touch(int(sx), int(sy))
+                        except ValueError:
+                            pass
                 buf.clear()
             elif byte != 0x0D:
                 buf.append(byte)
@@ -393,11 +461,14 @@ def main():
     try:
         for frame in frames_from_source(args.source, w, h):
             t = time.time()
-            net = (_rot["cam"] + _rot["disp"]) % 360   # 入力+表示回転を合成してCYDへ
-            if net:
-                frame = rotate_frame(frame, net)
-            canvas = fit(frame, w, h)
-            canvas = overlay_text(canvas)          # 認識した声(上)+返答(下)の帯
+            cam_r, disp_r = _rot["cam"] % 360, _rot["disp"] % 360
+            if cam_r:
+                frame = rotate_frame(frame, cam_r)      # カメラ向き補正
+            vw, vh = (h, w) if disp_r in (90, 270) else (w, h)
+            canvas = fit(frame, vw, vh)                 # viewer空間(回転前)に配置
+            canvas = overlay_text(canvas)               # 帯+言語ボタン(正立で描く)
+            if disp_r:
+                canvas = rotate_frame(canvas, disp_r)   # パネル空間へ回転(帯ごと回る=見た目は正立)
             ok, jpg = cv2.imencode(".jpg", canvas, enc)
             if not ok:
                 continue
