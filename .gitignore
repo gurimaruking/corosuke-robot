@@ -103,3 +103,6 @@ ros2_ws/log/
 
 # FreeCADバックアップ
 *.FCBak
+
+# 非公開資料(パートナープログラム等・リポジトリに含めない)
+docs/private/
