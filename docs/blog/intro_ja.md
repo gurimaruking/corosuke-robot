@@ -7,7 +7,7 @@
 
 コロ助は、日本の漫画家・**藤子・F・不二雄**が描く『**キテレツ大百科**』で、発明好きの主人公キテレツが第1話で作る**からくりロボット**です。本プロジェクトのコロ助ロボは、秋葉原のロボットコワーキングスペース「**ロボスタディオン**」のメンバーによる**ファンメイドロボット**——頭脳に **D-Robotics RDK X5** を載せ、**見る・聞く・考える・話す・表情する**をすべて**ボード上だけ(クラウドなし)**で行います。
 
-![コロ助 rev0.1 — 組み上がって笑顔](../photo/20260725_korosuke-robot-revision_0.1.jpg)
+<img src="../photo/20260725_korosuke-robot-revision_0.1.jpg" width="33%" alt="コロ助 rev0.1 — 組み上がって笑顔">
 
 - リポジトリ: https://github.com/gurimaruking/corosuke-robot
 - デモ動画: https://www.youtube.com/watch?v=NJwj6Iazd20
@@ -79,9 +79,11 @@ flowchart LR
 
 3Dパーツは **店長・村田さんが Claude (Fable 5) を使って設計・製作**！
 
-![印刷されたコロ助のパーツたち](../photo/korosuke_3Dprint_parts.jpg)
-![印刷直後のパーツ](../photo/korosuke_3D_printed.jpg)
-![パーツの組み立て](../photo/korosuke_3Dparts_bulding.jpg)
+<p>
+<img src="../photo/korosuke_3Dprint_parts.jpg" width="32%" alt="印刷されたコロ助のパーツたち">
+<img src="../photo/korosuke_3D_printed.jpg" width="32%" alt="印刷直後のパーツ">
+<img src="../photo/korosuke_3Dparts_bulding.jpg" width="32%" alt="パーツの組み立て">
+</p>
 
 各部品はこんな構成です:
 
@@ -128,5 +130,3 @@ flowchart LR
 
 ---
 *#RoboticsDreamKeeper #RDKX5 #ROS2 #animatronics*
-
-*コロ助は藤子・F・不二雄『キテレツ大百科』のキャラクターです。本プロジェクトは非商用のファンメイド・トリビュートです。*
