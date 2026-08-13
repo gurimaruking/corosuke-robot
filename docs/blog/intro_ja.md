@@ -74,15 +74,37 @@
 
 ```mermaid
 flowchart LR
-  PB["🔋 モバイルバッテリー"] -->|"USB-C 5V"| RDK["🧠 RDK X5(頭脳)"]
-  CAM["📷🎤 C270(カメラ&マイク兼用)"] -->|USB| RDK
-  BTN["⏻ 電源ボタン"] --> RDK
-  RDK -->|USB| S3["ESP32-S3(目と腕の係)"]
-  S3 --> EYES["👀 丸型LCDの目 ×2"]
-  S3 --> ARMS["💪 SG90サーボ ×2(ロープ腕)"]
-  LIPO["🔋 LiPo(サーボ用電源)"] --> ARMS
-  RDK -->|I2S| AMP["アンプ MAX98357A"] --> SPK["🔊 φ50スピーカ"]
+  %% All parts are boxes. Colour = category. Pin numbers are on the wires (edge labels).
+  PB["🔋 Mobile battery<br/>(power bank) 5V/3A"]:::power
+  LIPO["🔋 LiPo<br/>(for servos)"]:::power
+  RDK["🧠 RDK X5<br/>10 TOPS BPU · 8× Cortex-A55<br/>(brain — everything on-device)"]:::main
+  ESP["ESP32-S3<br/>(eyes/arms MCU)"]:::compute
+  AMP["MAX98357A<br/>I2S amp (GAIN=9dB)"]:::module
+  EYES["2× GC9A01<br/>round LCD (eyes)"]:::module
+  CAM["📷 Camera C270<br/>(built-in mic)"]:::periph
+  BTN["⏻ Shutdown button"]:::periph
+  SPK["🔊 φ50 speaker"]:::periph
+  SRV["💪 2× SG90<br/>servos (arms)"]:::periph
+
+  PB   -->|"USB-C 5V/3A"| RDK
+  CAM  -->|"USB (video + audio)"| RDK
+  BTN  -->|"pin18(GPIO24) / pin20(GND)"| RDK
+  RDK  -->|"USB (power + data · ttyACM0)"| ESP
+  RDK  -->|"5V:pin2/4 · GND:pin6<br/>BCLK:pin12 · LRC:pin35 · DIN:pin40"| AMP
+  AMP  -->|"analog +/−"| SPK
+  ESP  -->|"SPI: SCK12·MOSI11·DC9·RST8<br/>CS_L10·CS_R14 · 3V3·GND"| EYES
+  ESP  -->|"PWM: GPIO4(L) / GPIO5(R)"| SRV
+  LIPO -->|"LiPo voltage direct (no BEC)"| SRV
+  LIPO -.->|"common GND ⚠ (required)"| ESP
+
+  classDef power   fill:#f6b73f,color:#3a2a00,stroke:#c98a12,stroke-width:2px;
+  classDef compute fill:#1f6feb,color:#fff,stroke:#58a6ff,stroke-width:2px;
+  classDef module  fill:#8957e5,color:#fff,stroke:#bc8cff,stroke-width:2px;
+  classDef periph  fill:#2da44e,color:#fff,stroke:#3fb950,stroke-width:2px;
+  classDef main    fill:#1f6feb,color:#fff,stroke:#ffffff,stroke-width:4px,font-size:22px;
 ```
+
+**Legend**: 🟡 Power · 🔵 Compute (board) · 🟣 Module · 🟢 Peripheral(配線のラベルはピン番号)
 
 電源は**2系統**(モバイルバッテリー=RDK X5系 / LiPo=サーボ系)で、GNDは共通にしています。
 詳細な配線図スライドは[こちら](../slides/img/korosuke_03.jpg)、結線・ピン表は [docs/wiring.md](../wiring.md) と [docs/hardware_block_diagram.md](../hardware_block_diagram.md) にあります。
