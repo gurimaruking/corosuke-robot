@@ -401,7 +401,7 @@ def open_serial(port_arg, baud, first=False):
     while True:
         try:
             port = resolve_port(port_arg)
-            ser = serial.Serial(port, baud, timeout=0)
+            ser = serial.Serial(port, baud, timeout=0, write_timeout=2)  # write_timeout: ESP32ハング時に例外→再接続(DTRリセット)で自動復旧
             time.sleep(2.0)                    # ESP32リセット待ち(開くとDTR/RTSで再起動)
             ser.reset_input_buffer()
             print(f"[usb] {'接続' if first else '再接続'}: {port}")
