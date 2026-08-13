@@ -14,7 +14,9 @@ RDK X5**, with an ESP32-S3 driving the eyes and arms.
 > 🏆 **D-Robotics Robotics Dream Keeper Challenge — Stage 3 (Launch)**
 > 📄 [STAGE3.md](STAGE3.md) — showcase & benchmarks · 🧩 [PROPOSAL.md](PROPOSAL.md) · 🗺 [ROADMAP.md](ROADMAP.md)
 
-<img src="docs/photo/20260725_korosuke-robot-revision_0.1.jpg" width="380" alt="Korosuke revision 0.1 — fully assembled, smiling">
+<p align="center">
+  <img src="docs/photo/20260725_korosuke-robot-revision_0.1.jpg" width="380" alt="Korosuke revision 0.1 — fully assembled, smiling">
+</p>
 
 ## ▶ Watch the demo
 
