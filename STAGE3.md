@@ -93,6 +93,14 @@ color-split printing). Two size problems were solved this stage:
 the camera-in-nose port; the ESP32-S3 co-MCU on the bench drives the eyes and arms. The
 orange body hides the RDK X5 + fan + MAX98357A amp + φ50 speaker.*
 
+<p>
+<img src="docs/photo/head_v1.jpg" width="49%" alt="Inside the head — eye displays behind the face, ESP32-S3 co-MCU on its tray">
+<img src="docs/photo/body_ver2.jpg" width="32%" alt="Inside the torso — RDK X5, power bank, SG90 arm servos and speaker packed in">
+</p>
+
+*As-built internals: **inside the head** (eye displays behind the face, ESP32-S3 co-MCU on its tray) and
+**inside the torso** (RDK X5 case, power bank, 2× SG90 rope-pull servos and the φ50 speaker — everything packed in).*
+
 🎥 **Watch:** [**10-second on-device conversation demo**](docs/photo/korosuke_demo_10s.mp4) ·
 [rope-pull arm driven by the SG90 servo](docs/photo/arm_rope_pull.mp4)
 
