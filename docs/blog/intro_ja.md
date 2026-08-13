@@ -49,7 +49,7 @@
 
 **ロボスタディオン店長(Kazuki Murata [@gurimaruking](https://github.com/gurimaruking) / Robostadion [@robostadion_sin](https://x.com/robostadion_sin))が「コロ助を作らないか！」と声をかけてくれた**
 
-店長やスタッフ達が REK(※1 秋葉原で行われるロボットバトル)の準備で忙しくしており、私も RDK-Challenge に出ようとしていたが仕事の関係で構想だけで作れずにいた。ふとロボスタディオンの Discord を見て、そういえば一度店長が声をかけてくれたことを思い出して、「コロ助を作ろう！」と思い立ち、近所の秋葉原のロボスタディオンへ行き、コロ助の部品をもらって作らせてもらった！
+店長やスタッフ達が REK(※1 秋葉原で行われるロボットバトル)の準備で忙しくしており、私も RDK-Challenge に出ようとしていたが、諸事情により構想だけ終わってしまっていた。ふとロボスタディオンの Discord を見て、そういえば一度店長が声をかけてくれたことを思い出し、近所の秋葉原のロボスタディオンへ行き、コロ助の部品をもらって作らせてもらいました。
 
 <table>
 <tr>
@@ -125,8 +125,33 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  M["🎤 マイク"] --> A["① 話し声を聞き取る"] --> B["② 文字にする"] --> C["③ 返事を考える(小さなAI)"] --> D["④ 声にする"] --> S["🔊 スピーカ"]
-  CAMERA["📷 カメラ"] --> P["人を見つける(AIチップ)"] --> E["👀 目が人を追いかける"]
+    CAM([UVC Camera]):::s --> YOLO
+    MIC([USB Mic]):::s --> STT
+    BTN([Shutdown button · GPIO]):::s --> BRAIN
+
+    subgraph RDK["RDK X5 · Ubuntu 22.04 · fully on-device"]
+      direction TB
+      subgraph BPU["BPU Bayes-e · 10 TOPS — PERCEPTION"]
+        YOLO["YOLO11n-pose .bin<br/>~19.5 FPS"]
+      end
+      subgraph CPU["8× Cortex-A55 — LANGUAGE"]
+        STT["sherpa-onnx STT<br/>RTF 0.44"]
+        LLM["TinySwallow-1.5B<br/>llama.cpp"]
+        TTS["Open JTalk TTS"]
+      end
+      BRAIN{{"korosuke-monitor<br/>brain + Web dashboard"}}
+    end
+
+    YOLO --> BRAIN
+    STT --> BRAIN
+    BRAIN --> LLM --> BRAIN
+    BRAIN --> TTS --> AMP["MAX98357A I2S amp"] --> SPK([φ50 speaker]):::o
+    BRAIN -->|USB / UART| EYES["ESP32-S3 · 2× GC9A01 eyes<br/>8 emotions + gaze"]:::m
+    BRAIN -->|USB / UART| ARMS["ESP32-S3 · 2× SG90<br/>rope-pull arms"]:::m
+
+    classDef s fill:#1f6feb,color:#fff,stroke:#58a6ff;
+    classDef m fill:#8957e5,color:#fff,stroke:#bc8cff;
+    classDef o fill:#2da44e,color:#fff,stroke:#3fb950;
 ```
 
 同時に、カメラの映像からは**AIチップ(BPU)が人を見つけて、目が人を追いかけます**。返事を考えるのに5〜10秒かかるので、その間は目が「考え中」のアニメになります。
