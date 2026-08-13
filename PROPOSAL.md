@@ -142,6 +142,7 @@ This table is the canonical BOM. As-built hardware deltas for the shipped robot 
 | Face/neck/arms | PWM servos (SG90/MG996R) + PCA9685 ×2 | ~12 + 2 | ✅ in stock |
 | Audio | INMP441 mic, MAX98357A amp + speaker | 1 set | ✅ in stock |
 | IMU | BNO055 | 1 | ✅ in stock |
+| Touch (head-pat) | TTP223 capacitive touch sensor | 1 | 🔜 planned — not yet installed |
 | Legs *(stretch)* | SteadyWin GIM8108-36 QDD (CAN) | ≤8 | ⚠️ junk, unverified |
 | Power | LiPo 3S/4S + DC-DC + AC adapter | — | ✅ in stock |
 

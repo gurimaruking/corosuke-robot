@@ -131,6 +131,7 @@ corosuke-robot/
 ## Documentation
 
 - **[STAGE3.md](STAGE3.md)** — architecture (Mermaid), benchmarks, **known issues & limitations**, requirement coverage
+- **Story / presentation** — intro blog [日本語](docs/blog/intro_ja.md) · [English](docs/blog/intro_en.md) · 5-min talk: [slides PDF](docs/slides/talk_5min.pdf) · [deck (PNG)](docs/slides/talk_5min_deck.md)
 - Audio (I2S amp): [docs/rdk_x5_40pin_i2s_max98357a.md](docs/rdk_x5_40pin_i2s_max98357a.md) · [firmware/max98357a/](firmware/max98357a/)
 - Why the LLM stays on CPU: [docs/rdk_x5_bpu_llm.md](docs/rdk_x5_bpu_llm.md)
 - Network / maintenance: [docs/network_setup.md](docs/network_setup.md) · Power/USB brown-out: [docs/power_usb_troubleshooting.md](docs/power_usb_troubleshooting.md)
