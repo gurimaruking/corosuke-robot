@@ -56,7 +56,7 @@ settings = {
     "peak_ceil_db": -6.0,  # クリーン天井dBFS。φ50=WYGD50D(0.2W)で-6採用(GAIN9dBのsine≈0.2W=定格,
                            # 声はピークのみ瞬間で平均は数mW→安全)。高耐入力SPに替えたら更に上げ可
     "mic_gain": 3.0,       # マイク感度(ソフト増幅倍率)。ハードゲインは起動時に最大化
-    "oj_fm": 8,            # 声の高さ(Open JTalk -fm)。既定8 (旧既定: 9)
+    "oj_fm": 5,            # 声の高さ(Open JTalk -fm)。既定5 (旧既定: 9→8→5)
     # 声モデル既定 = 東北大f01 neutral (旧既定: nitech m001 = OJ_VOICE)。無ければnitechへフォールバック
     "oj_voice": ("/home/sunrise/voices/htsvoice-tohoku-f01/tohoku-f01-neutral.htsvoice"
                  if os.path.exists("/home/sunrise/voices/htsvoice-tohoku-f01/tohoku-f01-neutral.htsvoice")
@@ -1229,8 +1229,8 @@ small{color:var(--mut);font-size:.78rem}
       <select id="c_ojv" onchange="set('oj_voice',this.value)" style="max-width:340px"></select>
       <small>追加の声は /home/sunrise/voices/ に .htsvoice を置く</small></div>
     <div class="ctl"><span class="lab">🎵 声の高さ</span>
-      <input type="range" min="0" max="24" value="8" id="c_fm"
-       oninput="lbl('l_fm',this.value);set('oj_fm',this.value)"><span id="l_fm">8</span></div>
+      <input type="range" min="0" max="24" value="5" id="c_fm"
+       oninput="lbl('l_fm',this.value);set('oj_fm',this.value)"><span id="l_fm">5</span></div>
     <div class="ctl"><span class="lab">⏩ 話速</span>
       <input type="range" min="0.7" max="1.5" step="0.05" value="1.12" id="c_r"
        oninput="lbl('l_r',this.value);set('oj_r',this.value)"><span id="l_r">1.12</span></div>
