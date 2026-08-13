@@ -1513,9 +1513,9 @@ cam.onerror = () => { setTimeout(() => { cam.src = '/stream?' + Date.now(); }, 1
 applyUiLang();   // 保存済みのUI言語をロード時に適用
 </script>
 <div id="pccam_panel" style="display:none;position:fixed;left:12px;top:64px;z-index:8;
-  width:clamp(240px, calc((100vw - 1220px)/2), 460px);background:var(--card);
+  width:min(34vw, 560px);min-width:240px;resize:both;overflow:auto;background:var(--card);
   border:1px solid #ffffff14;border-radius:14px;padding:12px">
-  <h2 style="font-size:.95rem;margin:0 0 8px;color:var(--acc2)">📷 手元カメラ (PC USB)</h2>
+  <h2 style="font-size:.95rem;margin:0 0 8px;color:var(--acc2)">📷 手元カメラ (PC USB) <small style="font-weight:400;color:var(--mut)">右下をドラッグでサイズ変更</small></h2>
   <select id="pccam_sel" style="width:100%;margin-bottom:8px"></select>
   <video id="pccam" autoplay muted playsinline style="width:100%;border-radius:10px;background:#000"></video>
   <small id="pccam_note" style="color:var(--mut)"></small>
@@ -1544,7 +1544,7 @@ async function togglePcCam(){
     devs.forEach((d,k)=>{ const o=document.createElement('option'); o.value=d.deviceId;
       o.textContent=d.label||('camera '+(k+1)); sel.appendChild(o); });
     sel.onchange=()=>startPcCam(sel.value);
-    note.textContent='映像はこのPC内だけで表示しています(RDKには送信しません)';
+    note.textContent='';
   }catch(e){ note.textContent='カメラを開けません: '+e; }
 }
 
