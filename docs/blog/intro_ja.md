@@ -188,9 +188,7 @@ flowchart LR
 
 ### 電子部品配線
 
-*EN: Wired following the repo's wiring docs (two power rails + common ground; pin maps verified on the real hardware).*
-
-リポジトリの配線資料どおりに接続しました:
+下記参照。
 
 - [docs/wiring.md](../wiring.md) — 電源2系統(モバイルバッテリー=RDK / LiPo=サーボ)と**共通GND**の全体図
 - [docs/hardware_block_diagram.md](../hardware_block_diagram.md) — ESP32-S3⇔目(GC9A01×2)のピン表・実機検証済みの結線
