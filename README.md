@@ -66,6 +66,7 @@ To reproduce the body you'll also need:
 - **Double-sided tape** — handy for bonding parts
 - **String** — needed to move the hands (rope-pull arms)
 - **Zip ties** — needed to tune the rope arms — [Daiso](https://jp.daisonet.com/products/4550480088891)
+- **Soldering iron** — for a little soldering (power button, amp terminals, etc.)
 - **Breadboard (small)** — used for the ESP32-S3 wiring
 - **Jumper wires** (M-M / M-F) — used to connect the parts
 
