@@ -50,6 +50,7 @@ _FONT = None
 _ctl = {"base": ""}                       # monitorのベースURL(タッチ言語切替に使用)
 _toast = {"t": "", "until": 0.0}          # 画面中央の一時表示(言語切替の確認)
 _btn = {"rect": (0, 0, 0, 0), "vw": 480, "vh": 272}   # 言語ボタン(viewer空間)のヒット領域
+_UI = {"lh": 26, "btn": True}    # 行高/ボタン有無(小画面・タッチ無しパネルでmainが調整)
 
 
 def on_touch(px, py):
@@ -164,7 +165,7 @@ def overlay_text(canvas):
     ov = Image.new("RGBA", img.size, (0, 0, 0, 0))
     d = ImageDraw.Draw(ov)
     W, H = img.size
-    LH = 26                                  # 1行の高さ
+    LH = _UI["lh"]                           # 1行の高さ(小画面では縮小)
     MAXLINES = 2                             # 認識/返答とも最大2行(超過は…)
 
     def wrap(text, maxw):
@@ -207,18 +208,20 @@ def overlay_text(canvas):
         d.rectangle([(W - tw) / 2 - 14, H / 2 - 20, (W + tw) / 2 + 14, H / 2 + 20],
                     fill=(0, 60, 40, 210))
         d.text(((W - tw) / 2, H / 2 - 11), toast, font=_FONT, fill=(120, 255, 200, 255))
-    # 言語ボタン(常時・右下、返答帯の上): タップで ja→en→auto 巡回
-    lbl = "🌐 " if False else "言語: "
-    label = lbl + LANG_LABEL.get(_txt.get("lang") or "auto", "Auto")
-    tw = d.textlength(label, font=_FONT)
-    bw, bh2 = int(tw) + 24, 36
-    x1, y1 = W - 8, H - reply_h - 8       # 右下(返答帯の高さに追従して上へ避ける)
-    x0, y0 = x1 - bw, y1 - bh2
-    d.rounded_rectangle([x0, y0, x1, y1], radius=9,
-                        fill=(0, 90, 70, 215), outline=(120, 255, 200, 255), width=2)
-    d.text((x0 + 12, y0 + 7), label, font=_FONT, fill=(220, 255, 240, 255))
-    _btn["rect"] = (x0 - 10, y0 - 10, x1 + 10, y1 + 10)   # ヒット領域(余白+10px)
-    _btn["vw"], _btn["vh"] = W, H
+    # 言語ボタン(右下、返答帯の上): タップで ja→en→auto 巡回。--no-button で非表示
+    if _UI["btn"]:
+        label = "言語: " + LANG_LABEL.get(_txt.get("lang") or "auto", "Auto")
+        tw = d.textlength(label, font=_FONT)
+        bw, bh2 = int(tw) + 24, LH + 10
+        x1, y1 = W - 8, H - reply_h - 8   # 右下(返答帯の高さに追従して上へ避ける)
+        x0, y0 = x1 - bw, y1 - bh2
+        d.rounded_rectangle([x0, y0, x1, y1], radius=9,
+                            fill=(0, 90, 70, 215), outline=(120, 255, 200, 255), width=2)
+        d.text((x0 + 12, y0 + 5), label, font=_FONT, fill=(220, 255, 240, 255))
+        _btn["rect"] = (x0 - 10, y0 - 10, x1 + 10, y1 + 10)   # ヒット領域(余白+10px)
+        _btn["vw"], _btn["vh"] = W, H
+    else:
+        _btn["rect"] = (-1, -1, -1, -1)   # ヒット無し(タッチ非搭載パネル)
     out = Image.alpha_composite(img, ov).convert("RGB")
     return cv2.cvtColor(np.array(out), cv2.COLOR_RGB2BGR)
 
@@ -453,7 +456,13 @@ def main():
     ap.add_argument("--list", action="store_true", help="シリアルポート一覧を表示して終了")
     ap.add_argument("--rotate-cfg-url", default="",
                     help="回転設定JSONのURL(空ならmjpegソースから /dispcfg を自動導出)")
+    ap.add_argument("--no-button", action="store_true",
+                    help="言語ボタンを描かない(ESP32-1732S019などタッチ無しパネル用)")
     args = ap.parse_args()
+
+    _UI["btn"] = not args.no_button
+    if args.height < 220:                 # 小画面(1732S019=170px高)は帯を細く
+        _UI["lh"] = 19
 
     if args.list:
         list_ports_verbose()
@@ -470,7 +479,7 @@ def main():
         print(f"回転設定ポーリング: {cfg_url}")
         # 同じホストの /disptext から認識テキスト+返答を取得して帯表示
         global _FONT
-        _FONT = _load_jp_font()
+        _FONT = _load_jp_font(19 if args.height >= 220 else 14)
         _ctl["base"] = cfg_url.rsplit("/", 1)[0]
         txt_url = _ctl["base"] + "/disptext"
         threading.Thread(target=text_poller, args=(txt_url,), daemon=True).start()

@@ -13,11 +13,16 @@
  *     もし映像が黒でもカウンタが進めば drawJpg 側の問題と切り分けできる。
  */
 #include <Arduino.h>
-#include "LGFX_ESP32_4827S043.h"
+#if defined(BOARD_1732S019)
+#include "LGFX_ESP32_1732S019.h"    // 1.9" 170x320 SPI(タッチ無し) → 横長320x170で使用
+static const int W = 320, H = 170;
+#else
+#include "LGFX_ESP32_4827S043.h"    // 4.3" 480x272 RGBパラレル(抵抗膜タッチ)
+static const int W = 480, H = 272;
+#endif
 #include <JPEGDEC.h>
 
 static LGFX lcd;
-static const int W = 480, H = 272;
 
 // JPEGDEC: MCUブロック単位でデコード → callbackで直接パネルへblit(中間RGBバッファ不要)。
 // LovyanGFX内蔵tjpgd(drawJpg)の2-3倍速。色が反転して見えたら RGB565_LITTLE ⇄ BIG を入替。
@@ -108,9 +113,13 @@ void setup() {
   delay(200);
   Serial.printf("\n=== Korosuke Display M2 (USB JPEG viewer) baud=%d ===\n", BAUD);
   jpg = (uint8_t*)ps_malloc(MAX_JPG);
+  if (!jpg) jpg = (uint8_t*)malloc(60000);   // PSRAM無し変種の保険(小画面JPEGなら足りる)
   Serial.printf("PSRAM %s, jpg buffer %s (%d B)\n",
                 psramFound() ? "OK" : "NG", jpg ? "alloc" : "FAIL", MAX_JPG);
   lcd.init();
+#if defined(BOARD_1732S019)
+  lcd.setRotation(1);                        // 縦170x320パネルを横長320x170で使う
+#endif
   lcd.setBrightness(255);
   drawBootIdle();
   lastStat = millis();

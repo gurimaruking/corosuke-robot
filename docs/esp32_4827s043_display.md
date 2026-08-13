@@ -315,3 +315,24 @@ CTL say <text>       → RDK: GET /say?text=<text>
 ---
 
 *この資料は実機検証＋Web一次調査から起こした。矛盾を見つけたら firmware/実機 を正とし本書を直すこと。*
+
+---
+
+## 派生: ESP32-1732S019 (1.9" 170x320, タッチ無し) にも対応
+
+同じファーム/プロトコルで **Sunton ESP32-1732S019** でも動く(実機確認済み、~13fps)。
+SPIパネルなので **GPIOが約20本ヘッダに出ている**のが利点(目のGC9A01やサーボの増設向き)。
+タッチ非搭載のため言語ボタン/くすぐったい反応はこの基板では無し。
+
+```bash
+# ビルド&書き込み (USBは同じCH340。このWindows機ではCOM7)
+pio run -e esp32-1732S019 -t upload --upload-port COM7
+
+# 送信 (PC/RDKどちらからでも。ボタン無し・小画面向け帯サイズに自動調整)
+python tools/display_send.py --port COM7 --width 320 --height 170 --no-button \
+  --source mjpeg:http://192.168.128.10:8080/stream
+```
+
+- パネル定義: `firmware/corosuke_display/src/LGFX_ESP32_1732S019.h`
+  (ST7789 / SCLK=12 MOSI=13 DC=11 CS=10 RST=1 BL=14 / offset_x=35 / invert / setRotation(1)で横長)
+- `main.cpp` は `-DBOARD_1732S019` でボード切替(4827S043と共通ソース)
