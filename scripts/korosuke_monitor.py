@@ -1156,7 +1156,7 @@ img{width:100%;border-radius:10px;background:#000;display:block}
 small{color:var(--mut);font-size:.78rem}
 </style></head><body>
 <header>
-  <h1>🤖 コロ助 <small id="st"></small></h1>
+  <h1>🤖 コロ助 <small id="st"></small><button class="tab" id="pccam_btn" style="margin-left:auto" onclick="togglePcCam()" title="このPCのUSB Webカメラを左に表示(任意・RDKには送信しない)">📷 手元カメラ</button></h1>
   <div class="tabs">
     <button class="tab active" id="tab-monitor" onclick="tab(this,'monitor')">📺 モニタ</button>
     <button class="tab" id="tab-settings" onclick="tab(this,'settings')">⚙ 設定</button>
@@ -1507,6 +1507,42 @@ es.onopen = () => { document.getElementById('st').textContent = ''; };
 const cam = document.getElementById('cam');
 cam.onerror = () => { setTimeout(() => { cam.src = '/stream?' + Date.now(); }, 1000); };
 applyUiLang();   // 保存済みのUI言語をロード時に適用
+</script>
+<div id="pccam_panel" style="display:none;position:fixed;left:12px;top:64px;z-index:8;
+  width:clamp(240px, calc((100vw - 1220px)/2), 460px);background:var(--card);
+  border:1px solid #ffffff14;border-radius:14px;padding:12px">
+  <h2 style="font-size:.95rem;margin:0 0 8px;color:var(--acc2)">📷 手元カメラ (PC USB)</h2>
+  <select id="pccam_sel" style="width:100%;margin-bottom:8px"></select>
+  <video id="pccam" autoplay muted playsinline style="width:100%;border-radius:10px;background:#000"></video>
+  <small id="pccam_note" style="color:var(--mut)"></small>
+</div>
+<script>
+/* 手元カメラ: このPCのUSB WebカメラをgetUserMediaで表示(任意)。映像はPC内で完結しRDKへは送らない */
+let pcStream=null;
+async function startPcCam(devId){
+  if(pcStream){ pcStream.getTracks().forEach(t=>t.stop()); pcStream=null; }
+  pcStream=await navigator.mediaDevices.getUserMedia({video: devId?{deviceId:{exact:devId}}:true, audio:false});
+  document.getElementById('pccam').srcObject=pcStream;
+}
+async function togglePcCam(){
+  const p=document.getElementById('pccam_panel'), note=document.getElementById('pccam_note'),
+        btn=document.getElementById('pccam_btn');
+  if(p.style.display!=='none'){ p.style.display='none'; btn.classList.remove('active');
+    if(pcStream){ pcStream.getTracks().forEach(t=>t.stop()); pcStream=null; } return; }
+  p.style.display='block'; btn.classList.add('active');
+  if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)){
+    note.innerHTML='⚠ このURL(http)ではブラウザがカメラをブロックします。<br>Chrome/Edgeの <code>chrome://flags/#unsafely-treat-insecure-origin-as-secure</code> にこのページのURL(例 http://192.168.128.10:8080)を追加→ブラウザ再起動で使えます。';
+    return; }
+  try{
+    await startPcCam();
+    const devs=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput');
+    const sel=document.getElementById('pccam_sel'); sel.innerHTML='';
+    devs.forEach((d,k)=>{ const o=document.createElement('option'); o.value=d.deviceId;
+      o.textContent=d.label||('camera '+(k+1)); sel.appendChild(o); });
+    sel.onchange=()=>startPcCam(sel.value);
+    note.textContent='映像はこのPC内だけで表示しています(RDKには送信しません)';
+  }catch(e){ note.textContent='カメラを開けません: '+e; }
+}
 </script></body></html>"""
 
 
