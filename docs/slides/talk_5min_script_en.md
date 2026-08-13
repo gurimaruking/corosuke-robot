@@ -69,7 +69,8 @@ The arms are rings on a string — the servo pulls the string, and the arm rises
 Wiring followed the repo documents exactly.
 And the software? **We created it together with AI.**
 I placed the parts, and I debugged — **I was the eyes and hands of the AI.**
-The tools are simple: a 3D printer, velcro, tape, string, zip ties.
+The tools are simple: a 3D printer, velcro, tape, string, zip ties —
+**you'll surely find all of them at any maker space!**
 
 ## [3:30] Slide 7 — Afterword (30 s)
 
