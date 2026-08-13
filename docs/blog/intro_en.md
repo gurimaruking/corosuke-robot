@@ -20,6 +20,7 @@
   - [Wiring](#wiring)
   - [Software, built with AI](#software-built-with-ai)
   - [Operation (Korosuke Monitor)](#operation-korosuke-monitor)
+  - [Tools & jigs](#tools--jigs)
 - [Afterword](#afterword)
 - [Troubleshooting (gotchas)](#troubleshooting-gotchas)
 
@@ -205,6 +206,12 @@ presence / skeleton-based motion recognition** in real time.
 Open `http://[RDK X5's IP address]:8080/` (the IP depends on your connection and environment).
 
 ![Korosuke Monitor — live camera + skeleton + speech recognition + conversation log](../photo/korosuke-monitor.png)
+
+### Tools & jigs
+
+- **Velcro tape** (mounts the RDK X5 / battery inside the torso) — [Amazon](https://www.amazon.co.jp/dp/B0GJZJM4TG)
+- **Ultrasonic cutter** (or an equivalent cutting tool) — used to open the cable exit in the base
+- **3D printer** — we used a **Bambu Lab A1**; the parts are within 18 cm, so an **A1 mini** should *just* fit
 
 ## Afterword
 

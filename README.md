@@ -56,6 +56,14 @@ press (goodnight voice → ✕✕ "safe-to-unplug" eyes). A tabbed **web dashboa
 > **SenseVoice** ASR + a **Qwen2.5-1.5B**-family LLM (we run the Japanese-tuned
 > **TinySwallow-1.5B** via llama.cpp on CPU).
 
+### Build tools & jigs
+
+To reproduce the body you'll also need:
+
+- **Velcro tape** (mounts the RDK X5 / battery inside the torso) — [Amazon](https://www.amazon.co.jp/dp/B0GJZJM4TG)
+- **Ultrasonic cutter** (or an equivalent cutting tool) — used to open the cable exit in the base
+- **3D printer** — we used a **Bambu Lab A1**; the parts are within 18 cm, so an **A1 mini** should *just* fit
+
 ## Challenge journey — Stage 1 → 2 → 3
 
 | Stage | Theme | What was proven | Doc |
