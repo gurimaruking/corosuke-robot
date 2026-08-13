@@ -148,7 +148,7 @@
     </div>
     <div class="col" style="display:flex; flex-direction:column; align-items:center; gap:1vh;">
       <video class="ph" style="max-height:32vh" src="../photo/arm_rope_pull.mp4" muted loop playsinline></video>
-      <p class="sub" style="margin:-.5vh 0 .5vh;">▲ rope-pull arm in action (loop)</p>
+      <p class="sub" style="margin:-.5vh 0 .5vh;">▲ rope-pull arm — 右クリックで再生/停止 (right-click: play/pause)</p>
       <img class="ph" style="max-height:26vh" src="../photo/body_ver2.jpg" alt="torso internals">
     </div>
   </div>
@@ -188,15 +188,14 @@
   <span class="chip">4:00–5:00</span>
 </section>
 
-<div class="foot">←/→ or Space: slides · <kbd>F</kbd> fullscreen · <kbd>R</kbd> reset timer</div>
+<div class="foot">←/→ or Space: slides · 右クリック: 動画 再生/停止 · <kbd>F</kbd> fullscreen · <kbd>R</kbd> reset timer</div>
 <div id="timer">0:00</div>
 
 <script>
   const slides=[...document.querySelectorAll('.slide')]; let i=0, t0=null;
   function show(n){ i=Math.max(0,Math.min(slides.length-1,n));
     slides.forEach((s,k)=>s.classList.toggle('on',k===i));
-    document.querySelectorAll('video').forEach(v=>{
-      if(slides[i].contains(v)){ v.currentTime=0; v.play().catch(()=>{}); } else v.pause(); }); }
+    document.querySelectorAll('video').forEach(v=>{ v.pause(); if(!slides[i].contains(v)) v.currentTime=0; }); }
   function tick(){ if(t0===null) return;
     const s=Math.floor((Date.now()-t0)/1000), m=Math.floor(s/60);
     const el=document.getElementById('timer');
@@ -210,6 +209,9 @@
     else if(e.key==='r'||e.key==='R'){ t0=Date.now(); }
     else if(e.key>='1'&&e.key<='8') show(+e.key-1); });
   addEventListener('click',()=>{ if(t0===null) t0=Date.now(); show(i+1); });
+  addEventListener('contextmenu',e=>{ e.preventDefault();
+    const v=slides[i].querySelector('video');
+    if(v){ if(v.paused) v.play().catch(()=>{}); else v.pause(); } });
 </script>
 </body>
 </html>
