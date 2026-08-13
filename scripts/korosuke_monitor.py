@@ -71,6 +71,9 @@ settings = {
     "pose_score": 0.40,    # 人物検出の信頼度しきい値
     "kpt_thres": 0.40,     # 骨格キーポイントの信頼度しきい値(ジェスチャ判定)
     "gesture_cd": 5.0,     # ジェスチャ反応のクールダウン秒
+    # --- 胴体ディスプレイ(CYD)の向き補正。display_send.py が /dispcfg で取得して適用 ---
+    "cam_rotate": 0,       # 入力映像の回転 0/90/180/270 (カメラ実装向き補正)
+    "disp_rotate": 0,      # 表示映像の回転 0/90/180/270 (パネル実装向き補正)
 }
 
 
@@ -1269,6 +1272,19 @@ small{color:var(--mut);font-size:.78rem}
        oninput="lbl('l_gcd',this.value);set('gesture_cd',this.value)"><span id="l_gcd">5</span>秒</div>
   </div>
 
+  <div class="grp"><h2>🖥 胴体ディスプレイ 向き</h2>
+    <div class="ctl"><span class="lab">入力映像の回転</span>
+      <select id="c_camrot" onchange="set('cam_rotate',this.value)">
+        <option value="0">0°</option><option value="90">90°</option>
+        <option value="180">180°</option><option value="270">270°</option></select>
+      <small>カメラ実装向きの補正</small></div>
+    <div class="ctl"><span class="lab">表示映像の回転</span>
+      <select id="c_disprot" onchange="set('disp_rotate',this.value)">
+        <option value="0">0°</option><option value="90">90°</option>
+        <option value="180">180°</option><option value="270">270°</option></select>
+      <small>パネル実装向きの補正 (90/270はレターボックス)</small></div>
+  </div>
+
   <div class="grp"><h2>💪 腕サーボ</h2>
     <div class="ctl"><span class="lab">両方</span>
       <button onclick="armdo('wave')">👋手を振る</button>
@@ -1432,6 +1448,10 @@ function setAllLang(lang){
   applyUiLang();
 }
 
+fetch('/dispcfg').then(r=>r.json()).then(c=>{   // 胴体ディスプレイ回転の現在値をUIに反映
+  const a=document.getElementById('c_camrot'); if(a) a.value=c.cam_rotate;
+  const b=document.getElementById('c_disprot'); if(b) b.value=c.disp_rotate;
+}).catch(()=>{});
 const es = new EventSource('/events');
 es.onmessage = e => {
   const d = JSON.parse(e.data);
@@ -1558,10 +1578,26 @@ class Handler(BaseHTTPRequestHandler):
                 elif k in ("stt_lang", "llm_lang", "tts_lang"):
                     if val in ("ja", "en", "auto"):
                         settings[k] = val
+                elif k in ("cam_rotate", "disp_rotate"):   # 胴体ディスプレイの回転(0/90/180/270)
+                    try:
+                        rv = int(float(val)) % 360
+                        if rv in (0, 90, 180, 270):
+                            settings[k] = rv
+                    except ValueError:
+                        pass
                 elif k in ("react_greet", "react_speech", "use_llm", "use_arm",
                            "event_llm", "dsp"):
                     settings[k] = val in ("1", "true", "on")
             self._json_ok()
+            return
+        if self.path.startswith("/dispcfg"):         # 胴体ディスプレイの回転設定(display_send.pyが取得)
+            body = json.dumps({"cam_rotate": settings["cam_rotate"],
+                               "disp_rotate": settings["disp_rotate"]}).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
             return
         if self.path.startswith("/audiocheck"):     # 音声カード検証&自動修復+テスト発声
             ok = ensure_audio_card()

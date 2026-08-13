@@ -138,6 +138,7 @@ Full detail and rationale in [bom.md](bom.md) / [inventory.md](inventory.md).
 | IMU | BNO055 | 1 | ✅ in stock |
 | Legs *(stretch)* | SteadyWin GIM8108-36 QDD (CAN) | ≤8 | ⚠️ junk, unverified |
 | Power | LiPo 3S/4S + DC-DC + AC adapter | — | ✅ in stock |
+| Body display *(option)* | Sunton **ESP32-4827S043R** — 4.3" 480×272 RGB, resistive touch (CYD); ESP32-S3 N16R8 onboard. USB経由でRDKカメラ表示 → [esp32_4827s043_display.md](esp32_4827s043_display.md) | 1 | **option** (~$14–18 / ≈¥2.2–2.8k, AliExpress Sunton store) |
 
 ### 3.2 Proposed repository layout
 ```

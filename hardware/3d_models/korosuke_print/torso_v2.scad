@@ -472,3 +472,24 @@ else if(SHOW==6) rotate([180,0,0]) translate([0,0,-2.5]) cam_bezel();
 else if(SHOW==7) foot_base_v2();
 else if(SHOW==8) ghosts();   // 搭載部品モックアップのみ(要 -D MOCKUP=true。FreeCADへ別インポート用)
 else if(SHOW==9) difference(){ jacket_shell_v2(); translate([-200,-400,-10]) cube([400,400,400]); } // FreeCAD確認用・断面シェル(STL)
+else if(SHOW==10) fc_layout();   // FreeCAD CSG用・簡易レイアウト(intersection/mirror/offset不使用=確実に開ける)
+
+// FreeCAD CSG専用レイアウト(編集可能ソリッド): 純union/differenceのみ。円錐との交差booleanを避ける。
+module fc_layout(){
+  difference(){                                        // シェル(中空テーパー)=cone差分のみ
+    cylinder(h=JH, d1=JBOT_D, d2=JTOP_D);
+    translate([0,0,WALL]) cylinder(h=JH, d1=JBOT_D-2*WALL, d2=JTOP_D-2*WALL);
+    translate([0,0,JH-WALL]) cylinder(h=WALL+1, d=TOP_OPEN_D);                              // 天面開口
+    for(s=[-1,1]) translate([s*JTOP_D/2,0,ARM_HOLE_Z]) rotate([0,90,0]) cylinder(d=ARM_OUT_D,h=24,center=true); // 腕穴
+    translate([-35,JBOT_D/2-14,22]) cube([70,20,100]);                                       // 背面ハッチ
+  }
+  color("#4caf50") translate([-CASE_D/2,-CASE_H/2,WALL+CASE_VCLR]) cube([CASE_D,CASE_H,CASE_W]); // RDK X5ケース
+  color("#455a64") translate([-PB_W/2,PB_Y0,WALL]) cube([PB_W,PB_T,PB_H]);                       // モバイルバッテリー
+  color("#8d6e63") translate([0,0,DECK_Z-DECK_T]) cylinder(r=r_in(DECK_Z)-3,h=DECK_T);          // 中段デッキ(簡易disk)
+  color("#e0e0e0") translate([0,-r_in(SPK_Z)+2,SPK_Z]) rotate([90,0,0]) cylinder(d=50,h=18.5);  // スピーカーφ50x18.5
+  for(sg=[-1,1]){
+    color("#ffee58") xbox(sg*34, sg*66, -27, 29, 106, 30);            // SG90タワー(簡易ブロック)
+    color("#1976d2") xbox(sg*41.1, sg*63.8, -21.5, 22.5, 119.95, 12.1); // SG90本体
+    color("#1565c0"){ xbox(sg*44,sg*72,3,2.5,124.5,3); xbox(sg*56.5,sg*59.5,3,2.5,112,28); } // 十字ホーン
+  }
+}

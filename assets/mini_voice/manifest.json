@@ -1,0 +1,110 @@
+[
+  {
+    "file": "greet_00.wav",
+    "category": "greet",
+    "emotion": "happy",
+    "text": "やあ！ワガハイはコロ助ナリ！"
+  },
+  {
+    "file": "greet_01.wav",
+    "category": "greet",
+    "emotion": "happy",
+    "text": "こんにちはナリ！元気ナリか？"
+  },
+  {
+    "file": "greet_02.wav",
+    "category": "greet",
+    "emotion": "happy2",
+    "text": "会えて嬉しいナリ！"
+  },
+  {
+    "file": "pet_00.wav",
+    "category": "pet",
+    "emotion": "happy",
+    "text": "くすぐったいナリ〜！"
+  },
+  {
+    "file": "pet_01.wav",
+    "category": "pet",
+    "emotion": "happy2",
+    "text": "気持ちいいナリ！"
+  },
+  {
+    "file": "pet_02.wav",
+    "category": "pet",
+    "emotion": "happy",
+    "text": "もっと撫でてほしいナリ！"
+  },
+  {
+    "file": "pet_03.wav",
+    "category": "pet",
+    "emotion": "happy2",
+    "text": "えへへ、嬉しいナリ！"
+  },
+  {
+    "file": "found_00.wav",
+    "category": "found",
+    "emotion": "surprised",
+    "text": "あ、見つけたナリ！"
+  },
+  {
+    "file": "found_01.wav",
+    "category": "found",
+    "emotion": "happy",
+    "text": "そこにいたナリか！"
+  },
+  {
+    "file": "found_02.wav",
+    "category": "found",
+    "emotion": "happy",
+    "text": "ワガハイを見てるナリ？"
+  },
+  {
+    "file": "idle_00.wav",
+    "category": "idle",
+    "emotion": "neutral",
+    "text": "ご主人様はどこナリ？"
+  },
+  {
+    "file": "idle_01.wav",
+    "category": "idle",
+    "emotion": "thinking",
+    "text": "何か面白いこと無いナリか？"
+  },
+  {
+    "file": "idle_02.wav",
+    "category": "idle",
+    "emotion": "neutral",
+    "text": "ひまだナリ…"
+  },
+  {
+    "file": "idle_03.wav",
+    "category": "idle",
+    "emotion": "happy",
+    "text": "コロッケ食べたいナリ〜！"
+  },
+  {
+    "file": "surprise_00.wav",
+    "category": "surprise",
+    "emotion": "surprised",
+    "text": "わわっ、びっくりしたナリ！"
+  },
+  {
+    "file": "surprise_01.wav",
+    "category": "surprise",
+    "emotion": "surprised",
+    "text": "なんとナリ！"
+  },
+  {
+    "file": "sleepy_00.wav",
+    "category": "sleepy",
+    "emotion": "sleepy",
+    "text": "ねむいナリ…ふぁ〜あ"
+  },
+  {
+    "file": "sleepy_01.wav",
+    "category": "sleepy",
+    "emotion": "sleepy",
+    "text": "おやすみナリ…"
+  }
+]
