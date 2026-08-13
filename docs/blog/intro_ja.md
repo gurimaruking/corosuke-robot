@@ -93,15 +93,10 @@ flowchart LR
 3Dパーツは **店長・村田さんが Claude (Fable 5) を使って設計・製作**！
 部品データはリポジトリの [hardware/3d_models/korosuke_print](../../hardware/3d_models/korosuke_print/) にあります(今回使ったのは **v1**。v2以降のフォルダもありますが、まだ試せていません！)。
 
-<table>
-<tr>
-<td width="50%" valign="top"><img src="../photo/korosuke_3D_printed.jpg" alt="印刷直後のパーツ"></td>
-<td width="50%" valign="top">
-<img src="../photo/korosuke_3Dprint_parts.jpg" alt="スライサーに並んだコロ助のパーツたち"><br>
-<img src="../photo/korosuke_3Dparts_bulding.jpg" alt="パーツの組み立て">
-</td>
-</tr>
-</table>
+<p>
+<img src="../photo/korosuke_3Dprint_parts.jpg" width="49%" alt="スライサーに並んだコロ助のパーツたち">
+<img src="../photo/korosuke_3Dparts_bulding.jpg" width="49%" alt="パーツの組み立て">
+</p>
 
 各部品はこんな構成です:
 
@@ -111,10 +106,7 @@ flowchart LR
 - **胴体ベース**: 当初ケーブルの出口がなかったので、**超音波カッターで底面をカット**して胴体下から配線を出すように加工
 - **足**: 今回は動かさないので、そのまま胴体ベースに接着
 
-<p>
-<img src="../photo/Base_UltraCutter_Cutting.jpg" width="49%" alt="超音波カッターでベースをカット(1)">
-<img src="../photo/Base_UltraCutter_Cutting_2.jpg" width="49%" alt="超音波カッターでベースをカット(2)">
-</p>
+<img src="../photo/Base_UltraCutter_Cutting_2.jpg" width="49%" alt="超音波カッターでベースをカット">
 
 ### 電子部品の配線
 
