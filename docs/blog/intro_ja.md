@@ -22,7 +22,6 @@
 
 - [Disney's Olaf robot](https://thewaltdisneycompany.com/olaf-robotic-character/) — 表情豊かなアニマトロニクスの目と顔
 - [Open Duck Mini (BDX)](https://github.com/apirrone/Open_Duck_Mini) — コンパクトな二足歩行ドロイド
-- [3D-printed animatronic dual-eye mechanism](https://www.instructables.com/Simplified-3D-Printed-Animatronic-Dual-Eye-Mechani/) — 目のリグの作り方
 
 ### 私(uecken)の背景 — 店長が「コロ助を作らないか！」と声をかけてくれた
 
