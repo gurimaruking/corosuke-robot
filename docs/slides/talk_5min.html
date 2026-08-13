@@ -26,14 +26,17 @@
   img.ph{ max-width:100%; max-height:60vh; border-radius:1.2vh; object-fit:contain; }
   img.wide{ max-height:66vh; }
   .logos img{ height:6.5vh; margin-right:2vw; vertical-align:middle; background:#fff; padding:.6vh; border-radius:.8vh; }
-  .foot{ position:fixed; left:2vw; bottom:1.6vh; color:var(--muted); font-size:1.8vh; }
-  .chip{ position:fixed; right:2vw; bottom:1.6vh; color:var(--bg); background:var(--gold);
-         padding:.4vh 1.2vh; border-radius:999px; font-weight:700; font-size:1.9vh; }
-  #timer{ position:fixed; right:2vw; top:1.6vh; font-variant-numeric:tabular-nums;
-          color:var(--green); font-size:2.6vh; font-weight:700; }
   .center{ justify-content:center; text-align:center; align-items:center; }
   .demoList{ font-size:3vh; line-height:1.8; }
   kbd{ background:var(--panel); border:1px solid #333a4e; border-radius:.5vh; padding:.2vh .8vh; }
+  /* PDF/印刷: 全スライドを1枚ずつ改ページで出力(16:9横) */
+  @media print{
+    @page{ size: 338mm 190mm; margin:0; }
+    body{ background:var(--bg); }
+    .slide{ display:flex !important; page-break-after:always; break-after:page;
+            width:100%; height:190mm; position:relative; }
+    video{ background:#000; }
+  }
 </style>
 </head>
 <body>
@@ -52,7 +55,6 @@
     <img class="ph" style="max-height:30vh" src="../photo/20260725_korosuke-robot-revision_0.1.jpg" alt="Korosuke — our robot">
   </div>
   <p class="sub" style="margin-top:2vh;">uecken · my first robot · built by Robostadion (Akihabara, Tokyo)</p>
-  <span class="chip">0:00–0:30</span>
 </section>
 
 <!-- 2 INTRODUCTION 0:30-1:05 -->
@@ -73,7 +75,6 @@
       <img class="ph" style="max-height:50vh" src="../photo/20260725_korosuke-robot-revision_0.1.jpg" alt="our robot">
     </div>
   </div>
-  <span class="chip">0:30–1:05</span>
 </section>
 
 <!-- 3 BACKGROUND 1:05-1:40 -->
@@ -97,7 +98,6 @@
       <p class="sub">▲ The "head-mounting ceremony" 🎉 — placing his head for the first time</p>
     </div>
   </div>
-  <span class="chip">1:05–1:40</span>
 </section>
 
 <!-- 4 HARDWARE 1:40-2:15 -->
@@ -108,7 +108,6 @@
     <img class="ph wide" style="background:#fff; padding:1.2vh;" src="img/hw_wiring.png" alt="Wiring diagram (same as the blog)">
   </div>
   <p class="sub"><b>RDK X5 at the center</b> (all main functions) · eyes &amp; arms via <b>one ESP32-S3</b> · servos draw <b>&gt;1 A → separate LiPo</b> · tiny <b>I2S amp</b> → φ50 speaker (for size) · C270 camera <b>= mic</b> · no custom PCB</p>
-  <span class="chip">1:40–2:15</span>
 </section>
 
 <!-- 5 SOFTWARE 2:15-2:50 -->
@@ -129,7 +128,6 @@
       <img class="ph" src="../photo/korosuke-monitor.png" alt="Korosuke monitor">
     </div>
   </div>
-  <span class="chip">2:15–2:50</span>
 </section>
 
 <!-- 6 BUILD PROCESS 2:50-3:30 -->
@@ -152,7 +150,6 @@
       <img class="ph" style="max-height:26vh" src="../photo/body_ver2.jpg" alt="torso internals">
     </div>
   </div>
-  <span class="chip">2:50–3:30</span>
 </section>
 
 <!-- 7 AFTERWORD 3:30-4:00 -->
@@ -170,7 +167,6 @@
     <img class="ph" style="max-height:24vh" src="../photo/20260725_korosuke-robot-revision_0.1.jpg" alt="our robot">
   </div>
   <p class="big" style="margin-top:2vh;"><b>Now — let's meet him. Korosuke, say hello!</b></p>
-  <span class="chip">3:30–4:00</span>
 </section>
 
 <!-- 8 DEMO 4:00-5:00 -->
@@ -185,28 +181,18 @@
   </ol>
   <p class="sub" style="margin-top:2vh;">Fallback videos: korosuke_demo_10s.mp4 · arm_rope_pull.mp4</p>
   <p class="big" style="margin-top:3vh;"><b>ワガハイはコロ助ナリ！ Thank you!</b> 🤖</p>
-  <span class="chip">4:00–5:00</span>
 </section>
 
-<div class="foot">←/→ or Space: slides · 動画クリック(or 右クリック): 再生/停止 · <kbd>F</kbd> fullscreen · <kbd>R</kbd> reset timer</div>
-<div id="timer">0:00</div>
 
 <script>
   const slides=[...document.querySelectorAll('.slide')]; let i=0, t0=null;
   function show(n){ i=Math.max(0,Math.min(slides.length-1,n));
     slides.forEach((s,k)=>s.classList.toggle('on',k===i));
     document.querySelectorAll('video').forEach(v=>{ v.pause(); if(!slides[i].contains(v)) v.currentTime=0; }); }
-  function tick(){ if(t0===null) return;
-    const s=Math.floor((Date.now()-t0)/1000), m=Math.floor(s/60);
-    const el=document.getElementById('timer');
-    el.textContent=m+':'+String(s%60).padStart(2,'0');
-    el.style.color = s>=300 ? '#ff5a3c' : (s>=240 ? '#f6b73f' : '#2dd4a7'); }
-  setInterval(tick,500);
   addEventListener('keydown',e=>{
     if(['ArrowRight','PageDown',' '].includes(e.key)){ if(t0===null) t0=Date.now(); show(i+1); }
     else if(['ArrowLeft','PageUp'].includes(e.key)) show(i-1);
     else if(e.key==='f'||e.key==='F') document.documentElement.requestFullscreen();
-    else if(e.key==='r'||e.key==='R'){ t0=Date.now(); }
     else if(e.key>='1'&&e.key<='8') show(+e.key-1); });
   addEventListener('click',()=>{ if(t0===null) t0=Date.now(); show(i+1); });
   addEventListener('contextmenu',e=>{ e.preventDefault();
