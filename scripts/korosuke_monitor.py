@@ -62,9 +62,9 @@ settings = {
     "react_greet": True,   # 入退室で挨拶する
     "react_speech": True,  # 話しかけに反応する
     "use_llm": True,       # キーワードに無い発話をローカルLLMで返答
-    "stt_lang": "ja",      # 音声認識の言語: ja=日本語(ReazonSpeech) / en=英語(要英語モデル)
-    "llm_lang": "ja",      # LLM応答の言語: ja=「ナリ」口調 / en=English
-    "tts_lang": "ja",      # 音声合成の言語: ja=Open JTalk / en=espeak-ng(要インストール)
+    "stt_lang": "auto",    # 音声認識の言語: auto=バイリンガル(話した言語を自動判定) / ja / en
+    "llm_lang": "auto",    # LLM応答の言語: auto=バイリンガル(入力に合わせる) / ja=「ナリ」口調 / en
+    "tts_lang": "auto",    # 音声合成の言語: auto=バイリンガル(返答に合わせる) / ja=Open JTalk / en=espeak-ng
     "use_arm": True,       # 挨拶/ジェスチャで腕サーボを自動で動かす(調整中はOFF)
     "event_llm": False,    # 入退室/ジェスチャの台詞: True=LLM生成(多彩,数秒遅延)/False=定型(即時)
     # --- 認識の閾値(Webで調整可) ---
@@ -1248,8 +1248,8 @@ small{color:var(--mut);font-size:.78rem}
     <div class="ctl"><span class="lab">🌐 一括 / All</span>
       <button id="all_ja" onclick="setAllLang('ja')">日本語</button>
       <button id="all_en" onclick="setAllLang('en')">English</button>
-      <button id="all_auto" onclick="setAllLang('auto')">Auto</button>
-      <small>STT・LLM・TTSをまとめて切替。Auto=話した言語を自動判定</small></div>
+      <button id="all_auto" onclick="setAllLang('auto')">Auto（バイリンガル）</button>
+      <small>STT・LLM・TTSをまとめて切替。Auto=バイリンガル(話した言語を自動判定)【初期設定】</small></div>
     <div class="ctl"><span class="lab">🖥 表示言語 / Display</span>
       <select id="c_uilang" onchange="setUiLang(this.value)">
         <option value="ja" selected>日本語</option>
@@ -1257,20 +1257,20 @@ small{color:var(--mut);font-size:.78rem}
       <small>Web画面の表示だけ切替(発話は変えない)</small></div>
     <div class="ctl"><span class="lab">💬 音声認識 STT</span>
       <select id="c_sttlang" onchange="set('stt_lang',this.value)">
-        <option value="ja" selected>日本語</option>
+        <option value="ja">日本語</option>
         <option value="en">English</option>
-        <option value="auto">Auto（自動判定）</option></select>
+        <option value="auto" selected>Auto（バイリンガル・自動判定）</option></select>
       <small id="sttlangnote"></small></div>
     <div class="ctl"><span class="lab">🤖 LLM応答</span>
       <select id="c_llmlang" onchange="set('llm_lang',this.value)">
-        <option value="ja" selected>日本語（ナリ口調）</option>
+        <option value="ja">日本語（ナリ口調）</option>
         <option value="en">English</option>
-        <option value="auto">Auto（入力に合わせる）</option></select></div>
+        <option value="auto" selected>Auto（バイリンガル・入力に合わせる）</option></select></div>
     <div class="ctl"><span class="lab">🔊 音声合成 TTS</span>
       <select id="c_ttslang" onchange="set('tts_lang',this.value)">
-        <option value="ja" selected>日本語 (Open JTalk)</option>
+        <option value="ja">日本語 (Open JTalk)</option>
         <option value="en">English (espeak-ng)</option>
-        <option value="auto">Auto（返答に合わせる）</option></select></div>
+        <option value="auto" selected>Auto（バイリンガル・返答に合わせる）</option></select></div>
     <div class="ctl"><small>英語STTは英語sherpaモデル、英語TTSは espeak-ng が必要。未導入時は自動で日本語にフォールバックします。</small></div>
   </div>
 
@@ -1723,7 +1723,7 @@ class Handler(BaseHTTPRequestHandler):
                     # 使用中のAI構成をWebに提示
                     snap["llm_model"] = LLM_NAME
                     _lp = settings["llm_lang"]
-                    snap["llm_persona"] = ("Auto 自動(JP/EN)" if _lp == "auto"
+                    snap["llm_persona"] = ("Auto バイリンガル(JP/EN)" if _lp == "auto"
                                            else "Korosuke (English persona)" if _lp == "en"
                                            else "コロ助（日本語・ナリ口調）")
                     snap["stt_model"] = state.get("stt_model_name", "sherpa-onnx")
