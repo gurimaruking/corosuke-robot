@@ -44,20 +44,27 @@
 
 ### ソフトウェア構成
 
-全処理オンデバイス。マイクの音声は VAD→音声認識→ローカルLLM→音声合成と流れ、BPUは並行して人物検出を回します(応答5〜10秒、その間は目が「考え中」アニメ):
+全処理オンデバイス(ネット接続なし)。会話の流れは4ステップです:
+
+1. **発話の切り出し** — マイクの音から「人がしゃべっている区間」だけを検出します(この技術をVAD=Voice Activity Detectionと呼びます。テレビの音や無音に反応しないための門番役)
+2. **音声認識** — 切り出した声を文字にします(SenseVoice、日本語/英語対応)
+3. **返事を考える** — ボードの中の小さなAI(ローカルLLM: TinySwallow-1.5B)が返事の文章を作ります
+4. **音声合成** — 文章をコロ助の声に変えてスピーカから話します(Open JTalk)
+
+並行して、RDK X5の**AI専用チップ(BPU)**がカメラ映像から人を見つけ、目線が人を追いかけます。返事を考えるのに5〜10秒かかるので、その間は目が「考え中」のアニメになります。
 
 ```mermaid
 flowchart LR
   CAM["C270 (カメラ&マイク)"] -->|USB| RDK
   subgraph RDK["RDK X5 — 全処理オンデバイス"]
     direction LR
-    VAD["Silero VAD"] --> STT["SenseVoice STT (日/英)"] --> LLM["TinySwallow-1.5B (llama.cpp)"] --> TTS["Open JTalk / espeak-ng"]
-    YOLO["BPU: YOLO11n-pose ~19.5FPS"]
+    VAD["① 発話の切り出し (VAD)"] --> STT["② 音声認識 SenseVoice (日/英)"] --> LLM["③ 返事を考える ローカルLLM TinySwallow-1.5B"] --> TTS["④ 音声合成 Open JTalk"]
+    YOLO["人物検出 YOLO11n-pose (AIチップBPU, 約19.5FPS)"]
   end
   RDK -->|"USBシリアル"| S3["ESP32-S3"]
   S3 --> EYES["目 GC9A01×2 (8表情)"]
   S3 --> ARMS["腕 SG90×2 (ロープ牽引)"]
-  TTS --> AMP["MAX98357A (I2S)"] --> SPK["φ50スピーカ"]
+  TTS --> AMP["アンプ MAX98357A"] --> SPK["φ50スピーカ"]
 ```
 
 ### ハードウェア構成
