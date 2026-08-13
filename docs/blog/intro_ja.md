@@ -114,14 +114,16 @@ flowchart LR
 
 ### ソフトウェア構成
 
-*EN: Mic → speech-to-text → local LLM → text-to-speech, all on the board. In parallel the BPU (AI chip) detects people so the eyes track you. A reply takes 5–10 s — the eyes show a "thinking" animation meanwhile.*
+*EN: A central "brain" (korosuke-monitor) orchestrates everything on the board: mic → speech-to-text → local LLM → text-to-speech for conversation, the BPU (AI chip) detects people so the eyes track you, and the same brain drives the eyes/arms via the ESP32-S3. A reply takes 5–10 s — the eyes show a "thinking" animation meanwhile.*
 
-ぜんぶボードの中だけで動きます(ネット接続なし)。話しかけてから返事まではこの流れ:
+ぜんぶボードの中だけで動きます(ネット接続なし)。図の中央にいる **brain(korosuke-monitor)** がコロ助の司令塔で、耳・頭・口・目・腕をこう束ねています:
 
-1. **話し声を聞き取る** — 人がしゃべっている間だけ耳を傾けます
-2. **文字にする** — 聞き取った声を文字に変換(音声認識)
-3. **返事を考える** — ボードの中の小さなAIが返事の文章を作ります
-4. **声にする** — 文章をコロ助の声でスピーカから話します
+- 👂 **聞く** — マイクの声を文字に変換(音声認識 STT)して司令塔へ
+- 🧠 **考える** — 司令塔がボード内の小さなAI(ローカルLLM)に返事の文章を作らせる
+- 🗣 **話す** — 文章をコロ助の声に変換(TTS)し、アンプ経由でスピーカから再生
+- 👀 **見る** — カメラ映像は**AIチップ(BPU)**が人を検出。司令塔が目に「そっちを見て」と指示
+- 💪 **動かす** — 司令塔がESP32-S3に指示を送り、目の表情(8種類)と腕を動かす
+- ⏻ **電源ボタン** — 押すと「おやすみ」と言って✕✕目になり、安全にシャットダウン
 
 ```mermaid
 flowchart LR
@@ -155,7 +157,7 @@ flowchart LR
     classDef o fill:#2da44e,color:#fff,stroke:#3fb950;
 ```
 
-同時に、カメラの映像からは**AIチップ(BPU)が人を見つけて、目が人を追いかけます**。返事を考えるのに5〜10秒かかるので、その間は目が「考え中」のアニメになります。
+返事を考えるのに5〜10秒かかるので、その間は目が「考え中」のアニメになります。
 
 ## 製作過程
 
