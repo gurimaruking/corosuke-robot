@@ -222,7 +222,7 @@ Open `http://[RDK X5's IP address]:8080/` (the IP depends on your connection and
 Robots have become something you can build with just **mechanics + electronics + software**
 and a little workshop gear (a bit of soldering, an ultrasonic cutter if needed).
 
-This build took roughly **15 h for the 3D parts + 10 h for electronics & software ≈ 25 hours**.
+This build took roughly **15 h for the 3D parts + 15 h for electronics & software ≈ 30 hours** (a rough estimate).
 With the enclosure and parts ready, rebuilding an existing robot is even faster. And for a
 somewhat smaller robot — halve the body, print fast (AI designs the enclosure in ~3 h), let AI
 write the electronics and software — **a custom robot in one day, maybe ~5 hours, is within reach!**

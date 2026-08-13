@@ -13,7 +13,7 @@
 > - Everything runs **100% on-device on RDK X5** — BPU vision, speech recognition, local-LLM dialogue, TTS. **No cloud.**
 > - This is **my first robot**: Murata-san (Robostadion) invited me, shared the parts, and I built it.
 > - The 3D-printed body was **designed with Claude (AI)**; software was also written with AI (VS Code + Claude Code). All files are in this repo.
-> - Total build ≈ **25 hours** — with AI assistance, a custom robot in a day is getting realistic.
+> - Total build ≈ **30 hours** — with AI assistance, a custom robot in a day is getting realistic.
 
 ## 目次
 
@@ -229,7 +229,7 @@ flowchart LR
 
 ロボットは「機構・電子・ソフト」と、ちょっとした工作環境(少しのはんだ付け、必要に応じて超音波カッター等)があれば作れる時代になってきました。
 
-今回の製作時間はだいたい **3Dパーツ15時間＋電子・ソフト10時間＝計25時間**。筐体と電子部品が揃っていれば既存ロボットの再現はもっと速いはずです。もう少し小型のロボットで良ければ——筐体サイズを半分にして高速プリント(外観はAI設計で3時間程度)、電子とソフトもAI(Claude Code等)に任せれば、**きっと5時間くらい、1日でカスタムロボットが作れる…はず！**
+今回の製作時間はだいたい **3Dパーツ15時間＋電子・ソフト15時間＝計30時間**(目安)。筐体と電子部品が揃っていれば既存ロボットの再現はもっと速いはずです。もう少し小型のロボットで良ければ——筐体サイズを半分にして高速プリント(外観はAI設計で3時間程度)、電子とソフトもAI(Claude Code等)に任せれば、**きっと5時間くらい、1日でカスタムロボットが作れる…はず！**
 
 ワガハイはコロ助ナリ！
 

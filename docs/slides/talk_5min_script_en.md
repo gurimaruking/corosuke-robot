@@ -68,7 +68,7 @@ The tools are simple: a 3D printer, velcro, tape, string, zip ties.
 
 ## [3:30] Slide 7 — Afterword (30 s)
 
-It took about **25 hours** — 15 for printing, 10 for electronics and software.
+It took about **30 hours** — 15 for printing, 15 for electronics and software.
 With AI, a smaller robot could take maybe **five hours** —
 **a custom robot in one day is within reach.**
 Everything is **open source** on GitHub.
