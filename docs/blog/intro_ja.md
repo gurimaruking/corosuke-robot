@@ -129,28 +129,28 @@ flowchart LR
 flowchart LR
     CAM([UVC Camera]):::s --> YOLO
     MIC([USB Mic]):::s --> STT
-    BTN([Shutdown button · GPIO]):::s --> BRAIN
+    BTN([Shutdown button]):::s --> BRAIN
 
-    subgraph RDK["RDK X5 · Ubuntu 22.04 · fully on-device"]
+    subgraph RDK["RDK X5 · fully on-device"]
       direction TB
-      subgraph BPU["BPU Bayes-e · 10 TOPS — PERCEPTION"]
-        YOLO["YOLO11n-pose .bin<br/>~19.5 FPS"]
+      subgraph BPU["BPU (10 TOPS) — PERCEPTION"]
+        YOLO["YOLO11n-pose (19.5 FPS)"]
       end
-      subgraph CPU["8× Cortex-A55 — LANGUAGE"]
-        STT["sherpa-onnx STT<br/>RTF 0.44"]
-        LLM["TinySwallow-1.5B<br/>llama.cpp"]
-        TTS["Open JTalk TTS"]
+      subgraph CPU["CPU 8× A55 — LANGUAGE"]
+        STT["STT: sherpa-onnx"]
+        LLM["LLM: TinySwallow-1.5B"]
+        TTS["TTS: Open JTalk"]
       end
-      BRAIN{{"korosuke-monitor<br/>brain + Web dashboard"}}
+      BRAIN{{"brain (korosuke-monitor)"}}
     end
 
     YOLO --> BRAIN
     STT --> BRAIN
     BRAIN --> LLM --> BRAIN
-    BRAIN --> TTS --> AMP["MAX98357A I2S amp"] --> SPK([φ50 speaker]):::o
-    BRAIN -->|USB / UART| ESP32["ESP32-S3 co-MCU<br/>(one board: eyes + arms)"]:::m
-    ESP32 --> EYES["2× GC9A01 eyes<br/>8 emotions + gaze"]:::m
-    ESP32 --> ARMS["2× SG90<br/>rope-pull arms"]:::m
+    BRAIN --> TTS --> AMP["MAX98357A amp"] --> SPK([φ50 speaker]):::o
+    BRAIN -->|USB / UART| ESP32["ESP32-S3 (eyes + arms)"]:::m
+    ESP32 --> EYES["2× GC9A01 eyes"]:::m
+    ESP32 --> ARMS["2× SG90 arms"]:::m
 
     classDef s fill:#1f6feb,color:#fff,stroke:#58a6ff;
     classDef m fill:#8957e5,color:#fff,stroke:#bc8cff;
