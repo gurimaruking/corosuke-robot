@@ -1575,3 +1575,312 @@ function applyActive(on){
   b.style.background=on?'':'var(--ng)'; b.style.color=on?'':'#fff'; b.style.borderColor=on?'':'var(--ng)';
 }
 </script></body></html>"""
+
+
+class Handler(BaseHTTPRequestHandler):
+    def log_message(self, *a):
+        pass
+
+    def _json_ok(self):
+        b = b'{"ok":true}'
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(b)))
+        self.end_headers()
+        self.wfile.write(b)
+
+    def _serve_media(self):
+        """MEDIA_DIR内のファイルを配信。動画のシーク用に Range(206) 対応。"""
+        import mimetypes
+        name = urllib.parse.unquote(self.path[len("/media/"):].split("?")[0])
+        if "/" in name or "\\" in name or ".." in name:   # パストラバーサル防止
+            self.send_response(403); self.end_headers(); return
+        fp = os.path.join(MEDIA_DIR, name)
+        if not os.path.isfile(fp):
+            self.send_response(404); self.end_headers(); return
+        ctype = mimetypes.guess_type(fp)[0] or "application/octet-stream"
+        fsize = os.path.getsize(fp)
+        rng = self.headers.get("Range", "")
+        start, end = 0, fsize - 1
+        partial = False
+        if rng.startswith("bytes="):
+            try:
+                s, _, e = rng[6:].partition("-")
+                start = int(s) if s else 0
+                end = int(e) if e else fsize - 1
+                end = min(end, fsize - 1)
+                partial = 0 <= start <= end
+            except Exception:  # noqa
+                partial = False
+        try:
+            self.send_response(206 if partial else 200)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Accept-Ranges", "bytes")
+            if partial:
+                self.send_header("Content-Range", "bytes %d-%d/%d" % (start, end, fsize))
+            length = (end - start + 1) if partial else fsize
+            self.send_header("Content-Length", str(length))
+            self.send_header("Cache-Control", "public, max-age=3600")
+            self.end_headers()
+            with open(fp, "rb") as f:
+                if partial:
+                    f.seek(start)
+                remaining = length
+                while remaining > 0:
+                    chunk = f.read(min(65536, remaining))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    remaining -= len(chunk)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+
+    def do_GET(self):
+        if self.path.startswith("/set?"):
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            for k, v in q.items():
+                val = v[0]
+                if k == "volume":
+                    apply_volume(val)
+                elif k == "oj_fm":
+                    try:
+                        settings["oj_fm"] = int(float(val))
+                    except ValueError:
+                        pass
+                elif k in ("oj_a", "oj_r", "mic_gain", "pose_score", "kpt_thres",
+                           "gesture_cd", "peak_ceil_db", "hpf"):
+                    try:
+                        settings[k] = float(val)
+                    except ValueError:
+                        pass
+                elif k == "spk_dev":
+                    if val in ("duplexaudio", "max98357a"):
+                        settings["spk_dev"] = val
+                elif k in ("stt_lang", "llm_lang", "tts_lang"):
+                    if val in ("ja", "en", "auto"):
+                        settings[k] = val
+                elif k in ("cam_rotate", "disp_rotate"):   # 胴体ディスプレイの回転(0/90/180/270)
+                    try:
+                        rv = int(float(val)) % 360
+                        if rv in (0, 90, 180, 270):
+                            settings[k] = rv
+                    except ValueError:
+                        pass
+                elif k in ("react_greet", "react_speech", "use_llm", "use_arm",
+                           "event_llm", "dsp"):
+                    settings[k] = val in ("1", "true", "on")
+            self._json_ok()
+            return
+        if self.path.startswith("/dispcfg"):         # 胴体ディスプレイの回転設定(display_send.pyが取得)
+            body = json.dumps({"cam_rotate": settings["cam_rotate"],
+                               "disp_rotate": settings["disp_rotate"]}).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if self.path.startswith("/audiocheck"):     # 音声カード検証&自動修復+テスト発声
+            ok = ensure_audio_card()
+            if ok:
+                speak("音声チェック、OKナリ！")     # 聞こえれば正常
+            self._json_ok()
+            return
+        if self.path.startswith("/say?"):
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            txt = (q.get("text") or [""])[0].strip()
+            if txt:
+                with lock:
+                    state["speech"] = txt
+                    state["speech_log"] = ([time.strftime("%H:%M:%S ") + txt] + state["speech_log"])[:8]
+                speak(txt, block=("sync" in q))   # sync時は再生完了までブロック(シャットダウン用)
+            self._json_ok()
+            return
+        if self.path.startswith("/llm?"):          # Webから直接LLM対話テスト
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            txt = (q.get("text") or [""])[0].strip()
+            if txt and _llm["ready"] and not _llm["busy"]:
+                threading.Thread(target=llm_respond, args=(txt,), daemon=True).start()
+            self._json_ok()
+            return
+        if self.path.startswith("/eye?"):
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            if "emo" in q:
+                eyes.send("emo " + q["emo"][0])
+            if "blink" in q:
+                eyes.send("blink")
+            self._json_ok()
+            return
+        if self.path.startswith("/arm?"):
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            if "l" in q:
+                eyes.send("arm l " + q["l"][0])
+            if "r" in q:
+                eyes.send("arm r " + q["r"][0])
+            if "do" in q:
+                arm_gesture(q["do"][0])            # wave/raise/droop
+            if "off" in q:                          # 脱力(省電流): l / r / both
+                v = q["off"][0]
+                if v in ("l", "both"):
+                    eyes.send("arm l off")
+                if v in ("r", "both"):
+                    eyes.send("arm r off")
+            self._json_ok()
+            return
+        if self.path == "/media" or self.path.startswith("/media?"):
+            items = []
+            try:
+                for fn in sorted(os.listdir(MEDIA_DIR)):
+                    fp = os.path.join(MEDIA_DIR, fn)
+                    kind = MEDIA_EXT.get(fn.lower().rsplit(".", 1)[-1]) if os.path.isfile(fp) else None
+                    if kind:
+                        items.append({"name": fn, "kind": kind, "size": os.path.getsize(fp)})
+            except Exception:  # noqa
+                pass
+            body = json.dumps(items).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if self.path.startswith("/media/"):
+            self._serve_media()
+            return
+        if self.path == "/":
+            body = PAGE.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Cache-Control", "no-store, must-revalidate")  # 常に最新UIを配信
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        elif self.path.startswith("/stream"):
+            self.send_response(200)
+            self.send_header("Cache-Control", "no-cache, private")
+            self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=FRAME")
+            self.end_headers()
+            try:
+                while True:
+                    with lock:
+                        jpg = state["jpeg"]
+                    if jpg:
+                        self.wfile.write(b"--FRAME\r\nContent-Type: image/jpeg\r\n")
+                        self.wfile.write(("Content-Length: %d\r\n\r\n" % len(jpg)).encode())
+                        self.wfile.write(jpg)
+                        self.wfile.write(b"\r\n")
+                    time.sleep(0.05)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+        elif self.path == "/events":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+            try:
+                while True:
+                    with lock:
+                        snap = {k: state[k] for k in
+                                ("level", "peak_hold", "partial", "finals", "cam_ok",
+                                 "audio_ok", "yolo_ok", "dets", "gesture", "speech",
+                                 "speech_log", "eye_ok", "present", "speaking", "spk_ok")}
+                    snap["llm_ready"] = _llm["ready"]
+                    _sa = state.get("stt_lang_active", settings["stt_lang"])
+                    snap["stt_lang_active"] = _sa
+                    # 使用中のAI構成をWebに提示
+                    snap["llm_model"] = LLM_NAME
+                    _lp = settings["llm_lang"]
+                    snap["llm_persona"] = ("Auto バイリンガル(JP/EN)" if _lp == "auto"
+                                           else "Korosuke (English persona)" if _lp == "en"
+                                           else "コロ助（日本語・ナリ口調）")
+                    snap["stt_model"] = state.get("stt_model_name", "sherpa-onnx")
+                    _tl = settings["tts_lang"]
+                    snap["tts_engine"] = ("Auto: Open JTalk / espeak-ng" if _tl == "auto"
+                                          else "espeak-ng (English)" if _tl == "en"
+                                          else "Open JTalk (日本語)")
+                    self.wfile.write(("data: " + json.dumps(snap, ensure_ascii=False) + "\n\n").encode("utf-8"))
+                    self.wfile.flush()
+                    time.sleep(0.1)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+
+def touch_loop():
+    """目ESP32のシリアルから'EVENT touch'(撫で)を受けて反応する。"""
+    while True:
+        try:
+            ser = eyes._ser
+            if ser and ser.is_open and ser.in_waiting:
+                line = ser.readline().decode("ascii", "ignore").strip()
+                if "EVENT touch" in line:
+                    now = time.time()
+                    if now - _last_pet[0] > 3.0 and now >= _speak_until[0] and settings["react_speech"]:
+                        _last_pet[0] = now
+                        event_speech(ctx("頭を撫でられた。うれしそうに短く。",
+                                         "You were patted on the head. React happily and briefly in English."),
+                                     clines(PET_LINES, PET_LINES_EN), "happy")
+            else:
+                time.sleep(0.05)
+        except Exception:  # noqa
+            time.sleep(0.3)
+
+
+BOOT_LINES = [
+    "おはようナリ！コロ助、起きたナリ！",
+    "むくっ…おはようナリ！今日も元気にがんばるナリ！",
+    "やっほー！コロ助、起動したナリ！",
+    "おはようナリ〜！さあ、はじめるナリ！",
+]
+BOOT_LINES_EN = [
+    "Good morning! Korosuke is awake!",
+    "Mmm... good morning! I'll do my best today!",
+    "Hi hi! Korosuke is up and running!",
+    "Good morning! Let's get started!",
+]
+
+
+def boot_greet():
+    """起動時のあいさつ(目/スピーカーの準備を待ってから1回だけ)。"""
+    time.sleep(8)                                        # 目の接続+音声準備を待つ
+    bl = clines(BOOT_LINES, BOOT_LINES_EN)
+    line = bl[int(time.time()) % len(bl)]
+    react("happy", line, blink=True)                     # にっこり+発声+Web表示
+    if settings.get("use_arm", True):
+        try:
+            arm_gesture("wave")                          # 手を振ってごあいさつ
+        except Exception:  # noqa
+            pass
+
+
+if __name__ == "__main__":
+    apply_volume(settings["volume"])
+    apply_mic_hw_gain()
+    ensure_audio_card()                                       # 起動時: 音声カード検証&自動修復
+    threading.Thread(target=load_llm, daemon=True).start()   # LLMロード(数十秒)
+    threading.Thread(target=touch_loop, daemon=True).start()  # 撫で検知
+    threading.Thread(target=camera_loop, daemon=True).start()
+    threading.Thread(target=yolo_loop, daemon=True).start()
+    threading.Thread(target=audio_loop, daemon=True).start()
+    threading.Thread(target=boot_greet, daemon=True).start()  # 起動あいさつ「おはよう」
+    print("コロ助モニタv4起動: http://0.0.0.0:%d/" % PORT)
+    # HTTPS併設(任意・8443): 証明書があれば起動。手元カメラ(getUserMedia)はhttpsなら
+    # ブラウザのflags設定なしで使える(自己署名のため初回のみ警告→「詳細設定→続行」)。
+    # 証明書生成(ボード上で一度だけ):
+    #   openssl req -x509 -newkey rsa:2048 -nodes -days 3650     #     -keyout korosuke_key.pem -out korosuke_cert.pem -subj "/CN=korosuke"     #     -addext "subjectAltName=IP:192.168.128.10,IP:192.168.0.200,DNS:korosuke"
+    _dir = os.path.dirname(os.path.abspath(__file__))
+    _cert, _key = os.path.join(_dir, "korosuke_cert.pem"), os.path.join(_dir, "korosuke_key.pem")
+    if os.path.exists(_cert) and os.path.exists(_key):
+        try:
+            import ssl
+            _hs = ThreadingHTTPServer(("0.0.0.0", 8443), Handler)
+            _ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            _ctx.load_cert_chain(_cert, _key)
+            _hs.socket = _ctx.wrap_socket(_hs.socket, server_side=True)
+            threading.Thread(target=_hs.serve_forever, daemon=True).start()
+            print("HTTPS併設: https://0.0.0.0:8443/ (自己署名・初回のみ警告)")
+        except Exception as e:
+            print("[https] 起動失敗(httpのみで継続):", e)
+    ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
