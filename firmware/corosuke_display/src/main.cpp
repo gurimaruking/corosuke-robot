@@ -131,7 +131,6 @@ void loop() {
   total++; frames++; bytesAcc += len;
   everFrame = true; idleShown = false;
   lastFrameMs = millis();
-  drawCounter();                    // 常時プルーフ(映像が黒でもここは進む)
   if (!ok) Serial.println("JPEGDEC decode FAILED");
   Serial.write(0x06);               // ACK
 
@@ -141,11 +140,6 @@ void loop() {
     float kbps = bytesAcc / 1024.0f / ((now - lastStat) / 1000.0f);
     Serial.printf("fps=%.1f  %.0f KB/s  lastlen=%u  total=%u\n",
                   fps, kbps, (unsigned)len, (unsigned)total);
-    lcd.setFont(&fonts::Font2);
-    lcd.setTextColor(TFT_YELLOW, TFT_BLACK);
-    lcd.setTextDatum(top_right);
-    lcd.fillRect(W - 84, 0, 84, 16, TFT_BLACK);
-    lcd.drawString(String(fps, 1) + "fps", W - 3, 1);
     frames = 0; bytesAcc = 0; lastStat = now;
   }
 }

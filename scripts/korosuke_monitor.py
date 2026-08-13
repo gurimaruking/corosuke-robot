@@ -57,6 +57,7 @@ settings = {
                            # 声はピークのみ瞬間で平均は数mW→安全)。高耐入力SPに替えたら更に上げ可
     "mic_gain": 3.0,       # マイク感度(ソフト増幅倍率)。ハードゲインは起動時に最大化
     "oj_fm": 9,            # 声の高さ(Open JTalk -fm)。voice B=9
+    "oj_voice": OJ_VOICE,  # 声モデル(.htsvoice)。Webの「声モデル」で切替
     "oj_a": 0.40,         # 声道長(小=子供っぽい)
     "oj_r": 1.12,         # 話速
     "react_greet": True,   # 入退室で挨拶する
@@ -372,7 +373,7 @@ def _synthesize(text, wav):
         return p.returncode == 0 and os.path.exists(wav) and os.path.getsize(wav) > 0
     # 日本語(Open JTalk)
     p = subprocess.run(
-        [OJ_BIN, "-x", OJ_DIC, "-m", OJ_VOICE,
+        [OJ_BIN, "-x", OJ_DIC, "-m", settings.get("oj_voice", OJ_VOICE),
          "-fm", str(settings["oj_fm"]), "-a", str(settings["oj_a"]),
          "-r", str(settings["oj_r"]), "-ow", wav],
         input=(text + "\n").encode("utf-8"),
@@ -1221,8 +1222,11 @@ small{color:var(--mut);font-size:.78rem}
     <div class="ctl"><span class="lab">🎙 マイク感度</span>
       <input type="range" min="1" max="8" step="0.5" value="3" id="c_mic"
        oninput="lbl('l_mic',this.value);set('mic_gain',this.value)"><span id="l_mic">3</span>x</div>
+    <div class="ctl"><span class="lab">🗣 声モデル / Voice</span>
+      <select id="c_ojv" onchange="set('oj_voice',this.value)" style="max-width:340px"></select>
+      <small>追加の声は /home/sunrise/voices/ に .htsvoice を置く</small></div>
     <div class="ctl"><span class="lab">🎵 声の高さ</span>
-      <input type="range" min="0" max="15" value="9" id="c_fm"
+      <input type="range" min="0" max="24" value="9" id="c_fm"
        oninput="lbl('l_fm',this.value);set('oj_fm',this.value)"><span id="l_fm">9</span></div>
     <div class="ctl"><span class="lab">⏩ 話速</span>
       <input type="range" min="0.7" max="1.5" step="0.05" value="1.12" id="c_r"
@@ -1574,6 +1578,14 @@ function applyActive(on){
   b.classList.toggle('active',on);
   b.style.background=on?'':'var(--ng)'; b.style.color=on?'':'#fff'; b.style.borderColor=on?'':'var(--ng)';
 }
+
+/* 声モデル一覧を取得してドロップダウンに反映 */
+fetch('/voices').then(r=>r.json()).then(d=>{
+  const s=document.getElementById('c_ojv'); if(!s) return;
+  s.innerHTML='';
+  (d.voices||[]).forEach(v=>{ const o=document.createElement('option');
+    o.value=v.path; o.textContent=v.name; if(v.path===d.current) o.selected=true; s.appendChild(o); });
+}).catch(()=>{});
 </script></body></html>"""
 
 
@@ -1653,6 +1665,9 @@ class Handler(BaseHTTPRequestHandler):
                         settings[k] = float(val)
                     except ValueError:
                         pass
+                elif k == "oj_voice":
+                    if val.endswith(".htsvoice") and os.path.exists(val):
+                        settings["oj_voice"] = val
                 elif k == "spk_dev":
                     if val in ("duplexaudio", "max98357a"):
                         settings["spk_dev"] = val
@@ -1676,6 +1691,19 @@ class Handler(BaseHTTPRequestHandler):
                                "disp_rotate": settings["disp_rotate"]}).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if self.path.startswith("/voices"):      # 利用可能な声モデル(.htsvoice)一覧
+            import glob as _g
+            vs = sorted(set(_g.glob("/usr/share/hts-voice/**/*.htsvoice", recursive=True)
+                            + _g.glob("/home/sunrise/voices/**/*.htsvoice", recursive=True)))
+            items = [{"path": v, "name": os.path.splitext(os.path.basename(v))[0]} for v in vs]
+            body = json.dumps({"voices": items, "current": settings.get("oj_voice", OJ_VOICE)},
+                              ensure_ascii=False).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
