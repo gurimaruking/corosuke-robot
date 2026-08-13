@@ -162,7 +162,7 @@ flowchart LR
 
 *EN: All body parts were 3D-printed at Robostadion. Murata-san designed them with Claude (AI) — the v1 files are in this repo.*
 
-3Dパーツは **店長・村田さんが Claude (Fable 5) を使って設計・製作**！
+3Dパーツは **店長・村田がAIと共同製作**。
 部品データはリポジトリの [hardware/3d_models/korosuke_print](../../hardware/3d_models/korosuke_print/) にあります(今回使ったのは **v1**。v2以降のフォルダもありますが、まだ試せていません！)。
 
 <p>
@@ -170,9 +170,9 @@ flowchart LR
 <img src="../photo/korosuke_3Dparts_bulding.jpg" width="49%" alt="パーツの組み立て">
 </p>
 
-各部品はこんな構成です:
+各部品の筐体構成は下記。
 
-- **頭**: 半球ふたつ。片方に**目の穴**を開けて、丸型LCDの目を内側から差し込む
+- **頭**: 半球二つ。片方に**目の穴**を開けて、丸型LCDの目を内側から差し込む
 - **胴体**: RDK X5・カメラ・スピーカ・サーボモータが収まる円筒。**上下に開口**して部品を出し入れでき、**横には腕を動かすロープアームを通す穴**
 - **腕と手**: 輪っかを8個連結して紐を通し、紐の片側を手の先端に、もう一方をサーボモータに接続(＝**ロープアーム**。サーボが紐を引くと腕が持ち上がる)
 - **胴体ベース**: 当初ケーブルの出口がなかったので、**超音波カッターで底面をカット**して胴体下から配線を出すように加工
