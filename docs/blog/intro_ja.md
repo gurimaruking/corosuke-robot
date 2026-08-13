@@ -9,7 +9,9 @@
 
 <img src="../photo/20260725_korosuke-robot-revision_0.1.jpg" width="33%" alt="コロ助 rev0.1 — 組み上がって笑顔">
 
-<!-- ▼▼▼ この行の下に docs/photo/Hi_korosuke.mp4 をドラッグ&ドロップしてください(音声付きプレイヤーになります)。このコメント行は消してOK ▼▼▼ -->
+🎬 **[「ワガハイはコロ助ナリ！」挨拶動画(音声付き)を再生](../photo/Hi_korosuke.mp4)**
+
+<!-- ▼▼▼ ページ内プレイヤーにする場合: この行の下に docs/photo/Hi_korosuke.mp4 をドラッグ&ドロップ(上のリンク行は消してOK) ▼▼▼ -->
 
 - リポジトリ: https://github.com/gurimaruking/corosuke-robot
 - デモ動画: https://www.youtube.com/watch?v=NJwj6Iazd20
