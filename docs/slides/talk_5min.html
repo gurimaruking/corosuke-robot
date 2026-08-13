@@ -135,20 +135,21 @@
 <!-- 6 BUILD PROCESS 2:50-3:30 -->
 <section class="slide">
   <p class="eyebrow">Build process</p>
-  <h2>3D print · wire · let AI write it</h2>
+  <h2>3D print · wire · create with AI</h2>
   <div class="row">
     <div class="col big">
       <ul class="big">
         <li>3D parts <b>co-created by Murata-san and AI</b> (v1 files in the repo)</li>
         <li>Head = 2 hemispheres · torso holds everything · <b>rope-pull arms</b> (rings + string)</li>
         <li>Wiring — exactly as the repo docs</li>
-        <li>Software — <b>"Let AI write it"</b> (I placed parts &amp; debugged)</li>
+        <li>Software — <b>created together with AI</b> (I placed parts &amp; debugged)</li>
         <li>Tools: 3D printer · velcro · double-sided tape · string · zip ties</li>
       </ul>
     </div>
-    <div class="col" style="display:flex; flex-direction:column; gap:1vh;">
-      <img class="ph" style="max-height:29vh" src="../photo/head_v1.jpg" alt="head part">
-      <img class="ph" style="max-height:29vh" src="../photo/body_ver2.jpg" alt="torso part">
+    <div class="col" style="display:flex; flex-direction:column; align-items:center; gap:1vh;">
+      <video class="ph" style="max-height:32vh" src="../photo/arm_rope_pull.mp4" muted loop playsinline></video>
+      <p class="sub" style="margin:-.5vh 0 .5vh;">▲ rope-pull arm in action (loop)</p>
+      <img class="ph" style="max-height:26vh" src="../photo/body_ver2.jpg" alt="torso internals">
     </div>
   </div>
   <span class="chip">2:50–3:30</span>
@@ -193,7 +194,9 @@
 <script>
   const slides=[...document.querySelectorAll('.slide')]; let i=0, t0=null;
   function show(n){ i=Math.max(0,Math.min(slides.length-1,n));
-    slides.forEach((s,k)=>s.classList.toggle('on',k===i)); }
+    slides.forEach((s,k)=>s.classList.toggle('on',k===i));
+    document.querySelectorAll('video').forEach(v=>{
+      if(slides[i].contains(v)){ v.currentTime=0; v.play().catch(()=>{}); } else v.pause(); }); }
   function tick(){ if(t0===null) return;
     const s=Math.floor((Date.now()-t0)/1000), m=Math.floor(s/60);
     const el=document.getElementById('timer');

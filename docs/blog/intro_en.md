@@ -194,8 +194,8 @@ Wired exactly as documented in the repo:
 
 ### Software, built with AI
 
-**Let AI write it** — we used Visual Studio Code + Claude Code. (Sorry, we haven't mastered
-RDK Studio yet — it can likely do the same, and we'll give it another try!)
+**Create it together with AI.** You place the parts and debug — becoming the eyes and hands
+that AI doesn't have — and together you build the robot!
 
 ### Operation (Korosuke Monitor)
 
@@ -224,8 +224,8 @@ and a little workshop gear (a bit of soldering, an ultrasonic cutter if needed).
 
 This build took roughly **15 h for the 3D parts + 15 h for electronics & software ≈ 30 hours** (a rough estimate).
 With the enclosure and parts ready, rebuilding an existing robot is even faster. And for a
-somewhat smaller robot — halve the body, print fast (AI designs the enclosure in ~3 h), let AI
-write the electronics and software — **a custom robot in one day, maybe ~5 hours, is within reach!**
+somewhat smaller robot — halve the body, print fast (AI designs the enclosure in ~3 h), create
+the electronics and software together with AI — **a custom robot in one day, maybe ~5 hours, is within reach!**
 
 I am Korosuke!
 

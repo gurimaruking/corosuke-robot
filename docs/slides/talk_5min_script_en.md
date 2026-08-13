@@ -65,8 +65,9 @@ The build. The 3D parts were **co-created by Murata-san and AI** —
 all the files are in the repo.
 The head is two hemispheres. The torso holds everything.
 The arms are rings on a string — the servo pulls the string, and the arm rises.
+**You can see it moving right here** *(point at the looping video)*.
 Wiring followed the repo documents exactly.
-And the software? **We let AI write it.**
+And the software? **We created it together with AI.**
 I placed the parts, and I debugged — **I was the eyes and hands of the AI.**
 The tools are simple: a 3D printer, velcro, tape, string, zip ties.
 
