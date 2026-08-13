@@ -27,8 +27,8 @@
   - [電子部品の配線](#電子部品の配線)
   - [ソフトの製作](#ソフトの製作)
   - [コロ助モニタ](#コロ助モニタ)
-- [トラブルシューティング(ハマったところ)](#トラブルシューティングハマったところ)
 - [あとがき](#あとがき)
+- [トラブルシューティング(ハマったところ)](#トラブルシューティングハマったところ)
 
 ## 概要
 
@@ -210,6 +210,16 @@ flowchart LR
 
 ![コロ助モニタ — カメラ映像+骨格+音声認識+会話ログ](../photo/korosuke-monitor.png)
 
+## あとがき
+
+*EN: Total build time ≈ 25 h (3D parts 15 h + electronics & software 10 h). With AI design + fast printing + AI-written software, a one-day custom robot is within reach.*
+
+ロボットは「機構・電子・ソフト」と、ちょっとした工作環境(少しのはんだ付け、必要に応じて超音波カッター等)があれば作れる時代になってきました。
+
+今回の製作時間はだいたい **3Dパーツ15時間＋電子・ソフト10時間＝計25時間**。筐体と電子部品が揃っていれば既存ロボットの再現はもっと速いはずです。もう少し小型のロボットで良ければ——筐体サイズを半分にして高速プリント(外観はAI設計で3時間程度)、電子とソフトもAI(Claude Code等)に任せれば、**きっと5時間くらい、1日でカスタムロボットが作れる…はず！**
+
+ワガハイはコロ助ナリ！
+
 ## トラブルシューティング(ハマったところ)
 
 *EN: Gotchas — (1) check the green LED next to USB-C: with some cables the board silently doesn't boot; (2) network settings may fail or revert — verify with `ip addr` on the board / `ipconfig` on Windows.*
@@ -221,16 +231,6 @@ flowchart LR
 → ネットワーク設定は[公式手順](https://developer.d-robotics.cc/rdk_studio_doc/en/user-guide/network-config/)で行います。ただ、RDK Studio からうまく設定できていなかったり、**設定が元に戻っていたりする**ことがあります。再度手順を実行するか、HDMIでターミナルを開いて `ip addr` でボード側のIPを確認、Windows側は `ipconfig` で使いたいインターフェースにIPが割り振られているか確認しましょう。
 
 > 参考: このプロジェクトでは保守用に **eth0を固定IP 192.168.0.200**、**USB-C直結(usb0)は192.168.128.10** で運用しています([docs/network_setup.md](../network_setup.md))。
-
-## あとがき
-
-*EN: Total build time ≈ 25 h (3D parts 15 h + electronics & software 10 h). With AI design + fast printing + AI-written software, a one-day custom robot is within reach.*
-
-ロボットは「機構・電子・ソフト」と、ちょっとした工作環境(少しのはんだ付け、必要に応じて超音波カッター等)があれば作れる時代になってきました。
-
-今回の製作時間はだいたい **3Dパーツ15時間＋電子・ソフト10時間＝計25時間**。筐体と電子部品が揃っていれば既存ロボットの再現はもっと速いはずです。もう少し小型のロボットで良ければ——筐体サイズを半分にして高速プリント(外観はAI設計で3時間程度)、電子とソフトもAI(Claude Code等)に任せれば、**きっと5時間くらい、1日でカスタムロボットが作れる…はず！**
-
-ワガハイはコロ助ナリ！
 
 ---
 *#RoboticsDreamKeeper #RDKX5 #ROS2 #animatronics*
