@@ -1,4 +1,4 @@
-# ワガハイはコロ助ナリ！ — RDK X5でアニメの友を蘇らせる話
+# ワガハイはコロ助ナリ！
 
 > D-Robotics「Robotics Dream Keeper Challenge」参加記(日本語)。
 > 英語版のプロジェクト概要は [KazukiMurata-Project-Korosuke.md](../KazukiMurata-Project-Korosuke.md)、技術詳細は [STAGE3.md](../../STAGE3.md) を参照ナリ。
@@ -82,12 +82,17 @@ flowchart LR
 ### 筐体部品をロボスタディオンの3Dプリンタで印刷
 
 3Dパーツは **店長・村田さんが Claude (Fable 5) を使って設計・製作**！
+部品データはリポジトリの [hardware/3d_models/korosuke_print](../../hardware/3d_models/korosuke_print/) にあります(今回使ったのは **v1**。v2以降のフォルダもありますが、まだ試せていません！)。
 
-<p>
-<img src="../photo/korosuke_3Dprint_parts.jpg" width="32%" alt="印刷されたコロ助のパーツたち">
-<img src="../photo/korosuke_3D_printed.jpg" width="32%" alt="印刷直後のパーツ">
-<img src="../photo/korosuke_3Dparts_bulding.jpg" width="32%" alt="パーツの組み立て">
-</p>
+<table>
+<tr>
+<td width="50%" valign="top"><img src="../photo/korosuke_3D_printed.jpg" alt="印刷直後のパーツ"></td>
+<td width="50%" valign="top">
+<img src="../photo/korosuke_3Dprint_parts.jpg" alt="スライサーに並んだコロ助のパーツたち"><br>
+<img src="../photo/korosuke_3Dparts_bulding.jpg" alt="パーツの組み立て">
+</td>
+</tr>
+</table>
 
 各部品はこんな構成です:
 
