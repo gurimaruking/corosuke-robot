@@ -215,9 +215,9 @@ flowchart LR
 *EN: Tools — velcro tape, an ultrasonic cutter, a 3D printer (Bambu Lab A1; A1 mini should just fit), string for the arms, and zip ties for tuning the rope arms.*
 
 - **マジックテープ** — 各種部品を3Dプリント筐体に付けるのに便利。 [Amazon](https://www.amazon.co.jp/dp/B0GJZJM4TG)
-- **超音波カッター**(または代替物) — 3Dプリントパーツの加工に便利
+- **超音波カッター**(または代替物) — 3Dプリントパーツの加工に便利。Aliexpressで探しましょう。プラスチックが溶ければ良いので、熱した金属針でも良いと思います
 - **3D Printer** — パーツの印刷に必要です！(今回は **Bambu Lab A1** を利用。パーツは18cm以内のため **A1 miniでもぎりぎり印刷できるはず**)
-- **両面テープ** — 部品の固定に便利。
+- **両面テープ** — パーツの接着に便利。
 - **紐** — 手を動かすのに必要です。
 - **結束バンド** — ロープアームの調整に必要です。 [ダイソー](https://jp.daisonet.com/products/4550480088891)
 
