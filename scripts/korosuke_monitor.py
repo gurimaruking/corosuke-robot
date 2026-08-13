@@ -63,6 +63,8 @@ settings = {
                  else OJ_VOICE),
     "oj_a": 0.40,         # 声道長(小=子供っぽい)
     "oj_r": 1.12,         # 話速
+    "tts_en_voice": "en-us+f4",  # 英語(espeak-ng)の声。+f1〜f5=女声/+m1〜m5=男声
+    "en_pitch": 65,        # 英語ピッチ(espeak-ng -p 0-99)
     "react_greet": True,   # 入退室で挨拶する
     "react_speech": True,  # 話しかけに反応する
     "use_llm": True,       # キーワードに無い発話をローカルLLMで返答
@@ -367,7 +369,7 @@ def _synthesize(text, wav):
         # 英語(espeak-ng)。コロ助らしい高めの子供っぽいロボ声。
         # 「声の高さ(oj_fm)」「話速(oj_r)」スライダを流用してWebから調整可能に。
         # 既定 fm9/r1.12 → pitch=85(高め) / speed≈145。
-        pitch = max(0, min(99, int(40 + float(settings["oj_fm"]) * 5)))
+        pitch = max(0, min(99, int(settings.get("en_pitch", 65))))
         speed = max(80, min(260, int(130 * float(settings["oj_r"]))))
         voice = settings.get("tts_en_voice", "en-us+f4")   # +f3〜f5で声色変更可
         p = subprocess.run(
@@ -1228,6 +1230,20 @@ small{color:var(--mut);font-size:.78rem}
     <div class="ctl"><span class="lab">🗣 声モデル / Voice</span>
       <select id="c_ojv" onchange="set('oj_voice',this.value)" style="max-width:340px"></select>
       <small>追加の声は /home/sunrise/voices/ に .htsvoice を置く</small></div>
+    <div class="ctl"><span class="lab">🇬🇧 英語の声 / EN voice</span>
+      <select id="c_env" onchange="set('tts_en_voice',this.value)">
+        <option value="en-us+f1">Female 1</option>
+        <option value="en-us+f2">Female 2</option>
+        <option value="en-us+f3">Female 3</option>
+        <option value="en-us+f4" selected>Female 4 (既定)</option>
+        <option value="en-us+f5">Female 5</option>
+        <option value="en-us+m1">Male 1</option>
+        <option value="en-us+m3">Male 3</option>
+        <option value="en-us+m5">Male 5</option>
+        <option value="en-gb+f4">British Female</option></select></div>
+    <div class="ctl"><span class="lab">🇬🇧 英語ピッチ / EN pitch</span>
+      <input type="range" min="0" max="99" value="65" id="c_enp"
+       oninput="lbl('l_enp',this.value);set('en_pitch',this.value)"><span id="l_enp">65</span></div>
     <div class="ctl"><span class="lab">🎵 声の高さ</span>
       <input type="range" min="0" max="24" value="5" id="c_fm"
        oninput="lbl('l_fm',this.value);set('oj_fm',this.value)"><span id="l_fm">5</span></div>
@@ -1657,11 +1673,14 @@ class Handler(BaseHTTPRequestHandler):
                 val = v[0]
                 if k == "volume":
                     apply_volume(val)
-                elif k == "oj_fm":
+                elif k in ("oj_fm", "en_pitch"):
                     try:
-                        settings["oj_fm"] = int(float(val))
+                        settings[k] = int(float(val))
                     except ValueError:
                         pass
+                elif k == "tts_en_voice":
+                    if re.fullmatch(r"[a-z]{2}(-[a-z]+)?(\+[fm][1-5])?", val):
+                        settings["tts_en_voice"] = val
                 elif k in ("oj_a", "oj_r", "mic_gain", "pose_score", "kpt_thres",
                            "gesture_cd", "peak_ceil_db", "hpf"):
                     try:

@@ -104,7 +104,7 @@ def cycle_lang():
     cur = _txt.get("lang") or "auto"
     nxt = order[(order.index(cur) + 1) % 3] if cur in order else "ja"
     names = {"ja": "日本語", "en": "English", "auto": "Auto(バイリンガル)"}
-    say = {"ja": "日本語モードナリ！", "en": "English mode!", "auto": "バイリンガルモードナリ！"}
+    say = {"ja": "日本語モードナリ！", "en": "English mode nari!", "auto": "バイリンガルモードナリ！"}
     try:
         urllib.request.urlopen(
             f"{base}/set?stt_lang={nxt}&llm_lang={nxt}&tts_lang={nxt}", timeout=3).read()
@@ -161,21 +161,44 @@ def overlay_text(canvas):
     ov = Image.new("RGBA", img.size, (0, 0, 0, 0))
     d = ImageDraw.Draw(ov)
     W, H = img.size
-    bh = 30
+    LH = 26                                  # 1行の高さ
+    MAXLINES = 2                             # 認識/返答とも最大2行(超過は…)
 
-    def band(y, text, fill):
-        d.rectangle([0, y, W, y + bh], fill=(0, 0, 0, 150))
-        t = text
-        while t and d.textlength(t, font=_FONT) > W - 10:
-            t = t[:-1]
-        if t != text:
-            t = (t[:-1] if t else t) + "…"
-        d.text((5, y + 4), t, font=_FONT, fill=fill)
+    def wrap(text, maxw):
+        lines, cur = [], ""
+        for ch in text:
+            if d.textlength(cur + ch, font=_FONT) > maxw:
+                lines.append(cur)
+                cur = ch
+                if len(lines) == MAXLINES:
+                    break
+            else:
+                cur += ch
+        else:
+            if cur:
+                lines.append(cur)
+            return lines
+        last = lines[-1]                     # 溢れた: 最終行に…を付ける
+        while last and d.textlength(last + "…", font=_FONT) > maxw:
+            last = last[:-1]
+        lines[-1] = last + "…"
+        return lines
 
+    def band(top, text, fill):
+        """topがNoneなら下端に配置。行数に応じて帯高さを可変。帯の高さを返す。"""
+        ls = wrap(text, W - 10)
+        hb = len(ls) * LH + 8
+        y0b = 0 if top else H - hb
+        d.rectangle([0, y0b, W, y0b + hb], fill=(0, 0, 0, 150))
+        for i, t in enumerate(ls):
+            d.text((5, y0b + 4 + i * LH), t, font=_FONT, fill=fill)
+        return hb
+
+    reply_h = 0
     if heard:
-        band(0, heard, (255, 255, 255, 255))
+        band(True, heard, (255, 255, 255, 255))
     if reply:
-        band(H - bh, reply, (255, 224, 110, 255))
+        reply_h = band(False, reply, (255, 224, 110, 255))
     if toast:                                # 画面中央: 言語切替の確認表示
         tw = d.textlength(toast, font=_FONT)
         d.rectangle([(W - tw) / 2 - 14, H / 2 - 20, (W + tw) / 2 + 14, H / 2 + 20],
@@ -186,7 +209,7 @@ def overlay_text(canvas):
     label = lbl + LANG_LABEL.get(_txt.get("lang") or "auto", "Auto")
     tw = d.textlength(label, font=_FONT)
     bw, bh2 = int(tw) + 24, 36
-    x1, y1 = W - 8, H - bh - 8            # 右下(返答帯の上に少し重ねない位置)
+    x1, y1 = W - 8, H - reply_h - 8       # 右下(返答帯の高さに追従して上へ避ける)
     x0, y0 = x1 - bw, y1 - bh2
     d.rounded_rectangle([x0, y0, x1, y1], radius=9,
                         fill=(0, 90, 70, 215), outline=(120, 255, 200, 255), width=2)
