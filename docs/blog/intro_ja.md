@@ -36,7 +36,10 @@
 
 コロ助は、日本の漫画家・**藤子・F・不二雄**が描く『**キテレツ大百科**』で、発明好きの主人公キテレツが第1話で作る**からくりロボット**です。本プロジェクトのコロ助ロボは、秋葉原のロボットコワーキングスペース「**ロボスタディオン**」のメンバーによる**ファンメイドロボット**——頭脳に **D-Robotics RDK X5** を載せ、**見る・聞く・考える・話す・表情する**をすべて**ボード上だけ**(クラウドなし)で行います。D-Roboticsの [Robotics Dream Keeper Challenge](https://github.com/D-Robotics/Robotics-Dream-Keeper-Challenge) で製作したものです。
 
+<p>
 <img src="../photo/korosuke_robo.jpg" width="33%" alt="コロ助ロボ">
+<img src="../photo/20260725_korosuke-robot-revision_0.1.jpg" width="24%" alt="コロ助 rev0.1 — 組み上がって笑顔">
+</p>
 
 - デモ動画: https://www.youtube.com/watch?v=NJwj6Iazd20
 
