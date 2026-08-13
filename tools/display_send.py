@@ -78,18 +78,21 @@ def on_touch(px, py):
 _tickle = {"last": 0.0}
 TICKLE_LINES = ["くすぐったいナリ！", "わははっ、くすぐったいナリ〜！",
                 "えへへ、お腹をさわったナリ？", "ひゃっ！びっくりしたナリ！"]
+TICKLE_LINES_EN = ["That tickles, nari!", "Hahaha, that tickles!",
+                   "Hehe, did you touch my belly?", "Whoa! You surprised me, nari!"]
 
 
 def tickle():
-    """お腹(ボタン以外)タッチ → 笑い目+「くすぐったいナリ」系のランダム発話。"""
+    """お腹(ボタン以外)タッチ → 笑い目+くすぐったい発話(言語モードに合わせてJP/EN)。"""
     base = _ctl["base"]
     if not base:
         return
     import random
+    lines = TICKLE_LINES_EN if _txt.get("lang") == "en" else TICKLE_LINES
     try:
         urllib.request.urlopen(base + "/eye?emo=happy&blink=1", timeout=3).read()
         urllib.request.urlopen(
-            base + "/say?text=" + urllib.parse.quote(random.choice(TICKLE_LINES)), timeout=3).read()
+            base + "/say?text=" + urllib.parse.quote(random.choice(lines)), timeout=3).read()
         print("[ctl] くすぐったい反応")
     except Exception as e:
         print("[ctl] tickle失敗:", e)
