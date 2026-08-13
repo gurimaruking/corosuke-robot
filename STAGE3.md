@@ -44,6 +44,8 @@ live camera + skeleton, mic level, recognition state and speech — and lets you
 parameter (volume, mic gain, voice pitch, thresholds, reaction toggles, eyes, arms, and a
 **one-click audio self-test**) live from any PC on the LAN.
 
+![Korosuke web dashboard — live camera + skeleton, recognition state and conversation log](docs/photo/korosuke-monitor.png)
+
 ## 2. Stage-3 technical achievements (all measured on the real board)
 
 | Capability | Implementation | On-device measurement |
