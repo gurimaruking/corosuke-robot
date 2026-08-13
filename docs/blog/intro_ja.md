@@ -1,4 +1,4 @@
-# ワガハイはコロ助ナリ！
+# ワガハイはコロ助ナリ！誰でもロボットを作れる時代
 
 <p>
 <img src="../photo/D-Robotics_Logo.png" height="72" alt="D-Robotics">
