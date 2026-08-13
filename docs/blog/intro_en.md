@@ -78,7 +78,7 @@ flowchart LR
   %% All parts are boxes. Colour = category. Pin numbers are on the wires (edge labels).
   PB["🔋 Mobile battery<br/>(power bank) 5V/3A"]:::power
   LIPO["🔋 LiPo<br/>(for servos)"]:::power
-  RDK["🧠 RDK X5<br/>10 TOPS BPU · 8× Cortex-A55<br/>(brain — everything on-device)"]:::main
+  RDK["🧠 RDK X5 (10 TOPS)<br/>(brain — everything on-device)"]:::main
   ESP["ESP32-S3<br/>(eyes/arms MCU)"]:::compute
   AMP["MAX98357A<br/>I2S amp (GAIN=9dB)"]:::module
   EYES["2× GC9A01<br/>round LCD (eyes)"]:::module
