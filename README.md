@@ -60,15 +60,17 @@ press (goodnight voice → ✕✕ "safe-to-unplug" eyes). A tabbed **web dashboa
 
 To reproduce the body you'll also need:
 
-- **Velcro tape** — handy for attaching parts to the 3D-printed body — [Amazon](https://www.amazon.co.jp/dp/B0GJZJM4TG)
-- **Ultrasonic cutter** (or an alternative) — handy for post-processing the 3D-printed parts. Look for one on AliExpress — anything that melts plastic works, even a heated metal needle
-- **3D printer** — required to print the parts! (we used a **Bambu Lab A1**; parts are within 18 cm, so an **A1 mini** should *just* fit)
-- **Double-sided tape** — handy for bonding parts
-- **String** — needed to move the hands (rope-pull arms)
-- **Zip ties** — needed to tune the rope arms — [Daiso](https://jp.daisonet.com/products/4550480088891)
-- **Soldering iron** — for a little soldering (power button, amp terminals, etc.)
-- **Breadboard (small)** — used for the ESP32-S3 wiring
-- **Jumper wires** (M-M / M-F) — used to connect the parts
+| Tool | Purpose | Where to get |
+|---|---|---|
+| **Velcro tape** | attaching parts to the 3D-printed body | [Amazon](https://www.amazon.co.jp/dp/B0GJZJM4TG) |
+| **Ultrasonic cutter** (or an alternative) | post-processing the 3D-printed parts — anything that melts plastic works, even a heated metal needle | AliExpress |
+| **3D printer** | printing the parts! (we used a **Bambu Lab A1**; parts are within 18 cm, so an **A1 mini** should *just* fit) | — |
+| **Double-sided tape** | bonding parts | — |
+| **String** | moving the hands (rope-pull arms) | — |
+| **Zip ties** | tuning the rope arms | [Daiso](https://jp.daisonet.com/products/4550480088891) |
+| **Soldering iron** | a little soldering (power button, amp terminals, etc.) | — |
+| **Breadboard** (small) | ESP32-S3 wiring | — |
+| **Jumper wires** (M-M / M-F) | connecting the parts | — |
 
 ## Challenge journey — Stage 1 → 2 → 3
 
