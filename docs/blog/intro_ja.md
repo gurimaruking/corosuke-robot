@@ -150,7 +150,10 @@ flowchart LR
 - **胴体ベース**: 当初ケーブルの出口がなかったので、**超音波カッターで底面をカット**して胴体下から配線を出すように加工
 - **足**: 今回は動かさないので、そのまま胴体ベースに接着
 
-<img src="../photo/Base_UltraCutter_Cutting_2.jpg" width="49%" alt="超音波カッターでベースをカット">
+<p>
+<img src="../photo/head_v1.jpg" width="49%" alt="頭パーツ v1">
+<img src="../photo/body_ver2.jpg" width="49%" alt="胴体パーツ v2">
+</p>
 
 ### 電子部品の配線
 
