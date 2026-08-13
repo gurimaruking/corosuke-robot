@@ -63,11 +63,14 @@ Thumbs.db
 hardware/3d_models/geek_print/
 
 # 提出用メディア: 画像はコミット、動画(サイズ大)はYouTubeで共有するため非公開
+# 例外: ブログ用の軽量GIFと挨拶ムービー(2.9MB)のみコミット
 docs/photo/*
 !docs/photo/*.jpg
 !docs/photo/*.jpeg
 !docs/photo/*.png
 !docs/photo/*.webp
+!docs/photo/*.gif
+!docs/photo/Hi_korosuke.mp4
 
 # =============================================================================
 # 音声キャッシュ
