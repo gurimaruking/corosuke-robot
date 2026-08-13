@@ -146,8 +146,9 @@ flowchart LR
     STT --> BRAIN
     BRAIN --> LLM --> BRAIN
     BRAIN --> TTS --> AMP["MAX98357A I2S amp"] --> SPK([φ50 speaker]):::o
-    BRAIN -->|USB / UART| EYES["ESP32-S3 · 2× GC9A01 eyes<br/>8 emotions + gaze"]:::m
-    BRAIN -->|USB / UART| ARMS["ESP32-S3 · 2× SG90<br/>rope-pull arms"]:::m
+    BRAIN -->|USB / UART| ESP32["ESP32-S3 co-MCU<br/>(one board: eyes + arms)"]:::m
+    ESP32 --> EYES["2× GC9A01 eyes<br/>8 emotions + gaze"]:::m
+    ESP32 --> ARMS["2× SG90<br/>rope-pull arms"]:::m
 
     classDef s fill:#1f6feb,color:#fff,stroke:#58a6ff;
     classDef m fill:#8957e5,color:#fff,stroke:#bc8cff;
