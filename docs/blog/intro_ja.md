@@ -195,9 +195,9 @@ flowchart LR
 
 ### ソフトウェア製作
 
-*EN: The software was written with AI — VS Code + Claude Code. (Sorry, I haven't mastered RDK Studio yet — I'll give it another try!)*
+*EN: Create it together with AI — you place the parts and debug, becoming the eyes and hands AI doesn't have, and build the robot together!*
 
-**AIに作ってもらいましょう**(今回は Visual Studio Code + Claude Code(Opus 4.8)を利用しています)。RDK Studio はあまり使いこなせていません、ごめんなさい！同じようなことがきっとできると思うので、今度もう一度使ってみます！
+**AIと一緒に創りましょう**。あなたが部品配置やデバッグをして、AIが補えない眼や手となってロボットを作ります！
 
 ### 運用(コロ助モニタ)
 
