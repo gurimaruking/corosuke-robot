@@ -27,6 +27,10 @@ import urllib.request
 import numpy as np
 import cv2
 import serial  # pyserial
+try:
+    from PIL import Image, ImageDraw, ImageFont   # 日本語テキスト合成用(無ければ映像のみ)
+except Exception:
+    Image = None
 
 MAGIC = b"\xA5\x5A"
 ACK = 0x06
@@ -38,6 +42,67 @@ DISPLAY_VID, DISPLAY_PID = 0x1A86, 0x7523
 # 胴体ディスプレイの回転(度)。korosuke_monitor の /dispcfg をポーリングして更新。
 # cam=入力映像(カメラ向き補正) / disp=表示映像(パネル向き補正)。両者は合成される。
 _rot = {"cam": 0, "disp": 0}
+
+# 認識テキスト+返答( korosuke_monitor の /disptext をポーリング)。上帯=聞いた声 / 下帯=コロ助の返答
+_txt = {"heard": "", "reply": ""}
+_FONT = None
+
+
+def _load_jp_font(size=19):
+    """日本語フォントを探して読む(RDK=Noto CJK / Windows=メイリオ)。無ければNone=帯を出さない。"""
+    import glob as _g
+    cands = ["/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+             "/usr/share/fonts/opentype/noto/NotoSansCJK-Medium.ttc",
+             "/usr/share/fonts/opentype/noto/NotoSansCJK-Black.ttc",
+             "C:/Windows/Fonts/meiryo.ttc", "C:/Windows/Fonts/YuGothM.ttc"]
+    cands += _g.glob("/usr/share/fonts/**/*CJK*.tt[cf]", recursive=True)
+    for f in cands:
+        try:
+            return ImageFont.truetype(f, size)
+        except Exception:
+            continue
+    return None
+
+
+def text_poller(url):
+    """/disptext を0.5秒毎に取得して _txt を更新。失敗時は前値維持。"""
+    while True:
+        try:
+            with urllib.request.urlopen(url, timeout=2) as r:
+                d = json.loads(r.read().decode("utf-8"))
+                _txt["heard"] = (d.get("heard") or "").strip()
+                _txt["reply"] = (d.get("reply") or "").strip()
+        except Exception:
+            pass
+        time.sleep(0.5)
+
+
+def overlay_text(canvas):
+    """上帯=認識した声(白) / 下帯=コロ助の返答(黄) を半透明帯で合成。"""
+    heard, reply = _txt["heard"], _txt["reply"]
+    if _FONT is None or Image is None or not (heard or reply):
+        return canvas
+    img = Image.fromarray(cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB)).convert("RGBA")
+    ov = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(ov)
+    W, H = img.size
+    bh = 30
+
+    def band(y, text, fill):
+        d.rectangle([0, y, W, y + bh], fill=(0, 0, 0, 150))
+        t = text
+        while t and d.textlength(t, font=_FONT) > W - 10:
+            t = t[:-1]
+        if t != text:
+            t = (t[:-1] if t else t) + "…"
+        d.text((5, y + 4), t, font=_FONT, fill=fill)
+
+    if heard:
+        band(0, heard, (255, 255, 255, 255))
+    if reply:
+        band(H - bh, reply, (255, 224, 110, 255))
+    out = Image.alpha_composite(img, ov).convert("RGB")
+    return cv2.cvtColor(np.array(out), cv2.COLOR_RGB2BGR)
 
 
 def rotate_frame(frame, deg):
@@ -277,6 +342,12 @@ def main():
     if cfg_url:
         threading.Thread(target=rotation_poller, args=(cfg_url,), daemon=True).start()
         print(f"回転設定ポーリング: {cfg_url}")
+        # 同じホストの /disptext から認識テキスト+返答を取得して帯表示
+        global _FONT
+        _FONT = _load_jp_font()
+        txt_url = cfg_url.rsplit("/", 1)[0] + "/disptext"
+        threading.Thread(target=text_poller, args=(txt_url,), daemon=True).start()
+        print(f"テキストポーリング: {txt_url}  (font={'OK' if _FONT else '無し→帯なし'})")
 
     w, h, q = args.width, args.height, args.quality
     enc = [int(cv2.IMWRITE_JPEG_QUALITY), q]
@@ -293,6 +364,7 @@ def main():
             if net:
                 frame = rotate_frame(frame, net)
             canvas = fit(frame, w, h)
+            canvas = overlay_text(canvas)          # 認識した声(上)+返答(下)の帯
             ok, jpg = cv2.imencode(".jpg", canvas, enc)
             if not ok:
                 continue
