@@ -1835,4 +1835,21 @@ if __name__ == "__main__":
     threading.Thread(target=audio_loop, daemon=True).start()
     threading.Thread(target=boot_greet, daemon=True).start()  # 起動あいさつ「おはよう」
     print("コロ助モニタv4起動: http://0.0.0.0:%d/" % PORT)
+    # HTTPS併設(任意・8443): 証明書があれば起動。手元カメラ(getUserMedia)はhttpsなら
+    # ブラウザのflags設定なしで使える(自己署名のため初回のみ警告→「詳細設定→続行」)。
+    # 証明書生成(ボード上で一度だけ):
+    #   openssl req -x509 -newkey rsa:2048 -nodes -days 3650     #     -keyout korosuke_key.pem -out korosuke_cert.pem -subj "/CN=korosuke"     #     -addext "subjectAltName=IP:192.168.128.10,IP:192.168.0.200,DNS:korosuke"
+    _dir = os.path.dirname(os.path.abspath(__file__))
+    _cert, _key = os.path.join(_dir, "korosuke_cert.pem"), os.path.join(_dir, "korosuke_key.pem")
+    if os.path.exists(_cert) and os.path.exists(_key):
+        try:
+            import ssl
+            _hs = ThreadingHTTPServer(("0.0.0.0", 8443), Handler)
+            _ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            _ctx.load_cert_chain(_cert, _key)
+            _hs.socket = _ctx.wrap_socket(_hs.socket, server_side=True)
+            threading.Thread(target=_hs.serve_forever, daemon=True).start()
+            print("HTTPS併設: https://0.0.0.0:8443/ (自己署名・初回のみ警告)")
+        except Exception as e:
+            print("[https] 起動失敗(httpのみで継続):", e)
     ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
