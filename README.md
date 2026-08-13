@@ -60,9 +60,11 @@ press (goodnight voice → ✕✕ "safe-to-unplug" eyes). A tabbed **web dashboa
 
 To reproduce the body you'll also need:
 
-- **Velcro tape** (mounts the RDK X5 / battery inside the torso) — [Amazon](https://www.amazon.co.jp/dp/B0GJZJM4TG)
-- **Ultrasonic cutter** (or an equivalent cutting tool) — used to open the cable exit in the base
-- **3D printer** — we used a **Bambu Lab A1**; the parts are within 18 cm, so an **A1 mini** should *just* fit
+- **Velcro tape** — handy for attaching parts to the 3D-printed body — [Amazon](https://www.amazon.co.jp/dp/B0GJZJM4TG)
+- **Ultrasonic cutter** (or an alternative) — handy for post-processing the 3D-printed parts
+- **3D printer** — required to print the parts! (we used a **Bambu Lab A1**; parts are within 18 cm, so an **A1 mini** should *just* fit)
+- **String** — needed to move the hands (rope-pull arms)
+- **Zip ties** — needed to tune the rope arms — [Daiso](https://jp.daisonet.com/products/4550480088891)
 
 ## Challenge journey — Stage 1 → 2 → 3
 

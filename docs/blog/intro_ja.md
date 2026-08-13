@@ -212,11 +212,13 @@ flowchart LR
 
 ### 製作治具
 
-*EN: Tools — velcro tape, an ultrasonic cutter (or an alternative), and a 3D printer (we used a Bambu Lab A1; the parts are within 18 cm, so an A1 mini should just fit).*
+*EN: Tools — velcro tape, an ultrasonic cutter, a 3D printer (Bambu Lab A1; A1 mini should just fit), string for the arms, and zip ties for tuning the rope arms.*
 
-- **マジックテープ**(RDK X5やバッテリーの固定用) — [Amazon](https://www.amazon.co.jp/dp/B0GJZJM4TG)
-- **超音波カッター**(または代替の切削工具) — ベースのケーブル出口加工に使用
-- **3D Printer** — 今回は **Bambu Lab A1** を利用(パーツは18cm以内のため、**A1 miniでもぎりぎり印刷できるはず**)
+- **マジックテープ** — 各種部品を3Dプリント筐体に付けるのに便利。 [Amazon](https://www.amazon.co.jp/dp/B0GJZJM4TG)
+- **超音波カッター**(または代替物) — 3Dプリントパーツの加工に便利
+- **3D Printer** — パーツの印刷に必要です！(今回は **Bambu Lab A1** を利用。パーツは18cm以内のため **A1 miniでもぎりぎり印刷できるはず**)
+- **紐** — 手を動かすのに必要です。
+- **結束バンド** — ロープアームの調整に必要です。 [ダイソー](https://jp.daisonet.com/products/4550480088891)
 
 ## あとがき
 
