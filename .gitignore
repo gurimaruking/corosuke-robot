@@ -70,6 +70,8 @@ docs/photo/*
 !docs/photo/*.png
 !docs/photo/*.webp
 !docs/photo/Hi_korosuke.mp4
+!docs/photo/korosuke_demo_10s.mp4
+!docs/photo/arm_rope_pull.mp4
 
 # =============================================================================
 # 音声キャッシュ

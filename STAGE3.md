@@ -18,7 +18,7 @@ Ubuntu 22.04). A fan-made, non-commercial tribute.
 > runtime.** Vision, speech-to-text, LLM dialogue, text-to-speech, expression, gesture
 > and actuation all run on a single RDK X5 + an ESP32-S3 eye/arm co-MCU.
 
-🎥 **[▶ Watch the 10-second on-device conversation demo →](docs/photo/20260725_korosuke-robot-v0.1_movie.mp4)**
+🎥 **[▶ Watch the 10-second on-device conversation demo →](docs/photo/korosuke_demo_10s.mp4)**
 
 ---
 
@@ -93,8 +93,45 @@ color-split printing). Two size problems were solved this stage:
 the camera-in-nose port; the ESP32-S3 co-MCU on the bench drives the eyes and arms. The
 orange body hides the RDK X5 + fan + MAX98357A amp + φ50 speaker.*
 
-🎥 **Watch:** [**10-second on-device conversation demo**](docs/photo/20260725_korosuke-robot-v0.1_movie.mp4) ·
-[rope-pull arm driven by the SG90 servo](docs/photo/Arm-pulling-by-surve-motor.mp4)
+🎥 **Watch:** [**10-second on-device conversation demo**](docs/photo/korosuke_demo_10s.mp4) ·
+[rope-pull arm driven by the SG90 servo](docs/photo/arm_rope_pull.mp4)
+
+### How it all wires together
+
+```mermaid
+flowchart LR
+  %% All parts are boxes. Colour = category. Pin numbers are on the wires (edge labels).
+  PB["🔋 Mobile battery<br/>(power bank) 5V/3A"]:::power
+  LIPO["🔋 LiPo<br/>(for servos)"]:::power
+  RDK["🧠 RDK X5<br/>10 TOPS BPU · 8× Cortex-A55<br/>(brain — everything on-device)"]:::main
+  ESP["ESP32-S3<br/>(eyes/arms MCU)"]:::compute
+  AMP["MAX98357A<br/>I2S amp (GAIN=9dB)"]:::module
+  EYES["2× GC9A01<br/>round LCD (eyes)"]:::module
+  CAM["📷 Camera C270<br/>(built-in mic)"]:::periph
+  BTN["⏻ Shutdown button"]:::periph
+  SPK["🔊 φ50 speaker"]:::periph
+  SRV["💪 2× SG90<br/>servos (arms)"]:::periph
+
+  PB   -->|"USB-C 5V/3A"| RDK
+  CAM  -->|"USB (video + audio)"| RDK
+  BTN  -->|"pin18(GPIO24) / pin20(GND)"| RDK
+  RDK  -->|"USB (power + data · ttyACM0)"| ESP
+  RDK  -->|"5V:pin2/4 · GND:pin6<br/>BCLK:pin12 · LRC:pin35 · DIN:pin40"| AMP
+  AMP  -->|"analog +/−"| SPK
+  ESP  -->|"SPI: SCK12·MOSI11·DC9·RST8<br/>CS_L10·CS_R14 · 3V3·GND"| EYES
+  ESP  -->|"PWM: GPIO4(L) / GPIO5(R)"| SRV
+  LIPO -->|"LiPo voltage direct (no BEC)"| SRV
+  LIPO -.->|"common GND ⚠ (required)"| ESP
+
+  classDef power   fill:#f6b73f,color:#3a2a00,stroke:#c98a12,stroke-width:2px;
+  classDef compute fill:#1f6feb,color:#fff,stroke:#58a6ff,stroke-width:2px;
+  classDef module  fill:#8957e5,color:#fff,stroke:#bc8cff,stroke-width:2px;
+  classDef periph  fill:#2da44e,color:#fff,stroke:#3fb950,stroke-width:2px;
+  classDef main    fill:#1f6feb,color:#fff,stroke:#ffffff,stroke-width:4px,font-size:22px;
+```
+
+**Two power rails** (power bank → RDK X5 · LiPo → servos) with a **shared common ground**;
+pin numbers are on the wires. Full connection table & notes: [docs/wiring.md](docs/wiring.md).
 
 ## 4. Engineering deep-dives (what made this hard, and how we proved it)
 
