@@ -22,11 +22,11 @@
 - [構成](#構成)
   - [ハードウェア構成](#ハードウェア構成)
   - [ソフトウェア構成](#ソフトウェア構成)
-- [過程](#過程)
-  - [筐体部品をロボスタディオンの3Dプリンタで印刷](#筐体部品をロボスタディオンの3dプリンタで印刷)
-  - [電子部品の配線](#電子部品の配線)
-  - [ソフトの製作](#ソフトの製作)
-  - [コロ助モニタ](#コロ助モニタ)
+- [製作過程](#製作過程)
+  - [機構(3Dパーツ設計/3Dプリント/筐体配置)](#機構3dパーツ設計3dプリント筐体配置)
+  - [電子部品配線](#電子部品配線)
+  - [ソフトウェア製作](#ソフトウェア製作)
+  - [運用(コロ助モニタ)](#運用コロ助モニタ)
 - [あとがき](#あとがき)
 - [トラブルシューティング(ハマったところ)](#トラブルシューティングハマったところ)
 
@@ -157,9 +157,9 @@ flowchart LR
 
 同時に、カメラの映像からは**AIチップ(BPU)が人を見つけて、目が人を追いかけます**。返事を考えるのに5〜10秒かかるので、その間は目が「考え中」のアニメになります。
 
-## 過程
+## 製作過程
 
-### 筐体部品をロボスタディオンの3Dプリンタで印刷
+### 機構(3Dパーツ設計/3Dプリント/筐体配置)
 
 *EN: All body parts were 3D-printed at Robostadion. Murata-san designed them with Claude (AI) — the v1 files are in this repo.*
 
@@ -184,7 +184,7 @@ flowchart LR
 <img src="../photo/body_ver2.jpg" width="49%" alt="胴体パーツ v2">
 </p>
 
-### 電子部品の配線
+### 電子部品配線
 
 *EN: Wired following the repo's wiring docs (two power rails + common ground; pin maps verified on the real hardware).*
 
@@ -194,13 +194,13 @@ flowchart LR
 - [docs/hardware_block_diagram.md](../hardware_block_diagram.md) — ESP32-S3⇔目(GC9A01×2)のピン表・実機検証済みの結線
 - [firmware/max98357a](../../firmware/max98357a/) — スピーカ用I2Sアンプ(40ピン直結・カーネルドライバ自作)
 
-### ソフトの製作
+### ソフトウェア製作
 
 *EN: The software was written with AI — VS Code + Claude Code. (Sorry, I haven't mastered RDK Studio yet — I'll give it another try!)*
 
 **AIに作ってもらいましょう**(今回は Visual Studio Code + Claude Code(Opus 4.8)を利用しています)。RDK Studio はあまり使いこなせていません、ごめんなさい！同じようなことがきっとできると思うので、今度もう一度使ってみます！
 
-### コロ助モニタ
+### 運用(コロ助モニタ)
 
 *EN: A browser monitor shows live camera + skeleton, speech-recognition results, replies, and person presence / motion recognition — at `http://[board IP]:8080/`.*
 
