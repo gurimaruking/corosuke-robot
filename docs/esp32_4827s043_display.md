@@ -336,3 +336,44 @@ python tools/display_send.py --port COM7 --width 320 --height 170 --no-button \
 - パネル定義: `firmware/corosuke_display/src/LGFX_ESP32_1732S019.h`
   (ST7789 / SCLK=12 MOSI=13 DC=11 CS=10 RST=1 BL=14 / offset_x=35 / invert / setRotation(1)で横長)
 - `main.cpp` は `-DBOARD_1732S019` でボード切替(4827S043と共通ソース)
+
+---
+
+## コンボ構成: 1732S019に目(GC9A01×2)+腕サーボを統合する
+
+devkitの目基板(corosuke_eyes)を**ESP32-1732S019一枚に置き換えられる**構成。
+ファーム = `esp32-1732S019-combo` env(お腹映像+目+サーボ+撫でを1チップで実行)。
+コマンド体系はdevkit目基板と同一(emo/gaze/blink/wink/idle/arm)なので、**どちらを挿しても
+RDK側は無設定で動く**(モニタが全コマンドを/eyecmdにミラーし、display_send.pyが
+「A5 5B|len|テキスト」フレームでUSB転送。devkit側はttyACM直結のまま)。
+
+### ヘッダピン配置(純正回路図V1.0で確認済み)
+
+背面に12ピンパッド列×2(P1=左/P2=右、ピンヘッダは要はんだ付け)。
+
+| P1(上から) | GPIO | 割当 | | P2(上から) | GPIO | 割当 |
+|---|---|---|---|---|---|---|
+| P1-1 | IO20 | (予備・native USB D+) | | P2-1 | 5V | ⚠1N5819経由≒4.6V/1A |
+| P1-2 | IO19 | (予備・native USB D-) | | P2-2 | GND | サーボGND共通化に |
+| P1-3 | IO18 | 空き | | P2-3 | IO21 | 空き |
+| P1-4 | IO17 | 空き(目BL調光用に予約) | | P2-4 | IO47 | 空き |
+| P1-5 | IO16 | **目CS右** | | P2-5 | IO48 | 空き |
+| P1-6 | IO15 | **目CS左** | | P2-6 | IO45 | ⚠使用禁止(strapping) |
+| P1-7 | IO7 | **目RST(共有)** | | P2-7 | IO38 | 空き |
+| P1-8 | IO6 | **目DC(共有)** | | P2-8 | IO39 | 空き |
+| P1-9 | IO5 | **目MOSI(SDA)** | | P2-9 | IO40 | 空き |
+| P1-10 | IO4 | **目SCLK(SCL)** | | P2-10 | IO41 | **サーボ左** |
+| P1-11 | 3V3 | 目VCC(2枚とも) | | P2-11 | IO42 | **サーボ右** |
+| P1-12 | GND | 目GND | | P2-12 | IO2 | 撫でタッチ(T2, 任意) |
+
+- 目2枚はSPI共有(SCLK/MOSI/DC/RST共通、CSのみ個別)。**P1列だけで電源込みで完結**する配置。
+- サーボのIO41/42はJTAGデフォルト=ブート時に信号が出ず起動ピクつきなし。
+- ⚠ **サーボの電源(赤/茶)は必ず外部5Vから**。基板の5VピンはSG90のストール電流に耐えない。
+  外部5VのGNDは P2-2(GND) と必ず共通化。信号線(橙)は3.3Vロジック直結でOK。
+- 撫でタッチを使う時: 導電パッド/銅箔をIO2へ→ platformio.iniの `-DPET_TOUCH_PIN=-1` を `=2` に。
+
+### 切り替え運用
+- **devkit目基板に戻す**: 1732S019を抜いてdevkitをUSBへ(モニタがttyACM/CH343を自動検出)。
+- **コンボに切り替え**: `pio run -e esp32-1732S019-combo -t upload` して1732S019をRDKへ。
+  表示専用に戻すなら `esp32-1732S019` envを焼き直すだけ。
+- 疎通確認: `curl 'http://<board>:8080/eye?raw=ping'` → display_send.log に `pong`。

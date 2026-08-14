@@ -652,6 +652,13 @@ class Eyes:
             self._ser = None
 
     def send(self, line):
+        # コンボ表示基板(1732S019に目+腕を統合した構成)向けミラー。
+        # display_send.py が /eyecmd をポーリングしてUSB経由で転送する。
+        # devkit目基板と両対応: どちらが挿さっていても同じコマンドが届く。
+        with lock:
+            _eyecmds["seq"] += 1
+            _eyecmds["items"].append((_eyecmds["seq"], line))
+            del _eyecmds["items"][:-64]
         self._ensure()
         if not self._ser:
             return
@@ -666,6 +673,7 @@ class Eyes:
                     state["eye_ok"] = False
 
 
+_eyecmds = {"seq": 0, "items": []}   # (seq, line) の最新64件。/eyecmd で配信
 eyes = Eyes()
 _greet = {"present": False, "absent": 0, "idx": 0, "fidx": 0, "last_gaze": 0.0}
 
@@ -1712,8 +1720,8 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
 
-    def _json_ok(self):
-        b = b'{"ok":true}'
+    def _json_ok(self, body=None):
+        b = body.encode("utf-8") if isinstance(body, str) else b'{"ok":true}'
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(b)))
@@ -1880,6 +1888,8 @@ class Handler(BaseHTTPRequestHandler):
                 eyes.send("emo " + q["emo"][0])
             if "blink" in q:
                 eyes.send("blink")
+            if "raw" in q:                          # 診断用: 任意コマンド(ping等)を素通し
+                eyes.send(q["raw"][0][:100])
             self._json_ok()
             return
         if self.path.startswith("/arm?"):
@@ -1896,6 +1906,27 @@ class Handler(BaseHTTPRequestHandler):
                     eyes.send("arm l off")
                 if v in ("r", "both"):
                     eyes.send("arm r off")
+            self._json_ok()
+            return
+        if self.path.startswith("/eyecmd"):
+            # コンボ表示基板への目/腕コマンド配信。since=最後に受けたseq(-1=現在seqだけ知る)
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            try:
+                since = int(q.get("since", ["-1"])[0])
+            except ValueError:
+                since = -1
+            with lock:
+                seq = _eyecmds["seq"]
+                cmds = ([] if since < 0
+                        else [[s, l] for s, l in _eyecmds["items"] if s > since])
+            body = json.dumps({"seq": seq, "cmds": cmds})
+            self._json_ok(body)
+            return
+        if self.path.startswith("/event?"):
+            # 外部イベント中継(コンボ基板の撫でタッチ等)。display_send.py が呼ぶ
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            if q.get("name", [""])[0] == "touch":
+                threading.Thread(target=_pet_react, daemon=True).start()
             self._json_ok()
             return
         if self.path == "/media" or self.path.startswith("/media?"):
@@ -1981,6 +2012,16 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
 
 
+def _pet_react():
+    """撫でられた時の反応(devkit目基板のシリアル/コンボ基板の/event 共通)。"""
+    now = time.time()
+    if now - _last_pet[0] > 3.0 and now >= _speak_until[0] and settings["react_speech"]:
+        _last_pet[0] = now
+        event_speech(ctx("頭を撫でられた。うれしそうに短く。",
+                         "You were patted on the head. React happily and briefly in English."),
+                     clines(PET_LINES, PET_LINES_EN), "happy")
+
+
 def touch_loop():
     """目ESP32のシリアルから'EVENT touch'(撫で)を受けて反応する。"""
     while True:
@@ -1989,12 +2030,7 @@ def touch_loop():
             if ser and ser.is_open and ser.in_waiting:
                 line = ser.readline().decode("ascii", "ignore").strip()
                 if "EVENT touch" in line:
-                    now = time.time()
-                    if now - _last_pet[0] > 3.0 and now >= _speak_until[0] and settings["react_speech"]:
-                        _last_pet[0] = now
-                        event_speech(ctx("頭を撫でられた。うれしそうに短く。",
-                                         "You were patted on the head. React happily and briefly in English."),
-                                     clines(PET_LINES, PET_LINES_EN), "happy")
+                    _pet_react()
             else:
                 time.sleep(0.05)
         except Exception:  # noqa

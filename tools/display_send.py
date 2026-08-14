@@ -19,6 +19,7 @@
 import argparse
 import json
 import struct
+from collections import deque
 import sys
 import threading
 import time
@@ -34,6 +35,7 @@ except Exception:
     Image = None
 
 MAGIC = b"\xA5\x5A"
+CMD_MAGIC = b"\xA5\x5B"   # 目/腕コマンドフレーム(コンボFW: 1732S019に目+サーボ統合)
 ACK = 0x06
 
 # ディスプレイ基板 = Sunton CYD の CH340C (WCH)。目ESP32(CH343=1a86:55d3 / ネイティブ=303a:1001)
@@ -167,6 +169,39 @@ def text_poller(url):
         except Exception:
             pass
         time.sleep(0.5)
+
+
+_cmdq = deque()            # /eyecmd から受けた目/腕コマンド。メインループがフレーム間に送出
+
+
+def eyecmd_poller(url):
+    """/eyecmd を0.25秒毎に取得し、新規コマンドを _cmdq へ。初回は現在seqに追いつくだけ
+    (再起動時に過去の腕コマンド等を再生してビクッと動くのを防ぐ)。"""
+    since = -1
+    while True:
+        try:
+            with urllib.request.urlopen(f"{url}?since={since}", timeout=2) as r:
+                d = json.loads(r.read().decode("utf-8"))
+                if since < 0:
+                    since = int(d.get("seq", 0))
+                else:
+                    for s, line in d.get("cmds", []):
+                        _cmdq.append(line)
+                        since = max(since, int(s))
+        except Exception:
+            pass
+        time.sleep(0.25)
+
+
+def send_pending_cmds(ser):
+    """溜まった目/腕コマンドをまとめて1コマンドフレームで送る(映像フレームの合間)。"""
+    if not _cmdq:
+        return
+    lines = []
+    while _cmdq and len(lines) < 16:
+        lines.append(_cmdq.popleft())
+    payload = ("\n".join(lines)).encode("ascii", "ignore")[:512]
+    ser.write(CMD_MAGIC + struct.pack("<I", len(payload)) + payload)
 
 
 LANG_LABEL = {"ja": "日本語", "en": "English", "auto": "Auto"}
@@ -457,6 +492,12 @@ def drain_esp(ser, buf):
                     print("  [esp]", line)
                     if line == "CTL lang":            # 旧ファーム互換: 全面タップ=言語切替
                         threading.Thread(target=cycle_lang, daemon=True).start()
+                    elif line == "EVENT touch":       # コンボFWの撫でタッチ → モニタへ中継
+                        if _ctl["base"]:
+                            threading.Thread(
+                                target=lambda: urllib.request.urlopen(
+                                    _ctl["base"] + "/event?name=touch", timeout=3).read(),
+                                daemon=True).start()
                     elif line.startswith("TOUCH "):   # 新ファーム: 座標→ボタン/お腹判定
                         try:
                             _, sx, sy = line.split()
@@ -532,6 +573,10 @@ def main():
         txt_url = _ctl["base"] + "/disptext"
         threading.Thread(target=text_poller, args=(txt_url,), daemon=True).start()
         print(f"テキストポーリング: {txt_url}  (font={'OK' if _FONT else '無し→帯なし'})")
+        # 目/腕コマンド転送(コンボFW用。通常FWはコマンドフレームを黙って無視するので無害)
+        threading.Thread(target=eyecmd_poller, args=(_ctl["base"] + "/eyecmd",),
+                         daemon=True).start()
+        print(f"目コマンド転送: {_ctl['base']}/eyecmd → A5 5B frame")
 
     w, h, q = args.width, args.height, args.quality
     enc = [int(cv2.IMWRITE_JPEG_QUALITY), q]
@@ -558,6 +603,7 @@ def main():
                 continue
             data = jpg.tobytes()
             try:
+                send_pending_cmds(ser)                 # 目/腕コマンドをフレーム間に送出
                 ser.write(MAGIC + struct.pack("<I", len(data)) + data)
                 # ACK待ち(フロー制御)
                 t_ack = time.time()

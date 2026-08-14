@@ -29,6 +29,7 @@ static void announceSize() {
   Serial.printf("SIZE %d %d T%d\n", W, H, HAS_TOUCH);
 }
 #include <JPEGDEC.h>
+#include "eyes_combo.h"   // -DCOMBO_EYES時のみ実体化(目GC9A01x2+腕サーボ+撫で)
 
 static LGFX lcd;
 
@@ -86,7 +87,10 @@ static void pollTouch() {
   }
 }
 
-static bool syncMagic(uint32_t toms) {
+static uint32_t readExact(uint8_t* dst, uint32_t n, uint32_t toms);
+
+// 0=タイムアウト / 1=JPEGフレーム(A5 5A) / 2=コマンドフレーム(A5 5B: 目/腕テキスト)
+static int syncMagic(uint32_t toms) {
   uint32_t t = millis();
   int state = 0;
   uint16_t k = 0;
@@ -94,9 +98,26 @@ static bool syncMagic(uint32_t toms) {
     if (!Serial.available()) { if (++k >= 50) { k = 0; pollTouch(); } delay(1); continue; }
     uint8_t b = Serial.read();
     if (state == 0) { state = (b == 0xA5) ? 1 : 0; }
-    else            { if (b == 0x5A) return true; state = (b == 0xA5) ? 1 : 0; }
+    else            { if (b == 0x5A) return 1;
+                      if (b == 0x5B) return 2;
+                      state = (b == 0xA5) ? 1 : 0; }
   }
-  return false;
+  return 0;
+}
+
+// コマンドフレーム受信: len(u32) + テキスト(改行区切りで複数可) → 目/腕エンジンへ
+static void readCmdFrame() {
+  uint8_t lb[4];
+  if (readExact(lb, 4, 500) != 4) return;
+  uint32_t len = (uint32_t)lb[0] | ((uint32_t)lb[1] << 8) |
+                 ((uint32_t)lb[2] << 16) | ((uint32_t)lb[3] << 24);
+  if (len == 0 || len > 512) return;
+  static char cmd[513];
+  if (readExact((uint8_t*)cmd, len, 500) != len) return;
+  cmd[len] = 0;
+  char* save = nullptr;
+  for (char* ln = strtok_r(cmd, "\r\n", &save); ln; ln = strtok_r(nullptr, "\r\n", &save))
+    eyesComboHandleLine(String(ln));
 }
 
 static uint32_t readExact(uint8_t* dst, uint32_t n, uint32_t toms) {
@@ -130,13 +151,15 @@ void setup() {
   lcd.setRotation(1);                        // 縦170x320パネルを横長320x170で使う
 #endif
   lcd.setBrightness(255);
+  eyesComboSetup();                          // COMBO_EYES時のみ実体(目x2+サーボ+撫で)
   drawBootIdle();
   lastStat = millis();
 }
 
 void loop() {
   pollTouch();
-  if (!syncMagic(1000)) {
+  int ft = syncMagic(1000);
+  if (ft == 0) {
     static uint32_t lastSizeMs = 0;
     if (millis() - lastSizeMs > 2000) { announceSize(); lastSizeMs = millis(); }
     if (everFrame && !idleShown && millis() - lastFrameMs > 1500) {
@@ -145,6 +168,7 @@ void loop() {
     }
     return;
   }
+  if (ft == 2) { readCmdFrame(); return; }   // 目/腕コマンド(ACK不要)
   uint8_t lb[4];
   if (readExact(lb, 4, 500) != 4) return;
   uint32_t len = (uint32_t)lb[0] | ((uint32_t)lb[1] << 8) |
