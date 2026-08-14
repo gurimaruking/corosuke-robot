@@ -17,24 +17,40 @@
 
 #include <LovyanGFX.hpp>
 
-// ---- ピン(platformio.iniの-Dで上書き。既定値は仮) ----
-#ifndef EYE_SCK
-#define EYE_SCK   18
+// ---- ピン(platformio.iniの-Dで上書き) ----
+// 独立配線方式: 左右の目を別ピンに点対点で結線できる(Y分岐ハーネス不要)。
+// SCLK/MOSIはSPI3の1系統だが、GPIOマトリクスの「1出力信号→複数パッド」機能で
+// 左右両方のピンに同じ信号を複製する(eyesComboSetupのmirrorSpi3Pin)。
+// DC/RST/CSは元々バス/パネル毎に持てるので完全独立。
+#ifndef EYEL_SCK
+#define EYEL_SCK  4
 #endif
-#ifndef EYE_MOSI
-#define EYE_MOSI  17
+#ifndef EYEL_MOSI
+#define EYEL_MOSI 5
 #endif
-#ifndef EYE_DC
-#define EYE_DC    8
+#ifndef EYEL_DC
+#define EYEL_DC   6
 #endif
-#ifndef EYE_RST
-#define EYE_RST   16
+#ifndef EYEL_RST
+#define EYEL_RST  7
 #endif
-#ifndef EYE_CS_L
-#define EYE_CS_L  15
+#ifndef EYEL_CS
+#define EYEL_CS   15
 #endif
-#ifndef EYE_CS_R
-#define EYE_CS_R  7
+#ifndef EYER_SCK
+#define EYER_SCK  38
+#endif
+#ifndef EYER_MOSI
+#define EYER_MOSI 39
+#endif
+#ifndef EYER_DC
+#define EYER_DC   48
+#endif
+#ifndef EYER_RST
+#define EYER_RST  47
+#endif
+#ifndef EYER_CS
+#define EYER_CS   21
 #endif
 #ifndef ARM_L_PIN
 #define ARM_L_PIN 4
@@ -73,26 +89,30 @@ static void armUpdate() {
   if (armDetachAt[1] && now > armDetachAt[1]) { servoDetach(LEDC_ARM_R); armDetachAt[1] = 0; }
 }
 
-// ---------- GC9A01×2 (SPI3共有バス・CS分離) ----------
+// ---------- GC9A01×2 (SPI3・左右独立ピン) ----------
+#include <driver/gpio.h>
+#include <esp_rom_gpio.h>
+#include <soc/spi_periph.h>
+
 class EyeDisplay : public lgfx::LGFX_Device {
   lgfx::Bus_SPI _bus;
   lgfx::Panel_GC9A01 _panel;
 public:
-  EyeDisplay(int pin_cs, bool use_rst) {
+  EyeDisplay(int sck, int mosi, int dc, int rst, int cs) {
     { auto b = _bus.config();
       b.spi_host   = SPI3_HOST;        // ST7789(お腹)がSPI2_HOSTなので3を使う
       b.spi_mode   = 0;
       b.freq_write = 40000000;
-      b.pin_sclk   = EYE_SCK;
-      b.pin_mosi   = EYE_MOSI;
+      b.pin_sclk   = sck;
+      b.pin_mosi   = mosi;
       b.pin_miso   = -1;
-      b.pin_dc     = EYE_DC;
+      b.pin_dc     = dc;               // DCはバス毎に独立(各インスタンスが自分のDCを駆動)
       _bus.config(b);
       _panel.setBus(&_bus);
     }
     { auto p = _panel.config();
-      p.pin_cs   = pin_cs;
-      p.pin_rst  = use_rst ? EYE_RST : -1;   // RSTは物理共有: 片方だけ駆動
+      p.pin_cs   = cs;
+      p.pin_rst  = rst;
       p.memory_width = p.panel_width  = 240;
       p.memory_height= p.panel_height = 240;
       p.invert   = true;
@@ -103,9 +123,23 @@ public:
   }
 };
 
-static EyeDisplay eyeL(EYE_CS_L, true);
-static EyeDisplay eyeR(EYE_CS_R, false);
+static EyeDisplay eyeL(EYEL_SCK, EYEL_MOSI, EYEL_DC, EYEL_RST, EYEL_CS);
+static EyeDisplay eyeR(EYER_SCK, EYER_MOSI, EYER_DC, EYER_RST, EYER_CS);
 static LGFX_Sprite eyeSpr(&eyeL);
+
+// SPI3のCLK/MOSI出力を左右両方のピンへ複製(GPIOマトリクス: 1出力信号→複数パッド可)。
+// 2つ目のバスinitで1つ目のピン割当が外れるため、両init後に明示的に張り直す。
+static void mirrorSpi3Pin(int pin, uint8_t sig) {
+  esp_rom_gpio_pad_select_gpio(pin);
+  gpio_set_direction((gpio_num_t)pin, GPIO_MODE_OUTPUT);
+  esp_rom_gpio_connect_out_signal(pin, sig, false, false);
+}
+static void mirrorSpi3Bus() {
+  mirrorSpi3Pin(EYEL_SCK,  spi_periph_signal[SPI3_HOST].spiclk_out);
+  mirrorSpi3Pin(EYER_SCK,  spi_periph_signal[SPI3_HOST].spiclk_out);
+  mirrorSpi3Pin(EYEL_MOSI, spi_periph_signal[SPI3_HOST].spid_out);
+  mirrorSpi3Pin(EYER_MOSI, spi_periph_signal[SPI3_HOST].spid_out);
+}
 
 // ---------- 目の状態(corosuke_eyesと同一) ----------
 enum Emotion { NEUTRAL, HAPPY, SAD, ANGRY, SURPRISED, SLEEPY, DEAD, THINKING };
@@ -269,6 +303,7 @@ static void eyesTask(void*) {
 static void eyesComboSetup() {
   eyeL.init();
   eyeR.init();
+  mirrorSpi3Bus();   // 両init後にSCLK/MOSIを左右両ピンへ複製(必ずinitの後)
   eyeSpr.setColorDepth(16);
   eyeSpr.setPsram(true);
   if (!eyeSpr.createSprite(240, 240)) {      // PSRAM無し変種の保険: 8bit色で再試行
@@ -294,8 +329,10 @@ static void eyesComboSetup() {
 #endif
   est.nextBlink = millis() + 2500;
   xTaskCreatePinnedToCore(eyesTask, "eyes", 6144, nullptr, 1, nullptr, 0);
-  Serial.printf("EYES combo: GC9A01x2 SPI3 SCK=%d MOSI=%d DC=%d RST=%d CS=%d/%d\n",
-                EYE_SCK, EYE_MOSI, EYE_DC, EYE_RST, EYE_CS_L, EYE_CS_R);
+  Serial.printf("EYES combo(独立配線): L sck%d mosi%d dc%d rst%d cs%d / "
+                "R sck%d mosi%d dc%d rst%d cs%d\n",
+                EYEL_SCK, EYEL_MOSI, EYEL_DC, EYEL_RST, EYEL_CS,
+                EYER_SCK, EYER_MOSI, EYER_DC, EYER_RST, EYER_CS);
 }
 
 #else   // COMBO_EYES未定義: 全て空
