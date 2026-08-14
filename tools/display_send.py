@@ -340,34 +340,55 @@ def frames_from_source(src, w, h):
             i += 1
         return
 
-    if src.startswith("cam"):
-        idx = int(src.split(":", 1)[1]) if ":" in src else 0
-        cap = cv2.VideoCapture(idx, cv2.CAP_DSHOW if sys.platform == "win32" else 0)
-    elif src.startswith("mjpeg:"):
-        cap = cv2.VideoCapture(src.split(":", 1)[1])
-    else:
-        cap = cv2.VideoCapture(src)
-    if not cap.isOpened():
+    def _open(s):
+        if s.startswith("cam"):
+            idx = int(s.split(":", 1)[1]) if ":" in s else 0
+            return cv2.VideoCapture(idx, cv2.CAP_DSHOW if sys.platform == "win32" else 0)
+        if s.startswith("mjpeg:"):
+            return cv2.VideoCapture(s.split(":", 1)[1])
+        return cv2.VideoCapture(s)
+
+    cap = _open(src)
+    if not cap.isOpened() and not src.startswith(("cam", "mjpeg")):
         sys.exit(f"ソースを開けない: {src}")
 
     if src.startswith(("cam", "mjpeg")):
-        # ライブソース: drop-to-latest。ソース(~20fps)が消費(~4fps)より速いと
-        # cv2/ソケットにフレームが溜まり遅延が増え続ける。別スレッドで常に最新だけ保持し、
-        # 古いフレームは捨てる → 遅延を1フレーム程度に抑える。
-        try:
-            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)   # ffmpegバッファ最小化(効かない場合あり)
-        except Exception:
-            pass
-        grab = _LatestFrame(cap)
-        try:
-            while True:
-                f = grab.read()
-                if f is None:
-                    time.sleep(0.003)
-                    continue
-                yield f
-        finally:
-            grab.stop = True
+        # ライブソース: drop-to-latest + 切断自動復旧。
+        #  - drop-to-latest: ソース(~20fps)が消費(~4fps)より速いとフレームが溜まり遅延が
+        #    増え続けるため、別スレッドで常に最新だけ保持し古いフレームは捨てる。
+        #  - 自動復旧: モニタ再起動などでMJPEGが切れると cap.read() は二度と成功しない
+        #    (2026-08-14実障害: ログが凍結しNO SIGNALのまま)。新フレームが5秒来なければ
+        #    開き直し、復帰までリトライし続ける。
+        while True:
+            if not cap or not cap.isOpened():
+                time.sleep(2.0)
+                cap = _open(src)
+                continue
+            try:
+                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)   # ffmpegバッファ最小化(効かない場合あり)
+            except Exception:
+                pass
+            grab = _LatestFrame(cap)
+            try:
+                fresh = time.time()
+                while True:
+                    f = grab.read()
+                    if f is None:
+                        if time.time() - fresh > 5.0:
+                            break                     # ソース死亡と判断 → 開き直し
+                        time.sleep(0.003)
+                        continue
+                    fresh = time.time()
+                    yield f
+            finally:
+                grab.stop = True
+            try:
+                cap.release()
+            except Exception:
+                pass
+            print(f"[src] ソース無応答 → 再接続します ({src})")
+            time.sleep(1.0)
+            cap = _open(src)
     else:
         while True:                               # 動画ファイルは順次(末尾でループ)
             ok, frame = cap.read()
@@ -552,6 +573,10 @@ def main():
                     pass
                 buf.clear()
                 ser = open_serial(args.port, args.baud, first=False)  # 復帰まで待って再開
+                # 画面が差し替えられたかもしれないのでCLI既定に戻す(新FWはSIZE申告で~1秒後に再適応)
+                _panel["w"], _panel["h"], _panel["touch"] = args.width, args.height, None
+                _UI["lh"] = 26 if args.height >= 220 else 19
+                _UI["btn"] = _UI["btn_cli"]
                 continue
 
             n += 1
