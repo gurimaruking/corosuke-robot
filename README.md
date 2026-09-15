@@ -1,4 +1,6 @@
-# 🤖 Korosuke Robot / コロ助ロボット
+# 🤖 Corosuke Robot / コロ助ロボット
+
+> **C**ommunication-**O**riented **R**obot for **O**bserving, **S**upporting, and **U**nderstanding **K**ids' **E**veryday — that's **COROSUKE**.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Brain: RDK X5](https://img.shields.io/badge/Brain-RDK%20X5%20·%2010%20TOPS%20BPU-e8491d.svg)](https://developer.d-robotics.cc/)
@@ -15,14 +17,14 @@ RDK X5**, with an ESP32-S3 driving the eyes and arms.
 > 📄 [STAGE3.md](STAGE3.md) — showcase & benchmarks · 🧩 [PROPOSAL.md](PROPOSAL.md) · 🗺 [ROADMAP.md](ROADMAP.md)
 
 <p align="center">
-  <img src="docs/photo/20260725_korosuke-robot-revision_0.1.jpg" width="380" alt="Korosuke revision 0.1 — fully assembled, smiling">
+  <img src="docs/photo/20260725_korosuke-robot-revision_0.1.jpg" width="380" alt="Corosuke revision 0.1 — fully assembled, smiling">
 </p>
 
 ## ▶ Watch the demo
 
 <p align="center">
   <a href="https://youtu.be/NJwj6Iazd20">
-    <img src="https://img.youtube.com/vi/NJwj6Iazd20/maxresdefault.jpg" alt="Watch the Korosuke demo on YouTube" width="640">
+    <img src="https://img.youtube.com/vi/NJwj6Iazd20/maxresdefault.jpg" alt="Watch the Corosuke demo on YouTube" width="640">
   </a>
   <br>
   <a href="https://youtu.be/NJwj6Iazd20">
@@ -34,7 +36,7 @@ RDK X5**, with an ESP32-S3 driving the eyes and arms.
 
 ## What it does
 
-Powered on and left alone, Korosuke wakes and greets you, tracks you with BPU pose
+Powered on and left alone, Corosuke wakes and greets you, tracks you with BPU pose
 detection, holds a conversation (on-device STT → LLM → TTS, with a "thinking" eye animation
 while he ponders), reacts to gestures, waves his arms, and shuts down safely on a button
 press (goodnight voice → ✕✕ "safe-to-unplug" eyes). A tabbed **web dashboard** at
@@ -80,7 +82,7 @@ To reproduce the body you'll also need:
 |---|---|---|---|
 | **1 — Ideation** | On-device perception | YOLO11 vision on the **RDK X5 BPU** (+ open-source [RDK X5 case](https://github.com/gurimaruking/rdk-x5-modular-case)) | [STAGE1.md](STAGE1.md) |
 | **2 — Build** | System design | The **RDK X5 as the single cognitive core** under a **ROS 2 graph**; ESP32s become actuator sub-controllers | [PROPOSAL.md](PROPOSAL.md) |
-| **3 — Launch** | Shipped robot | The full interactive Korosuke — sees / listens / thinks / talks / emotes, **bilingual**, 100 % on-device (this repo) | [STAGE3.md](STAGE3.md) |
+| **3 — Launch** | Shipped robot | The full interactive Corosuke — sees / listens / thinks / talks / emotes, **bilingual**, 100 % on-device (this repo) | [STAGE3.md](STAGE3.md) |
 
 Stage 1's BPU vision is still today's perception layer, and Stage 2's ROS 2 design ships as
 [`ros2_ws/`](ros2_ws/) alongside the low-latency monolith.
@@ -143,7 +145,7 @@ corosuke-robot/
 
 ## Credits & inspiration
 
-Korosuke's design borrows ideas from these open / animatronic robots:
+Corosuke's design borrows ideas from these open / animatronic robots:
 
 - [Disney's Olaf robot](https://thewaltdisneycompany.com/olaf-robotic-character/) — expressive animatronic eyes & face
 - [Open Duck Mini (BDX)](https://github.com/apirrone/Open_Duck_Mini) — compact bipedal droid
